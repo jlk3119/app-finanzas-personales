@@ -34,6 +34,11 @@ export default function BudgetManager({ budgets, categories, onRefresh, currentM
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
+  const categoryItems: Record<string, string> = {
+    global: "🌐 Total general",
+    ...Object.fromEntries(categories.map((c) => [c.id, `${c.icon} ${c.name}`])),
+  };
+
   const monthlyBudgets = budgets.filter((b) => b.period === "monthly" && b.year === currentYear && b.month === currentMonth);
   const weeklyBudgets = budgets.filter((b) => b.period === "weekly" && b.year === currentYear && b.week === currentWeek);
 
@@ -135,8 +140,12 @@ export default function BudgetManager({ budgets, categories, onRefresh, currentM
           <CardContent className="space-y-3">
             <div className="space-y-1">
               <Label>Período</Label>
-              <Select value={period} onValueChange={(v) => setPeriod(v as "monthly" | "weekly")}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select
+                value={period}
+                onValueChange={(v) => setPeriod(v as "monthly" | "weekly")}
+                items={{ monthly: "Mensual", weekly: "Semanal" }}
+              >
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="monthly">Mensual</SelectItem>
                   <SelectItem value="weekly">Semanal</SelectItem>
@@ -145,8 +154,8 @@ export default function BudgetManager({ budgets, categories, onRefresh, currentM
             </div>
             <div className="space-y-1">
               <Label>Categoría</Label>
-              <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "global")}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+              <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "global")} items={categoryItems}>
+                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="global">🌐 Total general</SelectItem>
                   {categories.map((cat) => (

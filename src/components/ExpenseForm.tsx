@@ -24,6 +24,10 @@ export default function ExpenseForm({ categories, onClose, onSaved }: Props) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
+  const categoryItems: Record<string, string> = Object.fromEntries(
+    categories.map((c) => [c.id, `${c.icon} ${c.name}`])
+  );
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!amount || Number(amount) <= 0) { setError("Ingresa un monto válido"); return; }
@@ -68,8 +72,8 @@ export default function ExpenseForm({ categories, onClose, onSaved }: Props) {
 
           <div className="space-y-1">
             <Label htmlFor="category">Categoría</Label>
-            <Select onValueChange={(v) => setCategoryId(v ?? "")} value={categoryId}>
-              <SelectTrigger id="category" className="h-11">
+            <Select onValueChange={(v) => setCategoryId(v ?? "")} value={categoryId} items={categoryItems}>
+              <SelectTrigger id="category" className="h-11 w-full">
                 <SelectValue placeholder="Selecciona una categoría" />
               </SelectTrigger>
               <SelectContent>
