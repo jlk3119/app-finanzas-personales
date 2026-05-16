@@ -10,12 +10,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Pencil, Trash2, Plus } from "lucide-react";
+import { Pencil, Trash2, Plus, Settings2 } from "lucide-react";
 
 type Props = {
   budgets: Budget[];
   categories: Category[];
   onRefresh: () => void;
+  onManageCategories: () => void;
   currentMonth: number;
   currentYear: number;
   currentWeek: number;
@@ -26,7 +27,7 @@ const fmt = (n: number) =>
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
-export default function BudgetManager({ budgets, categories, onRefresh, currentMonth, currentYear, currentWeek }: Props) {
+export default function BudgetManager({ budgets, categories, onRefresh, onManageCategories, currentMonth, currentYear, currentWeek }: Props) {
   const supabase = createClient();
   const [showForm, setShowForm] = useState(false);
   const [period, setPeriod] = useState<"monthly" | "weekly">("monthly");
@@ -156,7 +157,12 @@ export default function BudgetManager({ budgets, categories, onRefresh, currentM
               </Select>
             </div>
             <div className="space-y-1">
-              <Label>Categoría</Label>
+              <div className="flex items-center justify-between">
+                <Label>Categoría</Label>
+                <button type="button" onClick={onManageCategories} className="text-xs text-violet-600 flex items-center gap-1 hover:underline">
+                  <Settings2 className="w-3 h-3" /> Gestionar categorías
+                </button>
+              </div>
               <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "global")} items={categoryItems}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
@@ -191,9 +197,14 @@ export default function BudgetManager({ budgets, categories, onRefresh, currentM
       )}
 
       {!showForm && (
-        <Button className="w-full" variant="outline" onClick={() => setShowForm(true)}>
-          <Plus className="w-4 h-4 mr-1" /> Agregar presupuesto
-        </Button>
+        <div className="flex gap-2">
+          <Button className="flex-1" variant="outline" onClick={() => setShowForm(true)}>
+            <Plus className="w-4 h-4 mr-1" /> Agregar presupuesto
+          </Button>
+          <Button variant="outline" onClick={onManageCategories} className="text-violet-600 border-violet-200 hover:bg-violet-50">
+            <Settings2 className="w-4 h-4 mr-1" /> Categorías
+          </Button>
+        </div>
       )}
     </div>
   );

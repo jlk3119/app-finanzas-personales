@@ -251,6 +251,7 @@ export default function Dashboard() {
 
           <TabsContent value="budget">
             <BudgetManager budgets={budgets} categories={categories} onRefresh={fetchData}
+              onManageCategories={() => setShowCategories(true)}
               currentMonth={currentMonth} currentYear={currentYear} currentWeek={currentWeek} />
           </TabsContent>
 
