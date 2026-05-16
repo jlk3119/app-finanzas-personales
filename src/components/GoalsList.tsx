@@ -33,7 +33,10 @@ export default function GoalsList({ goals, onRefresh }: Props) {
   const handleCreate = async () => {
     if (!name || !target || Number(target) <= 0) return;
     setLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
     await supabase.from("goals").insert({
+      user_id: user.id,
       name,
       target_amount: Number(target),
       current_amount: Number(current) || 0,

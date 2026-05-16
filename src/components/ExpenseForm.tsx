@@ -30,11 +30,15 @@ export default function ExpenseForm({ categories, onClose, onSaved }: Props) {
     setLoading(true);
     setError("");
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
+
     const { error: err } = await supabase.from("expenses").insert({
       amount: Number(amount),
       description: description || null,
       category_id: categoryId || null,
       date,
+      user_id: user.id,
     });
 
     if (err) { setError(err.message); setLoading(false); return; }

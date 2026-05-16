@@ -39,7 +39,9 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
     if (editingId) {
       await supabase.from("categories").update({ name: form.name.trim(), icon: form.icon, color: form.color }).eq("id", editingId);
     } else {
-      await supabase.from("categories").insert({ name: form.name.trim(), icon: form.icon, color: form.color });
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoading(false); return; }
+      await supabase.from("categories").insert({ name: form.name.trim(), icon: form.icon, color: form.color, user_id: user.id });
     }
     setLoading(false);
     cancel();

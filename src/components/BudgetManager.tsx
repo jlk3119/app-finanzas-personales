@@ -41,7 +41,11 @@ export default function BudgetManager({ budgets, categories, onRefresh, currentM
     if (!amount || Number(amount) <= 0) return;
     setLoading(true);
 
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setLoading(false); return; }
+
     const data = {
+      user_id: user.id,
       period,
       category_id: categoryId === "global" ? null : categoryId,
       amount: Number(amount),
