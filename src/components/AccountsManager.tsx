@@ -4,12 +4,12 @@ import { useState } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
 import type { Account, Income, RecurringIncome } from "@/types";
-import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, Trash2, Plus, Check, X, ChevronRight, RefreshCw, Download } from "lucide-react";
+import { Pencil, Trash2, Plus, Check, X, ChevronRight, Download, RefreshCw } from "lucide-react";
+import { getCurrentPayPeriod, getNextPayDate } from "@/utils/colombian-holidays";
 
 type Props = {
   accounts: Account[];
@@ -20,6 +20,9 @@ type Props = {
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
+
+const fmtDate = (s: string) =>
+  new Date(s + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short" });
 
 const FREQ_LABELS: Record<string, string> = {
   monthly: "Mensual",
@@ -38,8 +41,14 @@ const emptyIncome = (): IncomeForm => ({
   amount: "", description: "", date: new Date().toISOString().split("T")[0], account_id: "",
 });
 
-type RecurringForm = { name: string; amount: string; frequency: "monthly" | "biweekly" | "weekly"; day_of_month: string; account_id: string };
-const EMPTY_RECURRING: RecurringForm = { name: "", amount: "", frequency: "monthly", day_of_month: "", account_id: "" };
+type RecurringForm = {
+  name: string; amount: string;
+  frequency: "monthly" | "biweekly" | "weekly";
+  day_of_month: string; account_id: string; auto_assign: boolean;
+};
+const EMPTY_RECURRING: RecurringForm = {
+  name: "", amount: "", frequency: "monthly", day_of_month: "", account_id: "", auto_assign: true,
+};
 
 type View = "main" | "account-form" | "income-form" | "recurring-form" | "income-list";
 
@@ -58,7 +67,13 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
   useBackButtonClose(view !== "main", () => setView("main"));
 
   const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
-  const recentIncome = income.slice(0, 5);
+
+  /* ── Helpers ── */
+  const isReceivedThisPeriod = (r: RecurringIncome): boolean => {
+    const period = getCurrentPayPeriod(r.frequency, new Date());
+    if (!period) return false;
+    return income.some((i) => i.recurring_income_id === r.id && i.period_key === period.periodKey);
+  };
 
   /* ── Accounts ── */
   const openCreateAccount = () => { setEditingAccount(null); setAccountForm(EMPTY_ACCOUNT); setView("account-form"); };
@@ -128,7 +143,8 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
     setEditingRecurring(r);
     setRecurringForm({
       name: r.name, amount: String(r.amount), frequency: r.frequency,
-      day_of_month: r.day_of_month ? String(r.day_of_month) : "", account_id: r.account_id ?? "",
+      day_of_month: r.day_of_month ? String(r.day_of_month) : "",
+      account_id: r.account_id ?? "", auto_assign: r.auto_assign,
     });
     setView("recurring-form");
   };
@@ -144,6 +160,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
       frequency: recurringForm.frequency,
       day_of_month: recurringForm.day_of_month ? Number(recurringForm.day_of_month) : null,
       account_id: recurringForm.account_id || null,
+      auto_assign: recurringForm.auto_assign,
     };
     if (editingRecurring) {
       await supabase.from("recurring_income").update(payload).eq("id", editingRecurring.id);
@@ -159,15 +176,20 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
     setDeletingId(null); onRefresh();
   };
 
-  // "Recibir" — registra el ingreso hoy y actualiza el saldo de la cuenta
   const receiveRecurring = async (r: RecurringIncome) => {
     setReceivingId(r.id);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setReceivingId(null); return; }
-    const today = new Date().toISOString().split("T")[0];
+    const today = new Date();
+    const period = getCurrentPayPeriod(r.frequency, today);
     await supabase.from("income").insert({
-      user_id: user.id, account_id: r.account_id,
-      amount: r.amount, description: r.name, date: today,
+      user_id: user.id,
+      account_id: r.account_id,
+      amount: r.amount,
+      description: r.name,
+      date: today.toISOString().split("T")[0],
+      recurring_income_id: r.id,
+      period_key: period?.periodKey ?? null,
     });
     if (r.account_id) {
       const acc = accounts.find((a) => a.id === r.account_id);
@@ -181,7 +203,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
   if (view === "account-form") {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pb-2 border-b">
           <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setView("main")}><X className="w-4 h-4" /></Button>
           <h2 className="font-semibold text-sm">{editingAccount ? "Editar cuenta" : "Nueva cuenta"}</h2>
         </div>
@@ -240,7 +262,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
   if (view === "income-form") {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pb-2 border-b">
           <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setView("main")}><X className="w-4 h-4" /></Button>
           <h2 className="font-semibold text-sm">Registrar ingreso esporádico</h2>
         </div>
@@ -271,7 +293,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
           ) : (
             <p className="text-xs text-muted-foreground py-2">No tienes cuentas creadas aún.</p>
           )}
-          {incomeForm.account_id && <p className="text-xs text-violet-600">El saldo de la cuenta se actualizará automáticamente.</p>}
+          {incomeForm.account_id && <p className="text-xs text-violet-600">El saldo se actualizará automáticamente.</p>}
         </div>
         <div className="flex gap-2 pt-2">
           <Button variant="outline" className="flex-1" onClick={() => setView("main")}>Cancelar</Button>
@@ -287,20 +309,23 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
   if (view === "recurring-form") {
     return (
       <div className="space-y-4">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pb-2 border-b">
           <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setView("main")}><X className="w-4 h-4" /></Button>
           <h2 className="font-semibold text-sm">{editingRecurring ? "Editar ingreso recurrente" : "Nuevo ingreso recurrente"}</h2>
         </div>
+
         <div className="space-y-1">
           <Label>Nombre *</Label>
           <Input placeholder="Ej: Salario, Arriendo, Pensión..." value={recurringForm.name}
             onChange={(e) => setRecurringForm({ ...recurringForm, name: e.target.value })} autoFocus />
         </div>
+
         <div className="space-y-1">
           <Label>Monto *</Label>
           <Input type="number" inputMode="decimal" placeholder="0" value={recurringForm.amount}
             onChange={(e) => setRecurringForm({ ...recurringForm, amount: e.target.value })} className="h-11" />
         </div>
+
         <div className="space-y-1">
           <Label>Frecuencia</Label>
           <Select value={recurringForm.frequency}
@@ -309,22 +334,14 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
             <SelectTrigger className="w-full h-11"><SelectValue /></SelectTrigger>
             <SelectContent>
               <SelectItem value="monthly">📅 Mensual</SelectItem>
-              <SelectItem value="biweekly">📅 Quincenal</SelectItem>
+              <SelectItem value="biweekly">📅 Quincenal (días 15 y último)</SelectItem>
               <SelectItem value="weekly">📅 Semanal</SelectItem>
             </SelectContent>
           </Select>
         </div>
-        {recurringForm.frequency === "monthly" && (
-          <div className="space-y-1">
-            <Label>Día del mes (opcional)</Label>
-            <Input type="number" inputMode="numeric" placeholder="Ej: 25" min="1" max="31"
-              value={recurringForm.day_of_month}
-              onChange={(e) => setRecurringForm({ ...recurringForm, day_of_month: e.target.value })} className="h-11" />
-            <p className="text-xs text-muted-foreground">Día en que normalmente llega el ingreso.</p>
-          </div>
-        )}
+
         <div className="space-y-1">
-          <Label>Cuenta destino *</Label>
+          <Label>Cuenta destino</Label>
           {accounts.length > 0 ? (
             <Select value={recurringForm.account_id} onValueChange={(v) => setRecurringForm({ ...recurringForm, account_id: v ?? "" })}
               items={Object.fromEntries(accounts.map((a) => [a.id, `${a.icon} ${a.name}`]))}>
@@ -337,6 +354,35 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
             <p className="text-xs text-muted-foreground py-2">Crea una cuenta bancaria primero.</p>
           )}
         </div>
+
+        {/* Toggle asignación automática */}
+        <div className="space-y-1.5">
+          <Label>Asignación automática</Label>
+          <button
+            type="button"
+            className={`flex items-center gap-3 w-full rounded-xl px-3 py-3 text-left transition-colors border ${
+              recurringForm.auto_assign
+                ? "bg-violet-50 border-violet-200"
+                : "bg-gray-50 border-gray-200"
+            }`}
+            onClick={() => setRecurringForm({ ...recurringForm, auto_assign: !recurringForm.auto_assign })}
+          >
+            <div className={`relative w-11 h-6 rounded-full flex-shrink-0 transition-colors ${recurringForm.auto_assign ? "bg-violet-500" : "bg-gray-300"}`}>
+              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${recurringForm.auto_assign ? "translate-x-6" : "translate-x-1"}`} />
+            </div>
+            <div>
+              <p className={`text-sm font-medium ${recurringForm.auto_assign ? "text-violet-700" : "text-gray-500"}`}>
+                {recurringForm.auto_assign ? "Activa" : "Desactivada"}
+              </p>
+              <p className="text-xs text-muted-foreground">
+                {recurringForm.auto_assign
+                  ? "Se registrará solo el último día hábil (festivos CO incluidos)"
+                  : "Registras el ingreso manualmente con el botón Recibir"}
+              </p>
+            </div>
+          </button>
+        </div>
+
         <div className="flex gap-2 pt-2">
           <Button variant="outline" className="flex-1" onClick={() => setView("main")}>Cancelar</Button>
           <Button className="flex-1 bg-violet-600 hover:bg-violet-700" onClick={saveRecurring}
@@ -351,7 +397,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
   if (view === "income-list") {
     return (
       <div className="space-y-3">
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 pb-2 border-b">
           <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setView("main")}><X className="w-4 h-4" /></Button>
           <h2 className="font-semibold text-sm">Todos los ingresos</h2>
         </div>
@@ -365,8 +411,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
                 <div>
                   <p className="text-sm font-medium">{entry.description || "Ingreso"}</p>
                   <p className="text-xs text-muted-foreground">
-                    {new Date(entry.date + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short" })}
-                    {acc && <span> · {acc.name}</span>}
+                    {fmtDate(entry.date)}{acc && <span> · {acc.name}</span>}
                   </p>
                 </div>
               </div>
@@ -384,44 +429,46 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
   }
 
   /* ── Vista principal ── */
+  const recentIncome = income.filter((i) => !i.recurring_income_id).slice(0, 5);
+
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
 
       {/* Saldo total */}
-      <Card className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white border-0">
-        <CardContent className="pt-5 pb-5 text-center">
-          <p className="text-violet-200 text-sm mb-1">Saldo total disponible</p>
-          <p className="text-3xl font-bold">{fmt(totalBalance)}</p>
-          <p className="text-violet-300 text-xs mt-1">{accounts.length} {accounts.length === 1 ? "cuenta" : "cuentas"}</p>
-        </CardContent>
-      </Card>
+      <div className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-2xl px-5 py-5 text-center shadow-md">
+        <p className="text-violet-200 text-xs mb-1 uppercase tracking-wide">Saldo total disponible</p>
+        <p className="text-3xl font-bold">{fmt(totalBalance)}</p>
+        <p className="text-violet-300 text-xs mt-1">{accounts.length} {accounts.length === 1 ? "cuenta" : "cuentas"}</p>
+      </div>
 
-      {/* Cuentas */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Cuentas</h3>
-          <Button variant="ghost" size="sm" className="text-violet-600 h-7 text-xs" onClick={openCreateAccount}>
+      {/* ── Cuentas ── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cuentas</h3>
+          <Button variant="ghost" size="sm" className="text-violet-600 h-7 text-xs px-2" onClick={openCreateAccount}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Nueva
           </Button>
         </div>
+
         {accounts.length === 0 ? (
-          <div className="text-center py-6 bg-gray-50 rounded-xl">
-            <p className="text-sm text-muted-foreground">Sin cuentas. Agrega tu primera cuenta bancaria.</p>
-            <Button variant="outline" size="sm" className="mt-3" onClick={openCreateAccount}>
+          <div className="text-center py-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+            <p className="text-2xl mb-2">🏦</p>
+            <p className="text-sm text-muted-foreground mb-3">Agrega tu primera cuenta bancaria</p>
+            <Button variant="outline" size="sm" onClick={openCreateAccount}>
               <Plus className="w-4 h-4 mr-1" /> Agregar cuenta
             </Button>
           </div>
         ) : (
           <div className="space-y-2">
             {accounts.map((acc) => (
-              <div key={acc.id} className="flex items-center justify-between bg-white border rounded-xl px-3 py-3">
+              <div key={acc.id} className="flex items-center justify-between bg-white border rounded-2xl px-4 py-3 shadow-sm">
                 <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: acc.color + "33" }}>
+                  <div className="w-11 h-11 rounded-full flex items-center justify-center text-2xl flex-shrink-0" style={{ backgroundColor: acc.color + "22" }}>
                     {acc.icon}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold">{acc.name}</p>
-                    <p className="text-base font-bold" style={{ color: acc.color }}>{fmt(acc.balance)}</p>
+                    <p className="text-sm font-semibold text-gray-800">{acc.name}</p>
+                    <p className="text-lg font-bold leading-tight" style={{ color: acc.color }}>{fmt(acc.balance)}</p>
                   </div>
                 </div>
                 <div className="flex gap-1">
@@ -436,76 +483,109 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
             ))}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Ingresos recurrentes */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ingresos recurrentes</h3>
-          <Button variant="ghost" size="sm" className="text-violet-600 h-7 text-xs" onClick={openCreateRecurring}>
+      {/* ── Ingresos recurrentes ── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ingresos recurrentes</h3>
+          <Button variant="ghost" size="sm" className="text-violet-600 h-7 text-xs px-2" onClick={openCreateRecurring}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Agregar
           </Button>
         </div>
 
         {recurringIncome.length === 0 ? (
-          <div className="text-center py-5 bg-gray-50 rounded-xl">
-            <p className="text-sm text-muted-foreground">Sin ingresos recurrentes.</p>
-            <Button variant="outline" size="sm" className="mt-3 text-violet-600 border-violet-200" onClick={openCreateRecurring}>
-              <RefreshCw className="w-3.5 h-3.5 mr-1" /> Agregar salario u otro ingreso fijo
+          <div className="text-center py-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+            <p className="text-2xl mb-2">💼</p>
+            <p className="text-sm text-muted-foreground mb-3">Agrega tu salario u otros ingresos fijos</p>
+            <Button variant="outline" size="sm" className="text-violet-600 border-violet-200" onClick={openCreateRecurring}>
+              <RefreshCw className="w-3.5 h-3.5 mr-1" /> Agregar ingreso recurrente
             </Button>
           </div>
         ) : (
-          <div className="space-y-2">
+          <div className="space-y-3">
             {recurringIncome.map((r) => {
               const acc = accounts.find((a) => a.id === r.account_id);
+              const received = isReceivedThisPeriod(r);
+              const nextDate = getNextPayDate(r.frequency, new Date());
+
               return (
-                <div key={r.id} className="bg-white border rounded-xl px-3 py-3">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="w-9 h-9 rounded-full bg-violet-100 flex items-center justify-center text-lg">
+                <div key={r.id} className="bg-white border rounded-2xl overflow-hidden shadow-sm">
+                  {/* Header del card */}
+                  <div className="px-4 pt-3.5 pb-2 flex items-start justify-between">
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center text-xl flex-shrink-0">
                         {acc ? acc.icon : "💰"}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold">{r.name}</p>
+                        <p className="text-sm font-semibold text-gray-800">{r.name}</p>
                         <p className="text-xs text-muted-foreground">
-                          {fmt(r.amount)} · {FREQ_LABELS[r.frequency]}
-                          {r.day_of_month && ` · día ${r.day_of_month}`}
+                          {FREQ_LABELS[r.frequency]}
                           {acc && <span> → {acc.name}</span>}
                         </p>
                       </div>
                     </div>
-                    <div className="flex gap-1">
-                      <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground" onClick={() => openEditRecurring(r)}>
-                        <Pencil className="w-3.5 h-3.5" />
+                    <div className="flex items-center gap-1">
+                      <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" onClick={() => openEditRecurring(r)}>
+                        <Pencil className="w-3 h-3" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400" onClick={() => deleteRecurring(r.id)} disabled={deletingId === r.id}>
-                        <Trash2 className="w-3.5 h-3.5" />
+                      <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => deleteRecurring(r.id)} disabled={deletingId === r.id}>
+                        <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
                   </div>
-                  <Button size="sm" className="w-full mt-2 bg-emerald-600 hover:bg-emerald-700 h-8 text-xs"
-                    onClick={() => receiveRecurring(r)} disabled={receivingId === r.id}>
-                    <Download className="w-3.5 h-3.5 mr-1" />
-                    {receivingId === r.id ? "Registrando..." : `Recibir ${fmt(r.amount)} hoy`}
-                  </Button>
+
+                  {/* Monto + badges */}
+                  <div className="px-4 pb-2 flex items-center gap-2 flex-wrap">
+                    <span className="text-lg font-bold text-gray-900">{fmt(r.amount)}</span>
+                    {r.auto_assign && (
+                      <span className="text-[10px] font-medium bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">⚡ auto</span>
+                    )}
+                    {received && (
+                      <span className="text-[10px] font-medium bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">✓ recibido</span>
+                    )}
+                  </div>
+
+                  {/* Próximo pago */}
+                  <div className="px-4 pb-3 text-xs text-muted-foreground">
+                    {received
+                      ? <span>Próxima fecha: {fmtDate(nextDate)}</span>
+                      : <span>Pago esperado: <span className="font-medium text-gray-700">{fmtDate(nextDate)}</span></span>
+                    }
+                  </div>
+
+                  {/* Botón recibir — solo si no ha sido recibido este período */}
+                  {!received && (
+                    <div className="border-t bg-gray-50 px-4 py-2.5">
+                      <Button
+                        size="sm"
+                        className="w-full bg-emerald-600 hover:bg-emerald-700 h-8 text-xs"
+                        onClick={() => receiveRecurring(r)}
+                        disabled={receivingId === r.id}
+                      >
+                        <Download className="w-3.5 h-3.5 mr-1.5" />
+                        {receivingId === r.id ? "Registrando..." : `Recibir ${fmt(r.amount)} hoy`}
+                      </Button>
+                    </div>
+                  )}
                 </div>
               );
             })}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Ingresos esporádicos */}
-      <div>
-        <div className="flex items-center justify-between mb-2">
-          <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">Ingresos esporádicos</h3>
-          <Button variant="ghost" size="sm" className="text-emerald-600 h-7 text-xs" onClick={() => setView("income-form")}>
+      {/* ── Ingresos esporádicos ── */}
+      <section>
+        <div className="flex items-center justify-between mb-3">
+          <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ingresos esporádicos</h3>
+          <Button variant="ghost" size="sm" className="text-emerald-600 h-7 text-xs px-2" onClick={() => setView("income-form")}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Registrar
           </Button>
         </div>
 
         {recentIncome.length === 0 ? (
-          <div className="text-center py-5 bg-gray-50 rounded-xl">
+          <div className="text-center py-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
             <p className="text-sm text-muted-foreground">Sin ingresos esporádicos registrados.</p>
           </div>
         ) : (
@@ -513,14 +593,15 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
             {recentIncome.map((entry) => {
               const acc = accounts.find((a) => a.id === entry.account_id);
               return (
-                <div key={entry.id} className="flex items-center justify-between bg-white border rounded-xl px-3 py-2.5">
-                  <div className="flex items-center gap-2">
-                    <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-lg">{acc ? acc.icon : "💵"}</div>
+                <div key={entry.id} className="flex items-center justify-between bg-white border rounded-xl px-3 py-2.5 shadow-sm">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-lg flex-shrink-0">
+                      {acc ? acc.icon : "💵"}
+                    </div>
                     <div>
-                      <p className="text-sm font-medium">{entry.description || "Ingreso"}</p>
+                      <p className="text-sm font-medium text-gray-800">{entry.description || "Ingreso"}</p>
                       <p className="text-xs text-muted-foreground">
-                        {new Date(entry.date + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })}
-                        {acc && <span> · {acc.name}</span>}
+                        {fmtDate(entry.date)}{acc && <span> · {acc.name}</span>}
                       </p>
                     </div>
                   </div>
@@ -536,12 +617,12 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
           </div>
         )}
 
-        {income.length > 5 && (
+        {income.filter((i) => !i.recurring_income_id).length > 5 && (
           <Button variant="ghost" className="w-full text-sm text-muted-foreground mt-1" onClick={() => setView("income-list")}>
-            Ver todos ({income.length}) <ChevronRight className="w-4 h-4 ml-1" />
+            Ver todos <ChevronRight className="w-4 h-4 ml-1" />
           </Button>
         )}
-      </div>
+      </section>
     </div>
   );
 }

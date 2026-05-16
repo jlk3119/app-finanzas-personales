@@ -50,6 +50,7 @@ export type RecurringIncome = {
   amount: number;
   frequency: "monthly" | "biweekly" | "weekly";
   day_of_month: number | null;
+  auto_assign: boolean;
   created_at: string;
   accounts?: Account;
 };
@@ -61,6 +62,8 @@ export type Income = {
   amount: number;
   description: string | null;
   date: string;
+  recurring_income_id: string | null;
+  period_key: string | null;
   created_at: string;
   accounts?: Account;
 };

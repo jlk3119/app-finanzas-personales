@@ -4,12 +4,12 @@ import { useEffect, useState, useCallback } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
 import type { Expense, Budget, Category, Goal, Account, Income, RecurringIncome } from "@/types";
+import { getCurrentPayPeriod } from "@/utils/colombian-holidays";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, LogOut, Target, TrendingDown, Wallet, Settings, Landmark } from "lucide-react";
+import { PlusCircle, LogOut, Target, TrendingDown, Wallet, Settings, Landmark, Trophy } from "lucide-react";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import BudgetManager from "@/components/BudgetManager";
@@ -26,6 +26,16 @@ function getWeekNumber(date: Date) {
   return Math.ceil((((d.getTime() - yearStart.getTime()) / 86400000) + 1) / 7);
 }
 
+const TABS = [
+  { value: "dashboard", label: "Resumen",  Icon: TrendingDown },
+  { value: "expenses",  label: "Gastos",   Icon: Wallet },
+  { value: "budget",    label: "Presup.",  Icon: Target },
+  { value: "goals",     label: "Metas",    Icon: Trophy },
+  { value: "accounts",  label: "Dinero",   Icon: Landmark },
+] as const;
+
+type TabValue = typeof TABS[number]["value"];
+
 export default function Dashboard() {
   const supabase = createClient();
   const [expenses, setExpenses] = useState<Expense[]>([]);
@@ -38,7 +48,7 @@ export default function Dashboard() {
   const [showForm, setShowForm] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState("dashboard");
+  const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
 
   useBackButtonClose(showForm, () => setShowForm(false));
   useBackButtonClose(showCategories, () => setShowCategories(false));
@@ -47,6 +57,56 @@ export default function Dashboard() {
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
   const currentWeek = getWeekNumber(now);
+
+  const checkAutoAssign = useCallback(async (
+    recurData: RecurringIncome[],
+    incData: Income[],
+    accData: Account[],
+  ): Promise<boolean> => {
+    const toAssign = recurData.filter((r) => r.auto_assign);
+    if (toAssign.length === 0) return false;
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) return false;
+
+    const today = new Date();
+    let anyAssigned = false;
+    const balanceDelta = new Map<string, number>();
+
+    for (const r of toAssign) {
+      const period = getCurrentPayPeriod(r.frequency, today);
+      if (!period) continue;
+
+      const alreadyDone = incData.some(
+        (i) => i.recurring_income_id === r.id && i.period_key === period.periodKey,
+      );
+      if (alreadyDone) continue;
+
+      const { error } = await supabase.from("income").insert({
+        user_id: user.id,
+        account_id: r.account_id,
+        amount: r.amount,
+        description: `${r.name} (automático)`,
+        date: period.payDate,
+        recurring_income_id: r.id,
+        period_key: period.periodKey,
+      });
+
+      if (!error) {
+        anyAssigned = true;
+        if (r.account_id) {
+          balanceDelta.set(r.account_id, (balanceDelta.get(r.account_id) ?? 0) + Number(r.amount));
+        }
+      }
+    }
+
+    for (const [accId, delta] of balanceDelta) {
+      const acc = accData.find((a) => a.id === accId);
+      if (acc) await supabase.from("accounts").update({ balance: Number(acc.balance) + delta }).eq("id", accId);
+    }
+
+    return anyAssigned;
+  }, [supabase]);
 
   const fetchData = useCallback(async () => {
     const [expRes, budRes, catRes, goalRes, accRes, incRes, recurRes] = await Promise.all([
@@ -58,11 +118,16 @@ export default function Dashboard() {
       supabase.from("income").select("*, accounts(*)").order("date", { ascending: false }),
       supabase.from("recurring_income").select("*, accounts(*)").order("created_at"),
     ]);
+
     if (expRes.data) setExpenses(expRes.data as Expense[]);
     if (budRes.data) setBudgets(budRes.data as Budget[]);
+
+    const accData = (accRes.data ?? []) as Account[];
+    const incData = (incRes.data ?? []) as Income[];
+    const recurData = (recurRes.data ?? []) as RecurringIncome[];
+
     if (catRes.data) {
       const cats = catRes.data as Category[];
-      // Auto-crear categoría sistema "Caja menor" para usuarios nuevos
       if (!cats.some((c) => c.is_system)) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
@@ -76,29 +141,41 @@ export default function Dashboard() {
         setCategories(cats);
       }
     }
+
     if (goalRes.data) setGoals(goalRes.data as Goal[]);
-    if (accRes.data) setAccounts(accRes.data as Account[]);
-    if (incRes.data) setIncome(incRes.data as Income[]);
-    if (recurRes.data) setRecurringIncome(recurRes.data as RecurringIncome[]);
+    setAccounts(accData);
+    setIncome(incData);
+    setRecurringIncome(recurData);
+
+    const assigned = await checkAutoAssign(recurData, incData, accData);
+    if (assigned) {
+      const [accRefresh, incRefresh] = await Promise.all([
+        supabase.from("accounts").select("*").order("created_at"),
+        supabase.from("income").select("*, accounts(*)").order("date", { ascending: false }),
+      ]);
+      if (accRefresh.data) setAccounts(accRefresh.data as Account[]);
+      if (incRefresh.data) setIncome(incRefresh.data as Income[]);
+    }
+
     setLoading(false);
-  }, [supabase]);
+  }, [supabase, checkAutoAssign]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
-    const tab = params.get("tab");
-    if (tab) setActiveTab(tab);
+    const tab = params.get("tab") as TabValue | null;
+    if (tab && TABS.some((t) => t.value === tab)) setActiveTab(tab);
 
     const handlePop = () => {
       const p = new URLSearchParams(window.location.search);
-      setActiveTab(p.get("tab") || "dashboard");
+      setActiveTab((p.get("tab") as TabValue) || "dashboard");
     };
     window.addEventListener("popstate", handlePop);
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
 
-  const handleTabChange = (value: string) => {
+  const handleTabChange = (value: TabValue) => {
     setActiveTab(value);
     window.history.pushState({}, "", `?tab=${value}`);
   };
@@ -149,6 +226,7 @@ export default function Dashboard() {
 
   return (
     <div className="min-h-screen pb-24">
+      {/* Header */}
       <div className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 pt-10 pb-6">
         <div className="flex justify-between items-start mb-4">
           <div>
@@ -193,17 +271,10 @@ export default function Dashboard() {
         )}
       </div>
 
-      <div className="px-4 mt-4">
-        <Tabs value={activeTab} onValueChange={handleTabChange}>
-          <TabsList className="w-full mb-4 bg-white shadow-sm">
-            <TabsTrigger value="dashboard" className="flex-1 text-xs"><TrendingDown className="w-3 h-3 mr-1" />Resumen</TabsTrigger>
-            <TabsTrigger value="expenses" className="flex-1 text-xs"><Wallet className="w-3 h-3 mr-1" />Gastos</TabsTrigger>
-            <TabsTrigger value="budget" className="flex-1 text-xs"><Target className="w-3 h-3 mr-1" />Presup.</TabsTrigger>
-            <TabsTrigger value="goals" className="flex-1 text-xs">🎯 Metas</TabsTrigger>
-            <TabsTrigger value="accounts" className="flex-1 text-xs"><Landmark className="w-3 h-3 mr-1" />Dinero</TabsTrigger>
-          </TabsList>
-
-          <TabsContent value="dashboard" className="space-y-4">
+      {/* Contenido por pestaña */}
+      <div className="px-4 mt-4 space-y-4">
+        {activeTab === "dashboard" && (
+          <>
             {categorySpend.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
@@ -216,9 +287,7 @@ export default function Dashboard() {
                       <YAxis tick={{ fontSize: 10 }} />
                       <Tooltip formatter={(v) => fmt(Number(v))} labelFormatter={(l) => categorySpend.find(c => c.icon === l)?.name || l} />
                       <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                        {categorySpend.map((entry, i) => (
-                          <Cell key={i} fill={entry.color} />
-                        ))}
+                        {categorySpend.map((entry, i) => <Cell key={i} fill={entry.color} />)}
                       </Bar>
                     </BarChart>
                   </ResponsiveContainer>
@@ -249,9 +318,7 @@ export default function Dashboard() {
                         )}
                       </div>
                     </div>
-                    {cat.budget && (
-                      <Progress value={Math.min((cat.total / cat.budget) * 100, 100)} className="h-1.5" />
-                    )}
+                    {cat.budget && <Progress value={Math.min((cat.total / cat.budget) * 100, 100)} className="h-1.5" />}
                   </div>
                 ))}
               </CardContent>
@@ -265,33 +332,46 @@ export default function Dashboard() {
                 <ExpenseList expenses={expenses.slice(0, 5)} categories={categories} onRefresh={fetchData} compact />
               </CardContent>
             </Card>
-          </TabsContent>
+          </>
+        )}
 
-          <TabsContent value="expenses">
-            <Card>
-              <CardContent className="pt-4">
-                <ExpenseList expenses={expenses} categories={categories} onRefresh={fetchData} />
-              </CardContent>
-            </Card>
-          </TabsContent>
+        {activeTab === "expenses" && (
+          <Card>
+            <CardContent className="pt-4">
+              <ExpenseList expenses={expenses} categories={categories} onRefresh={fetchData} />
+            </CardContent>
+          </Card>
+        )}
 
-          <TabsContent value="budget">
-            <BudgetManager budgets={budgets} categories={categories} accounts={accounts} onRefresh={fetchData}
-              onManageCategories={() => setShowCategories(true)}
-              currentMonth={currentMonth} currentYear={currentYear} currentWeek={currentWeek} />
-          </TabsContent>
+        {activeTab === "budget" && (
+          <BudgetManager
+            budgets={budgets}
+            categories={categories}
+            accounts={accounts}
+            onRefresh={fetchData}
+            onManageCategories={() => setShowCategories(true)}
+            currentMonth={currentMonth}
+            currentYear={currentYear}
+            currentWeek={currentWeek}
+          />
+        )}
 
-          <TabsContent value="goals">
-            <GoalsList goals={goals} onRefresh={fetchData} />
-          </TabsContent>
+        {activeTab === "goals" && (
+          <GoalsList goals={goals} onRefresh={fetchData} />
+        )}
 
-          <TabsContent value="accounts">
-            <AccountsManager accounts={accounts} income={income} recurringIncome={recurringIncome} onRefresh={fetchData} />
-          </TabsContent>
-        </Tabs>
+        {activeTab === "accounts" && (
+          <AccountsManager
+            accounts={accounts}
+            income={income}
+            recurringIncome={recurringIncome}
+            onRefresh={fetchData}
+          />
+        )}
       </div>
 
-      <div className="fixed bottom-6 right-6 z-50">
+      {/* FAB — encima del nav inferior */}
+      <div className="fixed bottom-[72px] right-4 z-50">
         <Button
           size="lg"
           className="rounded-full w-14 h-14 shadow-lg bg-violet-600 hover:bg-violet-700"
@@ -300,6 +380,22 @@ export default function Dashboard() {
           <PlusCircle className="w-6 h-6" />
         </Button>
       </div>
+
+      {/* Barra de navegación inferior */}
+      <nav className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-100 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] flex">
+        {TABS.map(({ value, label, Icon }) => (
+          <button
+            key={value}
+            className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 transition-colors ${
+              activeTab === value ? "text-violet-600" : "text-gray-400"
+            }`}
+            onClick={() => handleTabChange(value)}
+          >
+            <Icon className={`w-5 h-5 ${activeTab === value ? "stroke-[2.2px]" : ""}`} />
+            <span className="text-[10px] font-medium leading-tight">{label}</span>
+          </button>
+        ))}
+      </nav>
 
       {showForm && (
         <ExpenseForm
