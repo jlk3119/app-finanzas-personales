@@ -42,6 +42,18 @@ export type Account = {
   created_at: string;
 };
 
+export type RecurringIncome = {
+  id: string;
+  user_id: string;
+  account_id: string | null;
+  name: string;
+  amount: number;
+  frequency: "monthly" | "biweekly" | "weekly";
+  day_of_month: number | null;
+  created_at: string;
+  accounts?: Account;
+};
+
 export type Income = {
   id: string;
   user_id: string;

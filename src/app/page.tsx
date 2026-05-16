@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
-import type { Expense, Budget, Category, Goal, Account, Income } from "@/types";
+import type { Expense, Budget, Category, Goal, Account, Income, RecurringIncome } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -34,6 +34,7 @@ export default function Dashboard() {
   const [goals, setGoals] = useState<Goal[]>([]);
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [income, setIncome] = useState<Income[]>([]);
+  const [recurringIncome, setRecurringIncome] = useState<RecurringIncome[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -48,13 +49,14 @@ export default function Dashboard() {
   const currentWeek = getWeekNumber(now);
 
   const fetchData = useCallback(async () => {
-    const [expRes, budRes, catRes, goalRes, accRes, incRes] = await Promise.all([
+    const [expRes, budRes, catRes, goalRes, accRes, incRes, recurRes] = await Promise.all([
       supabase.from("expenses").select("*, categories(*)").order("date", { ascending: false }),
       supabase.from("budgets").select("*, categories(*)"),
       supabase.from("categories").select("*").order("name"),
       supabase.from("goals").select("*").order("created_at", { ascending: false }),
       supabase.from("accounts").select("*").order("created_at"),
       supabase.from("income").select("*, accounts(*)").order("date", { ascending: false }),
+      supabase.from("recurring_income").select("*, accounts(*)").order("created_at"),
     ]);
     if (expRes.data) setExpenses(expRes.data as Expense[]);
     if (budRes.data) setBudgets(budRes.data as Budget[]);
@@ -77,6 +79,7 @@ export default function Dashboard() {
     if (goalRes.data) setGoals(goalRes.data as Goal[]);
     if (accRes.data) setAccounts(accRes.data as Account[]);
     if (incRes.data) setIncome(incRes.data as Income[]);
+    if (recurRes.data) setRecurringIncome(recurRes.data as RecurringIncome[]);
     setLoading(false);
   }, [supabase]);
 
@@ -283,7 +286,7 @@ export default function Dashboard() {
           </TabsContent>
 
           <TabsContent value="accounts">
-            <AccountsManager accounts={accounts} income={income} onRefresh={fetchData} />
+            <AccountsManager accounts={accounts} income={income} recurringIncome={recurringIncome} onRefresh={fetchData} />
           </TabsContent>
         </Tabs>
       </div>
