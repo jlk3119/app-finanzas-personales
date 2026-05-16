@@ -8,7 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Pencil, Trash2, Plus, Check, X, ChevronLeft } from "lucide-react";
+import { Pencil, Trash2, Plus, Check, X, ChevronLeft, Lock } from "lucide-react";
 
 type Props = {
   categories: Category[];
@@ -108,21 +108,30 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
           {!showForm && (
             <div className="space-y-2">
               {categories.map((cat) => (
-                <div key={cat.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
+                <div key={cat.id} className={`flex items-center justify-between rounded-xl px-3 py-2.5 ${cat.is_system ? "bg-emerald-50 border border-emerald-100" : "bg-gray-50"}`}>
                   <div className="flex items-center gap-2">
                     <div className="w-9 h-9 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: cat.color + "33" }}>
                       {cat.icon}
                     </div>
-                    <span className="font-medium text-sm">{cat.name}</span>
+                    <div>
+                      <span className="font-medium text-sm">{cat.name}</span>
+                      {cat.is_system && (
+                        <p className="text-xs text-emerald-600 flex items-center gap-0.5">
+                          <Lock className="w-2.5 h-2.5" /> Sistema
+                        </p>
+                      )}
+                    </div>
                   </div>
-                  <div className="flex gap-1">
-                    <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground" onClick={() => openEdit(cat)}>
-                      <Pencil className="w-3.5 h-3.5" />
-                    </Button>
-                    <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400" onClick={() => handleDelete(cat.id)} disabled={deletingId === cat.id}>
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
-                  </div>
+                  {!cat.is_system && (
+                    <div className="flex gap-1">
+                      <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground" onClick={() => openEdit(cat)}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                      <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400" onClick={() => handleDelete(cat.id)} disabled={deletingId === cat.id}>
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    </div>
+                  )}
                 </div>
               ))}
 

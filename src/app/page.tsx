@@ -58,7 +58,22 @@ export default function Dashboard() {
     ]);
     if (expRes.data) setExpenses(expRes.data as Expense[]);
     if (budRes.data) setBudgets(budRes.data as Budget[]);
-    if (catRes.data) setCategories(catRes.data as Category[]);
+    if (catRes.data) {
+      const cats = catRes.data as Category[];
+      // Auto-crear categoría sistema "Caja menor" para usuarios nuevos
+      if (!cats.some((c) => c.is_system)) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          await supabase.from("categories").insert({
+            user_id: user.id, name: "Caja menor", icon: "💵", color: "#10b981", is_system: true,
+          });
+          const { data: updated } = await supabase.from("categories").select("*").order("name");
+          if (updated) setCategories(updated as Category[]);
+        }
+      } else {
+        setCategories(cats);
+      }
+    }
     if (goalRes.data) setGoals(goalRes.data as Goal[]);
     if (accRes.data) setAccounts(accRes.data as Account[]);
     if (incRes.data) setIncome(incRes.data as Income[]);
