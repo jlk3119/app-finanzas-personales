@@ -31,6 +31,27 @@ export type Budget = {
   categories?: Category;
 };
 
+export type Account = {
+  id: string;
+  user_id: string;
+  name: string;
+  balance: number;
+  icon: string;
+  color: string;
+  created_at: string;
+};
+
+export type Income = {
+  id: string;
+  user_id: string;
+  account_id: string | null;
+  amount: number;
+  description: string | null;
+  date: string;
+  created_at: string;
+  accounts?: Account;
+};
+
 export type Goal = {
   id: string;
   user_id: string;

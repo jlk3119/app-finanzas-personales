@@ -3,18 +3,19 @@
 import { useEffect, useState, useCallback } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
-import type { Expense, Budget, Category, Goal } from "@/types";
+import type { Expense, Budget, Category, Goal, Account, Income } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, LogOut, Target, TrendingDown, Wallet, Settings } from "lucide-react";
+import { PlusCircle, LogOut, Target, TrendingDown, Wallet, Settings, Landmark } from "lucide-react";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import BudgetManager from "@/components/BudgetManager";
 import GoalsList from "@/components/GoalsList";
 import CategoryManager from "@/components/CategoryManager";
+import AccountsManager from "@/components/AccountsManager";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 function getWeekNumber(date: Date) {
@@ -31,6 +32,8 @@ export default function Dashboard() {
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
+  const [accounts, setAccounts] = useState<Account[]>([]);
+  const [income, setIncome] = useState<Income[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -45,16 +48,20 @@ export default function Dashboard() {
   const currentWeek = getWeekNumber(now);
 
   const fetchData = useCallback(async () => {
-    const [expRes, budRes, catRes, goalRes] = await Promise.all([
+    const [expRes, budRes, catRes, goalRes, accRes, incRes] = await Promise.all([
       supabase.from("expenses").select("*, categories(*)").order("date", { ascending: false }),
       supabase.from("budgets").select("*, categories(*)"),
       supabase.from("categories").select("*").order("name"),
       supabase.from("goals").select("*").order("created_at", { ascending: false }),
+      supabase.from("accounts").select("*").order("created_at"),
+      supabase.from("income").select("*, accounts(*)").order("date", { ascending: false }),
     ]);
     if (expRes.data) setExpenses(expRes.data as Expense[]);
     if (budRes.data) setBudgets(budRes.data as Budget[]);
     if (catRes.data) setCategories(catRes.data as Category[]);
     if (goalRes.data) setGoals(goalRes.data as Goal[]);
+    if (accRes.data) setAccounts(accRes.data as Account[]);
+    if (incRes.data) setIncome(incRes.data as Income[]);
     setLoading(false);
   }, [supabase]);
 
@@ -173,8 +180,9 @@ export default function Dashboard() {
           <TabsList className="w-full mb-4 bg-white shadow-sm">
             <TabsTrigger value="dashboard" className="flex-1 text-xs"><TrendingDown className="w-3 h-3 mr-1" />Resumen</TabsTrigger>
             <TabsTrigger value="expenses" className="flex-1 text-xs"><Wallet className="w-3 h-3 mr-1" />Gastos</TabsTrigger>
-            <TabsTrigger value="budget" className="flex-1 text-xs"><Target className="w-3 h-3 mr-1" />Presupuesto</TabsTrigger>
+            <TabsTrigger value="budget" className="flex-1 text-xs"><Target className="w-3 h-3 mr-1" />Presup.</TabsTrigger>
             <TabsTrigger value="goals" className="flex-1 text-xs">🎯 Metas</TabsTrigger>
+            <TabsTrigger value="accounts" className="flex-1 text-xs"><Landmark className="w-3 h-3 mr-1" />Dinero</TabsTrigger>
           </TabsList>
 
           <TabsContent value="dashboard" className="space-y-4">
@@ -257,6 +265,10 @@ export default function Dashboard() {
 
           <TabsContent value="goals">
             <GoalsList goals={goals} onRefresh={fetchData} />
+          </TabsContent>
+
+          <TabsContent value="accounts">
+            <AccountsManager accounts={accounts} income={income} onRefresh={fetchData} />
           </TabsContent>
         </Tabs>
       </div>
