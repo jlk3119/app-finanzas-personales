@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
-import type { Budget, Category } from "@/types";
+import type { Budget, Category, Account } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,6 +15,7 @@ import { Pencil, Trash2, Plus, Settings2, ChevronLeft, ChevronRight, Copy } from
 type Props = {
   budgets: Budget[];
   categories: Category[];
+  accounts: Account[];
   onRefresh: () => void;
   onManageCategories: () => void;
   currentMonth: number;
@@ -34,7 +35,7 @@ function nextMonthOf(month: number, year: number) {
   return month === 12 ? { month: 1, year: year + 1 } : { month: month + 1, year };
 }
 
-export default function BudgetManager({ budgets, categories, onRefresh, onManageCategories, currentMonth, currentYear, currentWeek }: Props) {
+export default function BudgetManager({ budgets, categories, accounts, onRefresh, onManageCategories, currentMonth, currentYear, currentWeek }: Props) {
   const supabase = createClient();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -211,15 +212,33 @@ export default function BudgetManager({ budgets, categories, onRefresh, onManage
             </Button>
           </div>
 
-          {/* Total */}
-          {monthlyBudgets.length > 0 && (
-            <div className="bg-violet-50 border border-violet-100 rounded-xl px-4 py-3 flex items-center justify-between">
-              <span className="text-sm text-violet-700 font-medium">Total presupuestado</span>
-              <span className="text-base font-bold text-violet-800">
-                {fmt(monthlyBudgets.reduce((s, b) => s + Number(b.amount), 0))}
-              </span>
-            </div>
-          )}
+          {/* Total presupuestado + Caja menor */}
+          {monthlyBudgets.length > 0 && (() => {
+            const totalBudget = monthlyBudgets.reduce((s, b) => s + Number(b.amount), 0);
+            const totalAccounts = accounts.reduce((s, a) => s + Number(a.balance), 0);
+            const cajaMenor = totalAccounts - totalBudget;
+            return (
+              <div className="rounded-xl border overflow-hidden">
+                <div className="bg-violet-50 px-4 py-3 flex items-center justify-between border-b border-violet-100">
+                  <span className="text-sm text-violet-700 font-medium">Total presupuestado</span>
+                  <span className="text-base font-bold text-violet-800">{fmt(totalBudget)}</span>
+                </div>
+                {accounts.length > 0 && (
+                  <div className={`px-4 py-3 flex items-center justify-between ${cajaMenor >= 0 ? "bg-emerald-50" : "bg-red-50"}`}>
+                    <div>
+                      <span className={`text-sm font-semibold ${cajaMenor >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                        Caja menor
+                      </span>
+                      <p className="text-xs text-muted-foreground">Saldo en cuentas − presupuesto</p>
+                    </div>
+                    <span className={`text-base font-bold ${cajaMenor >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                      {cajaMenor >= 0 ? "" : "-"}{fmt(Math.abs(cajaMenor))}
+                    </span>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
 
           {/* Sin presupuesto — ofrecer copiar del mes anterior */}
           {monthlyBudgets.length === 0 && (
