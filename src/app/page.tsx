@@ -8,11 +8,12 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { PlusCircle, LogOut, Target, TrendingDown, Wallet } from "lucide-react";
+import { PlusCircle, LogOut, Target, TrendingDown, Wallet, Settings } from "lucide-react";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import BudgetManager from "@/components/BudgetManager";
 import GoalsList from "@/components/GoalsList";
+import CategoryManager from "@/components/CategoryManager";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 function getWeekNumber(date: Date) {
@@ -30,6 +31,7 @@ export default function Dashboard() {
   const [categories, setCategories] = useState<Category[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [showCategories, setShowCategories] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const now = new Date();
@@ -105,9 +107,14 @@ export default function Dashboard() {
             <h1 className="text-2xl font-bold">💸 MisFinanzas</h1>
             <p className="text-violet-200 text-sm">{now.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</p>
           </div>
-          <Button variant="ghost" size="icon" onClick={signOut} className="text-white hover:bg-white/20">
-            <LogOut className="w-5 h-5" />
-          </Button>
+          <div className="flex gap-1">
+            <Button variant="ghost" size="icon" onClick={() => setShowCategories(true)} className="text-white hover:bg-white/20">
+              <Settings className="w-5 h-5" />
+            </Button>
+            <Button variant="ghost" size="icon" onClick={signOut} className="text-white hover:bg-white/20">
+              <LogOut className="w-5 h-5" />
+            </Button>
+          </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 mt-2">
@@ -245,6 +252,14 @@ export default function Dashboard() {
           categories={categories}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); fetchData(); }}
+        />
+      )}
+
+      {showCategories && (
+        <CategoryManager
+          categories={categories}
+          onClose={() => setShowCategories(false)}
+          onRefresh={fetchData}
         />
       )}
     </div>
