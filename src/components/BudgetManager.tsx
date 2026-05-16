@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Pencil, Trash2, Plus, Settings2 } from "lucide-react";
+import { Pencil, Trash2, Plus, Settings2, ChevronLeft, ChevronRight, Copy } from "lucide-react";
 
 type Props = {
   budgets: Budget[];
@@ -27,13 +27,23 @@ const fmt = (n: number) =>
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
+function prevMonthOf(month: number, year: number) {
+  return month === 1 ? { month: 12, year: year - 1 } : { month: month - 1, year };
+}
+function nextMonthOf(month: number, year: number) {
+  return month === 12 ? { month: 1, year: year + 1 } : { month: month + 1, year };
+}
+
 export default function BudgetManager({ budgets, categories, onRefresh, onManageCategories, currentMonth, currentYear, currentWeek }: Props) {
   const supabase = createClient();
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth);
+  const [selectedYear, setSelectedYear] = useState(currentYear);
   const [showForm, setShowForm] = useState(false);
   const [period, setPeriod] = useState<"monthly" | "weekly">("monthly");
   const [categoryId, setCategoryId] = useState("global");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const [copying, setCopying] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
 
   useBackButtonClose(showForm, () => { setShowForm(false); setEditingId(null); setAmount(""); });
@@ -43,8 +53,40 @@ export default function BudgetManager({ budgets, categories, onRefresh, onManage
     ...Object.fromEntries(categories.map((c) => [c.id, `${c.icon} ${c.name}`])),
   };
 
-  const monthlyBudgets = budgets.filter((b) => b.period === "monthly" && b.year === currentYear && b.month === currentMonth);
-  const weeklyBudgets = budgets.filter((b) => b.period === "weekly" && b.year === currentYear && b.week === currentWeek);
+  const monthlyBudgets = budgets.filter((b) =>
+    b.period === "monthly" && b.year === selectedYear && b.month === selectedMonth
+  );
+  const weeklyBudgets = budgets.filter((b) =>
+    b.period === "weekly" && b.year === currentYear && b.week === currentWeek
+  );
+
+  const prev = prevMonthOf(selectedMonth, selectedYear);
+  const next = nextMonthOf(selectedMonth, selectedYear);
+
+  // No navegar más de 2 meses al futuro
+  const isNextDisabled =
+    next.year > currentYear || (next.year === currentYear && next.month > currentMonth + 2);
+
+  const prevBudgets = budgets.filter((b) =>
+    b.period === "monthly" && b.year === prev.year && b.month === prev.month
+  );
+
+  const goToPrev = () => {
+    setSelectedMonth(prev.month);
+    setSelectedYear(prev.year);
+    setShowForm(false);
+    setEditingId(null);
+    setAmount("");
+  };
+
+  const goToNext = () => {
+    if (isNextDisabled) return;
+    setSelectedMonth(next.month);
+    setSelectedYear(next.year);
+    setShowForm(false);
+    setEditingId(null);
+    setAmount("");
+  };
 
   const handleSave = async () => {
     if (!amount || Number(amount) <= 0) return;
@@ -58,8 +100,8 @@ export default function BudgetManager({ budgets, categories, onRefresh, onManage
       period,
       category_id: categoryId === "global" ? null : categoryId,
       amount: Number(amount),
-      year: currentYear,
-      month: period === "monthly" ? currentMonth : null,
+      year: period === "monthly" ? selectedYear : currentYear,
+      month: period === "monthly" ? selectedMonth : null,
       week: period === "weekly" ? currentWeek : null,
     };
 
@@ -90,6 +132,31 @@ export default function BudgetManager({ budgets, categories, onRefresh, onManage
     setShowForm(true);
   };
 
+  const copyFromPrevMonth = async () => {
+    if (prevBudgets.length === 0) return;
+    setCopying(true);
+
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setCopying(false); return; }
+
+    const newBudgets = prevBudgets.map((b) => ({
+      user_id: user.id,
+      period: "monthly" as const,
+      category_id: b.category_id,
+      amount: b.amount,
+      year: selectedYear,
+      month: selectedMonth,
+      week: null,
+    }));
+
+    await supabase.from("budgets").upsert(newBudgets, {
+      onConflict: "user_id,category_id,period,year,month,week",
+    });
+
+    setCopying(false);
+    onRefresh();
+  };
+
   const BudgetRow = ({ b }: { b: Budget }) => {
     const cat = categories.find((c) => c.id === b.category_id);
     return (
@@ -117,11 +184,34 @@ export default function BudgetManager({ budgets, categories, onRefresh, onManage
     <div className="space-y-4">
       <Tabs defaultValue="monthly">
         <TabsList className="w-full bg-white shadow-sm">
-          <TabsTrigger value="monthly" className="flex-1">Mensual — {MONTHS[currentMonth - 1]}</TabsTrigger>
+          <TabsTrigger value="monthly" className="flex-1">Mensual</TabsTrigger>
           <TabsTrigger value="weekly" className="flex-1">Semana {currentWeek}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="monthly" className="mt-3 space-y-2">
+          {/* Navegación de mes */}
+          <div className="flex items-center justify-between bg-white border rounded-xl px-3 py-2">
+            <Button variant="ghost" size="icon" className="w-8 h-8" onClick={goToPrev}>
+              <ChevronLeft className="w-4 h-4" />
+            </Button>
+            <span className="text-sm font-semibold">
+              {MONTHS[selectedMonth - 1]} {selectedYear}
+              {selectedMonth === currentMonth && selectedYear === currentYear && (
+                <span className="ml-1.5 text-xs font-normal text-violet-500">● actual</span>
+              )}
+            </span>
+            <Button
+              variant="ghost"
+              size="icon"
+              className="w-8 h-8"
+              onClick={goToNext}
+              disabled={isNextDisabled}
+            >
+              <ChevronRight className="w-4 h-4" />
+            </Button>
+          </div>
+
+          {/* Total */}
           {monthlyBudgets.length > 0 && (
             <div className="bg-violet-50 border border-violet-100 rounded-xl px-4 py-3 flex items-center justify-between">
               <span className="text-sm text-violet-700 font-medium">Total presupuestado</span>
@@ -130,9 +220,27 @@ export default function BudgetManager({ budgets, categories, onRefresh, onManage
               </span>
             </div>
           )}
+
+          {/* Sin presupuesto — ofrecer copiar del mes anterior */}
           {monthlyBudgets.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-6">Sin presupuestos mensuales. Agrega uno.</p>
+            <div className="text-center py-6 space-y-3">
+              <p className="text-sm text-muted-foreground">
+                Sin presupuesto para {MONTHS[selectedMonth - 1]}.
+              </p>
+              {prevBudgets.length > 0 && (
+                <Button
+                  variant="outline"
+                  className="text-violet-600 border-violet-200 hover:bg-violet-50"
+                  onClick={copyFromPrevMonth}
+                  disabled={copying}
+                >
+                  <Copy className="w-4 h-4 mr-2" />
+                  {copying ? "Copiando..." : `Copiar de ${MONTHS[prev.month - 1]}`}
+                </Button>
+              )}
+            </div>
           )}
+
           {monthlyBudgets.map((b) => <BudgetRow key={b.id} b={b} />)}
         </TabsContent>
 
@@ -167,8 +275,8 @@ export default function BudgetManager({ budgets, categories, onRefresh, onManage
               >
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="monthly">Mensual</SelectItem>
-                  <SelectItem value="weekly">Semanal</SelectItem>
+                  <SelectItem value="monthly">Mensual — {MONTHS[selectedMonth - 1]} {selectedYear}</SelectItem>
+                  <SelectItem value="weekly">Semanal — Semana {currentWeek}</SelectItem>
                 </SelectContent>
               </Select>
             </div>
@@ -198,6 +306,7 @@ export default function BudgetManager({ budgets, categories, onRefresh, onManage
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
                 className="h-11"
+                autoFocus
               />
             </div>
             <div className="flex gap-2">
@@ -214,7 +323,7 @@ export default function BudgetManager({ budgets, categories, onRefresh, onManage
 
       {!showForm && (
         <div className="flex gap-2">
-          <Button className="flex-1" variant="outline" onClick={() => setShowForm(true)}>
+          <Button className="flex-1" variant="outline" onClick={() => { setShowForm(true); setPeriod("monthly"); }}>
             <Plus className="w-4 h-4 mr-1" /> Agregar presupuesto
           </Button>
           <Button variant="outline" onClick={onManageCategories} className="text-violet-600 border-violet-200 hover:bg-violet-50">
