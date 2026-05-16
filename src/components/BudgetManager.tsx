@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
-import type { Budget, Category, Account } from "@/types";
+import type { Budget, Category, Account, RecurringIncome } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ type Props = {
   budgets: Budget[];
   categories: Category[];
   accounts: Account[];
+  recurringIncome: RecurringIncome[];
   onRefresh: () => void;
   onManageCategories: () => void;
   currentMonth: number;
@@ -35,7 +36,10 @@ function nextMonthOf(month: number, year: number) {
   return month === 12 ? { month: 1, year: year + 1 } : { month: month + 1, year };
 }
 
-export default function BudgetManager({ budgets, categories, accounts, onRefresh, onManageCategories, currentMonth, currentYear, currentWeek }: Props) {
+const FREQ_MULTIPLIER: Record<string, number> = { monthly: 1, biweekly: 2, weekly: 4 };
+const FREQ_LABEL: Record<string, string> = { monthly: "mensual", biweekly: "quincenal ×2", weekly: "semanal ×4" };
+
+export default function BudgetManager({ budgets, categories, accounts, recurringIncome, onRefresh, onManageCategories, currentMonth, currentYear, currentWeek }: Props) {
   const supabase = createClient();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -212,27 +216,53 @@ export default function BudgetManager({ budgets, categories, accounts, onRefresh
             </Button>
           </div>
 
-          {/* Total presupuestado + Caja menor */}
+          {/* Resumen: ingresos esperados + presupuesto + caja menor */}
           {monthlyBudgets.length > 0 && (() => {
             const totalBudget = monthlyBudgets.reduce((s, b) => s + Number(b.amount), 0);
-            const totalAccounts = accounts.reduce((s, a) => s + Number(a.balance), 0);
-            const cajaMenor = totalAccounts - totalBudget;
+            const expectedIncome = recurringIncome.reduce(
+              (s, r) => s + Number(r.amount) * (FREQ_MULTIPLIER[r.frequency] ?? 1), 0
+            );
+            const hasIncome = recurringIncome.length > 0;
+            const cajaMenor = hasIncome
+              ? expectedIncome - totalBudget
+              : accounts.reduce((s, a) => s + Number(a.balance), 0) - totalBudget;
+            const cajaLabel = hasIncome ? "Ingresos esperados − presupuesto" : "Saldo en cuentas − presupuesto";
             return (
               <div className="rounded-xl border overflow-hidden">
+                {/* Ingresos esperados — solo si hay recurrentes */}
+                {hasIncome && (
+                  <>
+                    <div className="bg-emerald-50 px-4 py-2.5 border-b border-emerald-100">
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-sm text-emerald-700 font-medium">Ingresos esperados</span>
+                        <span className="text-base font-bold text-emerald-700">+{fmt(expectedIncome)}</span>
+                      </div>
+                      {recurringIncome.map((r) => {
+                        const mult = FREQ_MULTIPLIER[r.frequency] ?? 1;
+                        return (
+                          <div key={r.id} className="flex items-center justify-between text-xs text-emerald-600 py-0.5">
+                            <span>{r.name} <span className="text-emerald-400">({FREQ_LABEL[r.frequency]})</span></span>
+                            <span>+{fmt(Number(r.amount) * mult)}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </>
+                )}
                 <div className="bg-violet-50 px-4 py-3 flex items-center justify-between border-b border-violet-100">
                   <span className="text-sm text-violet-700 font-medium">Total presupuestado</span>
                   <span className="text-base font-bold text-violet-800">{fmt(totalBudget)}</span>
                 </div>
-                {accounts.length > 0 && (
+                {(hasIncome || accounts.length > 0) && (
                   <div className={`px-4 py-3 flex items-center justify-between ${cajaMenor >= 0 ? "bg-emerald-50" : "bg-red-50"}`}>
                     <div>
                       <span className={`text-sm font-semibold ${cajaMenor >= 0 ? "text-emerald-700" : "text-red-700"}`}>
                         Caja menor
                       </span>
-                      <p className="text-xs text-muted-foreground">Saldo en cuentas − presupuesto</p>
+                      <p className="text-xs text-muted-foreground">{cajaLabel}</p>
                     </div>
                     <span className={`text-base font-bold ${cajaMenor >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-                      {cajaMenor >= 0 ? "" : "-"}{fmt(Math.abs(cajaMenor))}
+                      {cajaMenor >= 0 ? "+" : ""}{fmt(cajaMenor)}
                     </span>
                   </div>
                 )}
