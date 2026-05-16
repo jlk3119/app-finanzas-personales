@@ -219,10 +219,15 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           {/* Resumen: ingresos esperados + presupuesto + caja menor */}
           {monthlyBudgets.length > 0 && (() => {
             const totalBudget = monthlyBudgets.reduce((s, b) => s + Number(b.amount), 0);
-            const expectedIncome = recurringIncome.reduce(
+            const activeRecurring = recurringIncome.filter((r) => {
+              if (!r.start_date) return true;
+              const [sy, sm] = r.start_date.split("-").map(Number);
+              return selectedYear > sy || (selectedYear === sy && selectedMonth >= sm);
+            });
+            const expectedIncome = activeRecurring.reduce(
               (s, r) => s + Number(r.amount) * (FREQ_MULTIPLIER[r.frequency] ?? 1), 0
             );
-            const hasIncome = recurringIncome.length > 0;
+            const hasIncome = activeRecurring.length > 0;
             const cajaMenor = hasIncome
               ? expectedIncome - totalBudget
               : accounts.reduce((s, a) => s + Number(a.balance), 0) - totalBudget;
@@ -237,7 +242,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                         <span className="text-sm text-emerald-700 font-medium">Ingresos esperados</span>
                         <span className="text-base font-bold text-emerald-700">+{fmt(expectedIncome)}</span>
                       </div>
-                      {recurringIncome.map((r) => {
+                      {activeRecurring.map((r) => {
                         const mult = FREQ_MULTIPLIER[r.frequency] ?? 1;
                         return (
                           <div key={r.id} className="flex items-center justify-between text-xs text-emerald-600 py-0.5">

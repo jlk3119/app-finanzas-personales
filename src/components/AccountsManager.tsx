@@ -45,9 +45,15 @@ type RecurringForm = {
   name: string; amount: string;
   frequency: "monthly" | "biweekly" | "weekly";
   day_of_month: string; account_id: string; auto_assign: boolean;
+  start_month: string; // "YYYY-MM"
+};
+const currentMonthStr = () => {
+  const n = new Date();
+  return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`;
 };
 const EMPTY_RECURRING: RecurringForm = {
   name: "", amount: "", frequency: "monthly", day_of_month: "", account_id: "", auto_assign: true,
+  start_month: currentMonthStr(),
 };
 
 type View = "main" | "account-form" | "income-form" | "recurring-form" | "income-list";
@@ -141,10 +147,14 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
   const openCreateRecurring = () => { setEditingRecurring(null); setRecurringForm(EMPTY_RECURRING); setView("recurring-form"); };
   const openEditRecurring = (r: RecurringIncome) => {
     setEditingRecurring(r);
+    const sm = r.start_date
+      ? r.start_date.slice(0, 7)   // "YYYY-MM-DD" → "YYYY-MM"
+      : currentMonthStr();
     setRecurringForm({
       name: r.name, amount: String(r.amount), frequency: r.frequency,
       day_of_month: r.day_of_month ? String(r.day_of_month) : "",
       account_id: r.account_id ?? "", auto_assign: r.auto_assign,
+      start_month: sm,
     });
     setView("recurring-form");
   };
@@ -161,6 +171,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
       day_of_month: recurringForm.day_of_month ? Number(recurringForm.day_of_month) : null,
       account_id: recurringForm.account_id || null,
       auto_assign: recurringForm.auto_assign,
+      start_date: recurringForm.start_month ? `${recurringForm.start_month}-01` : null,
     };
     if (editingRecurring) {
       await supabase.from("recurring_income").update(payload).eq("id", editingRecurring.id);
@@ -355,6 +366,20 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
           )}
         </div>
 
+        {/* Vigente desde */}
+        <div className="space-y-1.5">
+          <Label>Vigente desde</Label>
+          <Input
+            type="month"
+            value={recurringForm.start_month}
+            onChange={(e) => setRecurringForm({ ...recurringForm, start_month: e.target.value })}
+            className="h-11"
+          />
+          <p className="text-xs text-muted-foreground">
+            El ingreso solo se contará a partir de este mes (inclusive).
+          </p>
+        </div>
+
         {/* Toggle asignación automática */}
         <div className="space-y-1.5">
           <Label>Asignación automática</Label>
@@ -521,6 +546,9 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
                         <p className="text-sm font-semibold text-gray-800">{r.name}</p>
                         <p className="text-xs text-muted-foreground">
                           {FREQ_LABELS[r.frequency]}
+                          {r.start_date && (
+                            <span> · desde {new Date(r.start_date + "T12:00:00").toLocaleDateString("es-CO", { month: "short", year: "numeric" })}</span>
+                          )}
                           {acc && <span> → {acc.name}</span>}
                         </p>
                       </div>

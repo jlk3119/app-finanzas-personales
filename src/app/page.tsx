@@ -63,13 +63,17 @@ export default function Dashboard() {
     incData: Income[],
     accData: Account[],
   ): Promise<boolean> => {
-    const toAssign = recurData.filter((r) => r.auto_assign);
-    if (toAssign.length === 0) return false;
-
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
 
     const today = new Date();
+    const todayYM = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
+    const toAssign = recurData.filter((r) => {
+      if (!r.auto_assign) return false;
+      if (!r.start_date) return true;
+      return r.start_date.slice(0, 7) <= todayYM;
+    });
+    if (toAssign.length === 0) return false;
     let anyAssigned = false;
     const balanceDelta = new Map<string, number>();
 
