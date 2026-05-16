@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback } from "react";
+import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
 import type { Expense, Budget, Category, Goal } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +34,10 @@ export default function Dashboard() {
   const [showForm, setShowForm] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState("dashboard");
+
+  useBackButtonClose(showForm, () => setShowForm(false));
+  useBackButtonClose(showCategories, () => setShowCategories(false));
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
@@ -54,6 +59,24 @@ export default function Dashboard() {
   }, [supabase]);
 
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const tab = params.get("tab");
+    if (tab) setActiveTab(tab);
+
+    const handlePop = () => {
+      const p = new URLSearchParams(window.location.search);
+      setActiveTab(p.get("tab") || "dashboard");
+    };
+    window.addEventListener("popstate", handlePop);
+    return () => window.removeEventListener("popstate", handlePop);
+  }, []);
+
+  const handleTabChange = (value: string) => {
+    setActiveTab(value);
+    window.history.pushState({}, "", `?tab=${value}`);
+  };
 
   const signOut = async () => {
     await supabase.auth.signOut();
@@ -146,7 +169,7 @@ export default function Dashboard() {
       </div>
 
       <div className="px-4 mt-4">
-        <Tabs defaultValue="dashboard">
+        <Tabs value={activeTab} onValueChange={handleTabChange}>
           <TabsList className="w-full mb-4 bg-white shadow-sm">
             <TabsTrigger value="dashboard" className="flex-1 text-xs"><TrendingDown className="w-3 h-3 mr-1" />Resumen</TabsTrigger>
             <TabsTrigger value="expenses" className="flex-1 text-xs"><Wallet className="w-3 h-3 mr-1" />Gastos</TabsTrigger>

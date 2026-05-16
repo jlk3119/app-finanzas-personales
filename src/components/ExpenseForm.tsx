@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import { X } from "lucide-react";
 
 type Props = {
   categories: Category[];
@@ -51,72 +52,80 @@ export default function ExpenseForm({ categories, onClose, onSaved }: Props) {
 
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
-      <SheetContent side="bottom" className="rounded-t-2xl pb-8">
-        <SheetHeader className="mb-4">
-          <SheetTitle>Nuevo gasto</SheetTitle>
+      <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] flex flex-col gap-0 p-0 pb-8" showCloseButton={false}>
+        {/* Sticky header */}
+        <SheetHeader className="sticky top-0 z-10 bg-white rounded-t-2xl flex-row items-center justify-between px-4 py-3 border-b mb-0 gap-0">
+          <SheetTitle className="text-base">Nuevo gasto</SheetTitle>
+          <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground" onClick={onClose}>
+            <X className="w-4 h-4" />
+          </Button>
         </SheetHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
-          <div className="space-y-1">
-            <Label htmlFor="amount">Monto *</Label>
-            <Input
-              id="amount"
-              type="number"
-              inputMode="decimal"
-              placeholder="0"
-              value={amount}
-              onChange={(e) => setAmount(e.target.value)}
-              className="text-xl h-12"
-              autoFocus
-            />
-          </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="category">Categoría</Label>
-            <Select onValueChange={(v) => setCategoryId(v ?? "")} value={categoryId} items={categoryItems}>
-              <SelectTrigger id="category" className="h-11 w-full">
-                <SelectValue placeholder="Selecciona una categoría" />
-              </SelectTrigger>
-              <SelectContent>
-                {categories.map((cat) => (
-                  <SelectItem key={cat.id} value={cat.id}>
-                    {cat.icon} {cat.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
+        {/* Formulario con scroll */}
+        <div className="overflow-y-auto flex-1 px-4 pt-4">
+          <form onSubmit={handleSubmit} className="space-y-4">
+            <div className="space-y-1">
+              <Label htmlFor="amount">Monto *</Label>
+              <Input
+                id="amount"
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={amount}
+                onChange={(e) => setAmount(e.target.value)}
+                className="text-xl h-12"
+                autoFocus
+              />
+            </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="description">Descripción (opcional)</Label>
-            <Input
-              id="description"
-              placeholder="¿En qué gastaste?"
-              value={description}
-              onChange={(e) => setDescription(e.target.value)}
-            />
-          </div>
+            <div className="space-y-1">
+              <Label htmlFor="category">Categoría</Label>
+              <Select onValueChange={(v) => setCategoryId(v ?? "")} value={categoryId} items={categoryItems}>
+                <SelectTrigger id="category" className="h-11 w-full">
+                  <SelectValue placeholder="Selecciona una categoría" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.icon} {cat.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
 
-          <div className="space-y-1">
-            <Label htmlFor="date">Fecha</Label>
-            <Input
-              id="date"
-              type="date"
-              value={date}
-              onChange={(e) => setDate(e.target.value)}
-            />
-          </div>
+            <div className="space-y-1">
+              <Label htmlFor="description">Descripción (opcional)</Label>
+              <Input
+                id="description"
+                placeholder="¿En qué gastaste?"
+                value={description}
+                onChange={(e) => setDescription(e.target.value)}
+              />
+            </div>
 
-          {error && <p className="text-sm text-red-500">{error}</p>}
+            <div className="space-y-1">
+              <Label htmlFor="date">Fecha</Label>
+              <Input
+                id="date"
+                type="date"
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+              />
+            </div>
 
-          <div className="flex gap-2 pt-2">
-            <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
-              Cancelar
-            </Button>
-            <Button type="submit" className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={loading}>
-              {loading ? "Guardando..." : "Guardar gasto"}
-            </Button>
-          </div>
-        </form>
+            {error && <p className="text-sm text-red-500">{error}</p>}
+
+            <div className="flex gap-2 pt-2 pb-2">
+              <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
+                Cancelar
+              </Button>
+              <Button type="submit" className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={loading}>
+                {loading ? "Guardando..." : "Guardar gasto"}
+              </Button>
+            </div>
+          </form>
+        </div>
       </SheetContent>
     </Sheet>
   );

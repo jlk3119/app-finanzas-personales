@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
 import type { Budget, Category } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -33,6 +34,8 @@ export default function BudgetManager({ budgets, categories, onRefresh, currentM
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+
+  useBackButtonClose(showForm, () => { setShowForm(false); setEditingId(null); setAmount(""); });
 
   const categoryItems: Record<string, string> = {
     global: "🌐 Total general",

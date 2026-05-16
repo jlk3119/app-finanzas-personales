@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
 import type { Goal } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
@@ -29,6 +30,9 @@ export default function GoalsList({ goals, onRefresh }: Props) {
   const [loading, setLoading] = useState(false);
   const [addingToGoal, setAddingToGoal] = useState<string | null>(null);
   const [addAmount, setAddAmount] = useState("");
+
+  useBackButtonClose(showForm, () => setShowForm(false));
+  useBackButtonClose(addingToGoal !== null, () => { setAddingToGoal(null); setAddAmount(""); });
 
   const handleCreate = async () => {
     if (!name || !target || Number(target) <= 0) return;
