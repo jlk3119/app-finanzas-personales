@@ -9,7 +9,10 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pencil, Trash2, Plus, Check, X, ChevronRight, Download, RefreshCw } from "lucide-react";
-import { getCurrentPayPeriod, getNextPayDate } from "@/utils/colombian-holidays";
+import {
+  getCurrentPayPeriod, getNextPayDate,
+  getCustomPayPeriod, getNextCustomPayDate,
+} from "@/utils/colombian-holidays";
 
 type Props = {
   accounts: Account[];
@@ -44,6 +47,7 @@ const emptyIncome = (): IncomeForm => ({
 type RecurringForm = {
   name: string; amount: string;
   frequency: "monthly" | "biweekly" | "weekly";
+  is_salary: boolean;
   day_of_month: string; account_id: string; auto_assign: boolean;
   start_month: string; // "YYYY-MM"
 };
@@ -52,8 +56,8 @@ const currentMonthStr = () => {
   return `${n.getFullYear()}-${String(n.getMonth() + 1).padStart(2, "0")}`;
 };
 const EMPTY_RECURRING: RecurringForm = {
-  name: "", amount: "", frequency: "monthly", day_of_month: "", account_id: "", auto_assign: true,
-  start_month: currentMonthStr(),
+  name: "", amount: "", frequency: "monthly", is_salary: false,
+  day_of_month: "", account_id: "", auto_assign: true, start_month: currentMonthStr(),
 };
 
 type View = "main" | "account-form" | "income-form" | "recurring-form" | "income-list";
@@ -75,8 +79,15 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
   const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
 
   /* ── Helpers ── */
+  const getActivePeriod = (r: RecurringIncome) => {
+    const today = new Date();
+    if (r.is_salary) return getCurrentPayPeriod(r.frequency, today);
+    if (r.day_of_month) return getCustomPayPeriod(r.frequency, today, r.day_of_month);
+    return null;
+  };
+
   const isReceivedThisPeriod = (r: RecurringIncome): boolean => {
-    const period = getCurrentPayPeriod(r.frequency, new Date());
+    const period = getActivePeriod(r);
     if (!period) return false;
     return income.some((i) => i.recurring_income_id === r.id && i.period_key === period.periodKey);
   };
@@ -152,9 +163,9 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
       : currentMonthStr();
     setRecurringForm({
       name: r.name, amount: String(r.amount), frequency: r.frequency,
+      is_salary: r.is_salary,
       day_of_month: r.day_of_month ? String(r.day_of_month) : "",
-      account_id: r.account_id ?? "", auto_assign: r.auto_assign,
-      start_month: sm,
+      account_id: r.account_id ?? "", auto_assign: r.auto_assign, start_month: sm,
     });
     setView("recurring-form");
   };
@@ -168,7 +179,10 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
       name: recurringForm.name.trim(),
       amount: Number(recurringForm.amount),
       frequency: recurringForm.frequency,
-      day_of_month: recurringForm.day_of_month ? Number(recurringForm.day_of_month) : null,
+      is_salary: recurringForm.is_salary,
+      day_of_month: !recurringForm.is_salary && recurringForm.day_of_month
+        ? Number(recurringForm.day_of_month)
+        : null,
       account_id: recurringForm.account_id || null,
       auto_assign: recurringForm.auto_assign,
       start_date: recurringForm.start_month ? `${recurringForm.start_month}-01` : null,
@@ -192,7 +206,11 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setReceivingId(null); return; }
     const today = new Date();
-    const period = getCurrentPayPeriod(r.frequency, today);
+    const period = r.is_salary
+      ? getCurrentPayPeriod(r.frequency, today)
+      : r.day_of_month
+        ? getCustomPayPeriod(r.frequency, today, r.day_of_month)
+        : null;
     await supabase.from("income").insert({
       user_id: user.id,
       account_id: r.account_id,
@@ -337,6 +355,40 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
             onChange={(e) => setRecurringForm({ ...recurringForm, amount: e.target.value })} className="h-11" />
         </div>
 
+        {/* Tipo de ingreso */}
+        <div className="space-y-1.5">
+          <Label>Tipo de ingreso</Label>
+          <div className="grid grid-cols-2 gap-2">
+            <button
+              type="button"
+              className={`rounded-xl py-3 text-sm font-medium transition-all border ${
+                recurringForm.is_salary
+                  ? "bg-indigo-600 text-white border-indigo-600"
+                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+              }`}
+              onClick={() => setRecurringForm({ ...recurringForm, is_salary: true, day_of_month: "" })}
+            >
+              💼 Salario / nómina
+            </button>
+            <button
+              type="button"
+              className={`rounded-xl py-3 text-sm font-medium transition-all border ${
+                !recurringForm.is_salary
+                  ? "bg-violet-600 text-white border-violet-600"
+                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+              }`}
+              onClick={() => setRecurringForm({ ...recurringForm, is_salary: false })}
+            >
+              📥 Otro ingreso
+            </button>
+          </div>
+          {recurringForm.is_salary && (
+            <p className="text-xs text-indigo-600 bg-indigo-50 rounded-lg px-3 py-2">
+              Se asignará el último día hábil del período (festivos CO incluidos).
+            </p>
+          )}
+        </div>
+
         <div className="space-y-1">
           <Label>Frecuencia</Label>
           <Select value={recurringForm.frequency}
@@ -350,6 +402,30 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
             </SelectContent>
           </Select>
         </div>
+
+        {/* Día de pago — solo para no-salario y frecuencia mensual o quincenal */}
+        {!recurringForm.is_salary && recurringForm.frequency !== "weekly" && (
+          <div className="space-y-1.5">
+            <Label>
+              {recurringForm.frequency === "biweekly" ? "Día de la 1ª quincena (1–15)" : "Día de pago del mes (1–31)"}
+            </Label>
+            <Input
+              type="number"
+              inputMode="numeric"
+              placeholder={recurringForm.frequency === "biweekly" ? "Ej: 15" : "Ej: 25"}
+              min={1}
+              max={recurringForm.frequency === "biweekly" ? 15 : 31}
+              value={recurringForm.day_of_month}
+              onChange={(e) => setRecurringForm({ ...recurringForm, day_of_month: e.target.value })}
+              className="h-11"
+            />
+            {recurringForm.frequency === "biweekly" && (
+              <p className="text-xs text-muted-foreground">
+                La 2ª quincena siempre cae el último día del mes.
+              </p>
+            )}
+          </div>
+        )}
 
         <div className="space-y-1">
           <Label>Cuenta destino</Label>
@@ -532,7 +608,11 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
             {recurringIncome.map((r) => {
               const acc = accounts.find((a) => a.id === r.account_id);
               const received = isReceivedThisPeriod(r);
-              const nextDate = getNextPayDate(r.frequency, new Date());
+              const nextDate = r.is_salary
+                ? getNextPayDate(r.frequency, new Date())
+                : r.day_of_month
+                  ? getNextCustomPayDate(r.frequency, new Date(), r.day_of_month)
+                  : null;
 
               return (
                 <div key={r.id} className="bg-white border rounded-2xl overflow-hidden shadow-sm">
@@ -566,6 +646,9 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
                   {/* Monto + badges */}
                   <div className="px-4 pb-2 flex items-center gap-2 flex-wrap">
                     <span className="text-lg font-bold text-gray-900">{fmt(r.amount)}</span>
+                    {r.is_salary && (
+                      <span className="text-[10px] font-medium bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">💼 salario</span>
+                    )}
                     {r.auto_assign && (
                       <span className="text-[10px] font-medium bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">⚡ auto</span>
                     )}
@@ -575,12 +658,14 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
                   </div>
 
                   {/* Próximo pago */}
-                  <div className="px-4 pb-3 text-xs text-muted-foreground">
-                    {received
-                      ? <span>Próxima fecha: {fmtDate(nextDate)}</span>
-                      : <span>Pago esperado: <span className="font-medium text-gray-700">{fmtDate(nextDate)}</span></span>
-                    }
-                  </div>
+                  {nextDate && (
+                    <div className="px-4 pb-3 text-xs text-muted-foreground">
+                      {received
+                        ? <span>Próxima fecha: {fmtDate(nextDate)}</span>
+                        : <span>Pago esperado: <span className="font-medium text-gray-700">{fmtDate(nextDate)}</span></span>
+                      }
+                    </div>
+                  )}
 
                   {/* Botón recibir — solo si no ha sido recibido este período */}
                   {!received && (

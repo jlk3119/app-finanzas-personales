@@ -169,3 +169,84 @@ export function getNextPayDate(
   const friday = addDays(today, daysToFriday === 0 ? 7 : daysToFriday);
   return dateKey(lastBusinessDay(friday, holidays));
 }
+
+// ── Ingresos no-salario con día de pago fijo ──────────────────────────────
+
+function clampDay(day: number, year: number, month: number): number {
+  return Math.min(day, new Date(year, month, 0).getDate());
+}
+
+// Retorna el período activo si ya llegó el día de pago, o null si todavía no.
+export function getCustomPayPeriod(
+  frequency: "monthly" | "biweekly" | "weekly",
+  today: Date,
+  dayOfMonth: number,
+): PayPeriod | null {
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  const todayStr = dateKey(today);
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  if (frequency === "monthly") {
+    const pd = `${year}-${pad(month)}-${pad(clampDay(dayOfMonth, year, month))}`;
+    return todayStr >= pd ? { payDate: pd, periodKey: `${year}-${pad(month)}` } : null;
+  }
+
+  if (frequency === "biweekly") {
+    if (day <= 15) {
+      const q1Day = clampDay(Math.min(dayOfMonth, 15), year, month);
+      const pd = `${year}-${pad(month)}-${pad(q1Day)}`;
+      return todayStr >= pd ? { payDate: pd, periodKey: `${year}-${pad(month)}-Q1` } : null;
+    }
+    // Q2: siempre último día del mes
+    const lastDay = new Date(year, month, 0).getDate();
+    const pd = `${year}-${pad(month)}-${pad(lastDay)}`;
+    return todayStr >= pd ? { payDate: pd, periodKey: `${year}-${pad(month)}-Q2` } : null;
+  }
+
+  // weekly: usa último día hábil de semana (aplica independientemente de is_salary)
+  return getCurrentPayPeriod("weekly", today);
+}
+
+// Retorna la próxima fecha de pago para un ingreso no-salario.
+export function getNextCustomPayDate(
+  frequency: "monthly" | "biweekly" | "weekly",
+  today: Date,
+  dayOfMonth: number,
+): string {
+  const year = today.getFullYear();
+  const month = today.getMonth() + 1;
+  const day = today.getDate();
+  const todayStr = dateKey(today);
+  const pad = (n: number) => String(n).padStart(2, "0");
+
+  const nextQ1 = (y: number, m: number) => {
+    const d = clampDay(Math.min(dayOfMonth, 15), y, m);
+    return `${y}-${pad(m)}-${pad(d)}`;
+  };
+  const lastDayStr = (y: number, m: number) =>
+    `${y}-${pad(m)}-${pad(new Date(y, m, 0).getDate())}`;
+
+  if (frequency === "monthly") {
+    const pd = `${year}-${pad(month)}-${pad(clampDay(dayOfMonth, year, month))}`;
+    if (todayStr <= pd) return pd;
+    const nm = month === 12 ? 1 : month + 1;
+    const ny = month === 12 ? year + 1 : year;
+    return `${ny}-${pad(nm)}-${pad(clampDay(dayOfMonth, ny, nm))}`;
+  }
+
+  if (frequency === "biweekly") {
+    if (day <= 15) {
+      const pd = nextQ1(year, month);
+      if (todayStr <= pd) return pd;
+    }
+    const pd = lastDayStr(year, month);
+    if (todayStr <= pd) return pd;
+    const nm = month === 12 ? 1 : month + 1;
+    const ny = month === 12 ? year + 1 : year;
+    return nextQ1(ny, nm);
+  }
+
+  return getNextPayDate("weekly", today);
+}

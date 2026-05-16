@@ -4,7 +4,7 @@ import { useEffect, useState, useCallback } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
 import type { Expense, Budget, Category, Goal, Account, Income, RecurringIncome } from "@/types";
-import { getCurrentPayPeriod } from "@/utils/colombian-holidays";
+import { getCurrentPayPeriod, getCustomPayPeriod } from "@/utils/colombian-holidays";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -78,7 +78,11 @@ export default function Dashboard() {
     const balanceDelta = new Map<string, number>();
 
     for (const r of toAssign) {
-      const period = getCurrentPayPeriod(r.frequency, today);
+      const period = r.is_salary
+        ? getCurrentPayPeriod(r.frequency, today)
+        : r.day_of_month
+          ? getCustomPayPeriod(r.frequency, today, r.day_of_month)
+          : null;
       if (!period) continue;
 
       const alreadyDone = incData.some(

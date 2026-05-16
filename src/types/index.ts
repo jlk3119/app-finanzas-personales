@@ -50,6 +50,7 @@ export type RecurringIncome = {
   amount: number;
   frequency: "monthly" | "biweekly" | "weekly";
   day_of_month: number | null;
+  is_salary: boolean;
   auto_assign: boolean;
   start_date: string | null;
   created_at: string;
