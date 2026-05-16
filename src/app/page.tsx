@@ -283,6 +283,58 @@ export default function Dashboard() {
       <div className="px-4 mt-4 space-y-4">
         {activeTab === "dashboard" && (
           <>
+            {accounts.length === 0 && expenses.length === 0 && budgets.length === 0 && recurringIncome.length === 0 && (
+              <Card className="border-violet-200 bg-gradient-to-br from-violet-50 to-indigo-50">
+                <CardContent className="pt-6 pb-5 space-y-4">
+                  <div className="text-center">
+                    <div className="text-4xl mb-2">👋</div>
+                    <h2 className="text-lg font-bold text-violet-900">¡Bienvenido a MisFinanzas!</h2>
+                    <p className="text-sm text-violet-700 mt-1">Sigue estos pasos para comenzar a controlar tus finanzas:</p>
+                  </div>
+                  <ol className="space-y-3">
+                    <li>
+                      <button
+                        className="w-full flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm text-left hover:bg-violet-50 transition-colors"
+                        onClick={() => handleTabChange("accounts")}
+                      >
+                        <span className="w-7 h-7 rounded-full bg-violet-100 text-violet-700 font-bold text-sm flex items-center justify-center shrink-0">1</span>
+                        <div>
+                          <p className="font-medium text-sm">Agrega tu cuenta bancaria</p>
+                          <p className="text-xs text-muted-foreground">Registra dónde guardas tu dinero</p>
+                        </div>
+                        <span className="ml-auto text-violet-400 text-lg">›</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        className="w-full flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm text-left hover:bg-violet-50 transition-colors"
+                        onClick={() => handleTabChange("accounts")}
+                      >
+                        <span className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center shrink-0">2</span>
+                        <div>
+                          <p className="font-medium text-sm">Configura tus ingresos</p>
+                          <p className="text-xs text-muted-foreground">Salario u otros ingresos recurrentes</p>
+                        </div>
+                        <span className="ml-auto text-violet-400 text-lg">›</span>
+                      </button>
+                    </li>
+                    <li>
+                      <button
+                        className="w-full flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm text-left hover:bg-violet-50 transition-colors"
+                        onClick={() => handleTabChange("budget")}
+                      >
+                        <span className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 font-bold text-sm flex items-center justify-center shrink-0">3</span>
+                        <div>
+                          <p className="font-medium text-sm">Crea tu presupuesto mensual</p>
+                          <p className="text-xs text-muted-foreground">Define cuánto puedes gastar</p>
+                        </div>
+                        <span className="ml-auto text-violet-400 text-lg">›</span>
+                      </button>
+                    </li>
+                  </ol>
+                </CardContent>
+              </Card>
+            )}
             {categorySpend.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
