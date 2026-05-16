@@ -122,6 +122,14 @@ export default function BudgetManager({ budgets, categories, onRefresh, onManage
         </TabsList>
 
         <TabsContent value="monthly" className="mt-3 space-y-2">
+          {monthlyBudgets.length > 0 && (
+            <div className="bg-violet-50 border border-violet-100 rounded-xl px-4 py-3 flex items-center justify-between">
+              <span className="text-sm text-violet-700 font-medium">Total presupuestado</span>
+              <span className="text-base font-bold text-violet-800">
+                {fmt(monthlyBudgets.reduce((s, b) => s + Number(b.amount), 0))}
+              </span>
+            </div>
+          )}
           {monthlyBudgets.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-6">Sin presupuestos mensuales. Agrega uno.</p>
           )}
@@ -129,6 +137,14 @@ export default function BudgetManager({ budgets, categories, onRefresh, onManage
         </TabsContent>
 
         <TabsContent value="weekly" className="mt-3 space-y-2">
+          {weeklyBudgets.length > 0 && (
+            <div className="bg-violet-50 border border-violet-100 rounded-xl px-4 py-3 flex items-center justify-between">
+              <span className="text-sm text-violet-700 font-medium">Total presupuestado</span>
+              <span className="text-base font-bold text-violet-800">
+                {fmt(weeklyBudgets.reduce((s, b) => s + Number(b.amount), 0))}
+              </span>
+            </div>
+          )}
           {weeklyBudgets.length === 0 && (
             <p className="text-sm text-muted-foreground text-center py-6">Sin presupuestos semanales. Agrega uno.</p>
           )}
