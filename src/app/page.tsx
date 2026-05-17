@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, LogOut, Target, TrendingDown, Wallet, Settings, Landmark, Trophy } from "lucide-react";
+import { PlusCircle, LogOut, Target, TrendingDown, Wallet, Settings, Landmark, Trophy, CheckCircle2 } from "lucide-react";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import BudgetManager from "@/components/BudgetManager";
@@ -283,58 +283,59 @@ export default function Dashboard() {
       <div className="px-4 mt-4 space-y-4">
         {activeTab === "dashboard" && (
           <>
-            {accounts.length === 0 && expenses.length === 0 && budgets.length === 0 && recurringIncome.length === 0 && (
-              <Card className="border-violet-200 bg-gradient-to-br from-violet-50 to-indigo-50">
-                <CardContent className="pt-6 pb-5 space-y-4">
-                  <div className="text-center">
-                    <div className="text-4xl mb-2">👋</div>
-                    <h2 className="text-lg font-bold text-violet-900">¡Bienvenido a MisFinanzas!</h2>
-                    <p className="text-sm text-violet-700 mt-1">Sigue estos pasos para comenzar a controlar tus finanzas:</p>
-                  </div>
-                  <ol className="space-y-3">
-                    <li>
-                      <button
-                        className="w-full flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm text-left hover:bg-violet-50 transition-colors"
-                        onClick={() => handleTabChange("accounts")}
-                      >
-                        <span className="w-7 h-7 rounded-full bg-violet-100 text-violet-700 font-bold text-sm flex items-center justify-center shrink-0">1</span>
-                        <div>
-                          <p className="font-medium text-sm">Agrega tu cuenta bancaria</p>
-                          <p className="text-xs text-muted-foreground">Registra dónde guardas tu dinero</p>
-                        </div>
-                        <span className="ml-auto text-violet-400 text-lg">›</span>
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        className="w-full flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm text-left hover:bg-violet-50 transition-colors"
-                        onClick={() => handleTabChange("accounts")}
-                      >
-                        <span className="w-7 h-7 rounded-full bg-indigo-100 text-indigo-700 font-bold text-sm flex items-center justify-center shrink-0">2</span>
-                        <div>
-                          <p className="font-medium text-sm">Configura tus ingresos</p>
-                          <p className="text-xs text-muted-foreground">Salario u otros ingresos recurrentes</p>
-                        </div>
-                        <span className="ml-auto text-violet-400 text-lg">›</span>
-                      </button>
-                    </li>
-                    <li>
-                      <button
-                        className="w-full flex items-center gap-3 bg-white rounded-xl p-3 shadow-sm text-left hover:bg-violet-50 transition-colors"
-                        onClick={() => handleTabChange("budget")}
-                      >
-                        <span className="w-7 h-7 rounded-full bg-emerald-100 text-emerald-700 font-bold text-sm flex items-center justify-center shrink-0">3</span>
-                        <div>
-                          <p className="font-medium text-sm">Crea tu presupuesto mensual</p>
-                          <p className="text-xs text-muted-foreground">Define cuánto puedes gastar</p>
-                        </div>
-                        <span className="ml-auto text-violet-400 text-lg">›</span>
-                      </button>
-                    </li>
-                  </ol>
-                </CardContent>
-              </Card>
-            )}
+            {(() => {
+              const s1 = accounts.length > 0;
+              const s2 = recurringIncome.length > 0;
+              const s3 = budgets.some((b) => b.period === "monthly");
+              if (s1 && s2 && s3) return null;
+              const steps = [
+                { done: s1, label: "Agrega tu cuenta bancaria",   desc: "Registra dónde guardas tu dinero",               tab: "accounts" as TabValue },
+                { done: s2, label: "Configura tus ingresos",      desc: "Salario u otros ingresos fijos del mes",         tab: "accounts" as TabValue },
+                { done: s3, label: "Crea tu presupuesto mensual", desc: "Pon un límite a lo que puedes gastar",           tab: "budget"   as TabValue },
+              ];
+              const doneCount = steps.filter((s) => s.done).length;
+              return (
+                <Card className="border-violet-200 bg-gradient-to-br from-violet-50 to-indigo-50">
+                  <CardContent className="pt-5 pb-4 space-y-3">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <h2 className="text-sm font-bold text-violet-900">
+                          {doneCount === 0 ? "👋 ¡Bienvenido a MisFinanzas!" : "Configuración inicial"}
+                        </h2>
+                        <p className="text-xs text-violet-600 mt-0.5">{doneCount} de 3 pasos completados</p>
+                      </div>
+                      <div className="flex gap-1">
+                        {steps.map((s, i) => (
+                          <div key={i} className={`w-2 h-2 rounded-full ${s.done ? "bg-emerald-500" : "bg-violet-200"}`} />
+                        ))}
+                      </div>
+                    </div>
+                    <ol className="space-y-2">
+                      {steps.map((step, i) => step.done ? (
+                        <li key={i} className="flex items-center gap-2.5 bg-white/60 rounded-xl px-3 py-2.5">
+                          <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
+                          <p className="text-sm text-emerald-700 line-through">{step.label}</p>
+                        </li>
+                      ) : (
+                        <li key={i}>
+                          <button
+                            className="w-full flex items-center gap-2.5 bg-white rounded-xl px-3 py-2.5 shadow-sm text-left active:bg-violet-50 transition-colors"
+                            onClick={() => handleTabChange(step.tab)}
+                          >
+                            <span className="w-5 h-5 rounded-full bg-violet-100 text-violet-700 font-bold text-[10px] flex items-center justify-center shrink-0">{i + 1}</span>
+                            <div className="min-w-0">
+                              <p className="font-semibold text-sm text-gray-800">{step.label}</p>
+                              <p className="text-xs text-muted-foreground">{step.desc}</p>
+                            </div>
+                            <span className="ml-auto text-violet-400 text-base shrink-0">›</span>
+                          </button>
+                        </li>
+                      ))}
+                    </ol>
+                  </CardContent>
+                </Card>
+              );
+            })()}
             {categorySpend.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
@@ -432,14 +433,14 @@ export default function Dashboard() {
       </div>
 
       {/* FAB — encima del nav inferior */}
-      <div className="fixed bottom-[72px] right-4 z-50">
-        <Button
-          size="lg"
-          className="rounded-full w-14 h-14 shadow-lg bg-violet-600 hover:bg-violet-700"
+      <div className="fixed bottom-[76px] right-4 z-50">
+        <button
+          className="flex items-center gap-2 bg-violet-600 active:bg-violet-800 text-white rounded-full pl-4 pr-5 py-3 shadow-lg active:scale-95 transition-transform"
           onClick={() => setShowForm(true)}
         >
-          <PlusCircle className="w-6 h-6" />
-        </Button>
+          <PlusCircle className="w-5 h-5 shrink-0" />
+          <span className="text-sm font-semibold">Nuevo gasto</span>
+        </button>
       </div>
 
       {/* Barra de navegación inferior */}

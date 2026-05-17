@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Pencil, Trash2, Plus, Settings2, ChevronLeft, ChevronRight, Copy } from "lucide-react";
+import { Pencil, Trash2, Plus, Settings2, ChevronLeft, ChevronRight, Copy, Info } from "lucide-react";
 
 type Props = {
   budgets: Budget[];
@@ -50,6 +50,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const [loading, setLoading] = useState(false);
   const [copying, setCopying] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
+  const [showCajaInfo, setShowCajaInfo] = useState(false);
 
   useBackButtonClose(showForm, () => { setShowForm(false); setEditingId(null); setAmount(""); });
 
@@ -190,7 +191,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
       <Tabs defaultValue="monthly">
         <TabsList className="w-full bg-white shadow-sm">
           <TabsTrigger value="monthly" className="flex-1">Mensual</TabsTrigger>
-          <TabsTrigger value="weekly" className="flex-1">Semana {currentWeek}</TabsTrigger>
+          <TabsTrigger value="weekly" className="flex-1">Esta semana</TabsTrigger>
         </TabsList>
 
         <TabsContent value="monthly" className="mt-3 space-y-2">
@@ -259,16 +260,27 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                   <span className="text-base font-bold text-violet-800">{fmt(totalBudget)}</span>
                 </div>
                 {(hasIncome || accounts.length > 0) && (
-                  <div className={`px-4 py-3 flex items-center justify-between ${cajaMenor >= 0 ? "bg-emerald-50" : "bg-red-50"}`}>
-                    <div>
-                      <span className={`text-sm font-semibold ${cajaMenor >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-                        Caja menor
+                  <div className={`px-4 py-3 ${cajaMenor >= 0 ? "bg-emerald-50" : "bg-red-50"}`}>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-1.5">
+                        <span className={`text-sm font-semibold ${cajaMenor >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                          Margen libre
+                        </span>
+                        <button type="button" onClick={() => setShowCajaInfo((v) => !v)} className="text-muted-foreground hover:text-gray-600">
+                          <Info className="w-3.5 h-3.5" />
+                        </button>
+                      </div>
+                      <span className={`text-base font-bold ${cajaMenor >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                        {cajaMenor >= 0 ? "+" : ""}{fmt(cajaMenor)}
                       </span>
-                      <p className="text-xs text-muted-foreground">{cajaLabel}</p>
                     </div>
-                    <span className={`text-base font-bold ${cajaMenor >= 0 ? "text-emerald-700" : "text-red-700"}`}>
-                      {cajaMenor >= 0 ? "+" : ""}{fmt(cajaMenor)}
-                    </span>
+                    {showCajaInfo ? (
+                      <p className="text-xs text-muted-foreground mt-1.5 bg-white/70 rounded-lg px-2.5 py-2 leading-relaxed">
+                        Es lo que te sobra (o te falta) después de cubrir todo lo presupuestado. Si es negativo, tus gastos planeados superan tus ingresos esperados.
+                      </p>
+                    ) : (
+                      <p className="text-xs text-muted-foreground mt-0.5">{cajaLabel}</p>
+                    )}
                   </div>
                 )}
               </div>
@@ -277,19 +289,24 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
           {/* Sin presupuesto — ofrecer copiar del mes anterior */}
           {monthlyBudgets.length === 0 && (
-            <div className="text-center py-6 space-y-3">
-              <p className="text-sm text-muted-foreground">
-                Sin presupuesto para {MONTHS[selectedMonth - 1]}.
-              </p>
+            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 space-y-3 text-center">
+              <p className="text-3xl">📊</p>
+              <div>
+                <p className="text-sm font-semibold text-gray-700">Sin presupuesto para {MONTHS[selectedMonth - 1]}</p>
+                <p className="text-xs text-muted-foreground mt-1">
+                  Un presupuesto te permite definir cuánto puedes gastar en total o por categoría (comida, transporte, entretenimiento…).
+                </p>
+              </div>
               {prevBudgets.length > 0 && (
                 <Button
                   variant="outline"
+                  size="sm"
                   className="text-violet-600 border-violet-200 hover:bg-violet-50"
                   onClick={copyFromPrevMonth}
                   disabled={copying}
                 >
-                  <Copy className="w-4 h-4 mr-2" />
-                  {copying ? "Copiando..." : `Copiar de ${MONTHS[prev.month - 1]}`}
+                  <Copy className="w-3.5 h-3.5 mr-1.5" />
+                  {copying ? "Copiando..." : `Usar el de ${MONTHS[prev.month - 1]}`}
                 </Button>
               )}
             </div>
@@ -308,7 +325,13 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
             </div>
           )}
           {weeklyBudgets.length === 0 && (
-            <p className="text-sm text-muted-foreground text-center py-6">Sin presupuestos semanales. Agrega uno.</p>
+            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 space-y-2 text-center">
+              <p className="text-3xl">📅</p>
+              <p className="text-sm font-semibold text-gray-700">Sin presupuesto para esta semana</p>
+              <p className="text-xs text-muted-foreground">
+                Ideal para controlar gastos de ocio, salidas o compras puntuales de la semana.
+              </p>
+            </div>
           )}
           {weeklyBudgets.map((b) => <BudgetRow key={b.id} b={b} />)}
         </TabsContent>

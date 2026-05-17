@@ -73,7 +73,18 @@ export default function GoalsList({ goals, onRefresh }: Props) {
   return (
     <div className="space-y-4">
       {goals.length === 0 && !showForm && (
-        <p className="text-sm text-muted-foreground text-center py-6">Sin metas financieras. ¡Crea una!</p>
+        <div className="text-center py-8 space-y-3 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+          <p className="text-4xl">🎯</p>
+          <div className="px-4">
+            <p className="text-sm font-semibold text-gray-700">Sin metas financieras</p>
+            <p className="text-xs text-muted-foreground mt-1">
+              Define un objetivo de ahorro (viaje, fondo de emergencia, electrodoméstico…) y registra cuánto llevas acumulado.
+            </p>
+          </div>
+          <Button size="sm" className="bg-violet-600 hover:bg-violet-700" onClick={() => setShowForm(true)}>
+            <Plus className="w-4 h-4 mr-1" /> Crear primera meta
+          </Button>
+        </div>
       )}
 
       {goals.map((goal) => {
@@ -164,8 +175,8 @@ export default function GoalsList({ goals, onRefresh }: Props) {
               <Input type="number" inputMode="decimal" placeholder="0" value={target} onChange={(e) => setTarget(e.target.value)} />
             </div>
             <div className="space-y-1">
-              <Label>Ya tengo ahorrado</Label>
-              <Input type="number" inputMode="decimal" placeholder="0" value={current} onChange={(e) => setCurrent(e.target.value)} />
+              <Label>Ahorro inicial <span className="text-muted-foreground font-normal">(opcional)</span></Label>
+              <Input type="number" inputMode="decimal" placeholder="0 — si ya tienes algo apartado" value={current} onChange={(e) => setCurrent(e.target.value)} />
             </div>
             <div className="space-y-1">
               <Label>Fecha límite (opcional)</Label>

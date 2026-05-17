@@ -595,17 +595,19 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
 
       {/* ── Ingresos recurrentes ── */}
       <section>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-1">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ingresos recurrentes</h3>
           <Button variant="ghost" size="sm" className="text-violet-600 h-7 text-xs px-2" onClick={openCreateRecurring}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Agregar
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground mb-3">Salario, arriendos cobrados, pensiones… ingresos que recibes cada mes o quincena.</p>
 
         {recurringIncome.length === 0 ? (
           <div className="text-center py-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
             <p className="text-2xl mb-2">💼</p>
-            <p className="text-sm text-muted-foreground mb-3">Agrega tu salario u otros ingresos fijos</p>
+            <p className="text-sm font-semibold text-gray-700 mb-1">Sin ingresos recurrentes</p>
+            <p className="text-xs text-muted-foreground mb-3 px-4">Registra tu salario u otros ingresos fijos para que la app pueda calcular tu presupuesto disponible.</p>
             <Button variant="outline" size="sm" className="text-violet-600 border-violet-200" onClick={openCreateRecurring}>
               <RefreshCw className="w-3.5 h-3.5 mr-1" /> Agregar ingreso recurrente
             </Button>
@@ -697,15 +699,16 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
 
       {/* ── Ingresos esporádicos ── */}
       <section>
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-1">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ingresos esporádicos</h3>
           <Button variant="ghost" size="sm" className="text-emerald-600 h-7 text-xs px-2" onClick={() => setView("income-form")}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Registrar
           </Button>
         </div>
+        <p className="text-xs text-muted-foreground mb-3">Ventas, bonos, comisiones… ingresos puntuales que no se repiten cada mes.</p>
 
         {recentIncome.length === 0 ? (
-          <div className="text-center py-6 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+          <div className="text-center py-5 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
             <p className="text-sm text-muted-foreground">Sin ingresos esporádicos registrados.</p>
           </div>
         ) : (
