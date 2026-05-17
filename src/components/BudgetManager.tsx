@@ -105,6 +105,13 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     preloadSubAmounts(newCatId, period);
   };
 
+  // Excluir subcategorías del total para evitar doble conteo (el padre ya incluye su monto)
+  const isRootBudget = (b: Budget) => {
+    if (!b.category_id) return true;
+    const cat = categories.find((c) => c.id === b.category_id);
+    return !cat?.parent_id;
+  };
+
   const categoryItems: Record<string, string> = {
     global: "🌐 Total general",
     ...Object.fromEntries(topCats.map((c) => [c.id, `${c.icon} ${c.name}`])),
@@ -404,7 +411,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
           {/* Resumen: ingresos esperados + presupuesto + caja menor */}
           {monthlyBudgets.length > 0 && (() => {
-            const totalBudget = monthlyBudgets.reduce((s, b) => s + Number(b.amount), 0);
+            const totalBudget = monthlyBudgets.filter(isRootBudget).reduce((s, b) => s + Number(b.amount), 0);
             const activeRecurring = recurringIncome.filter((r) => {
               if (!r.start_date) return true;
               const [sy, sm] = r.start_date.split("-").map(Number);
@@ -505,7 +512,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
             <div className="bg-violet-50 border border-violet-100 rounded-xl px-4 py-3 flex items-center justify-between">
               <span className="text-sm text-violet-700 font-medium">Total presupuestado</span>
               <span className="text-base font-bold text-violet-800">
-                {fmt(weeklyBudgets.reduce((s, b) => s + Number(b.amount), 0))}
+                {fmt(weeklyBudgets.filter(isRootBudget).reduce((s, b) => s + Number(b.amount), 0))}
               </span>
             </div>
           )}
