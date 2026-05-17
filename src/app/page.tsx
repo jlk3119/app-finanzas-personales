@@ -297,16 +297,12 @@ export default function Dashboard() {
         </div>
 
         {accounts.length > 0 && (
-          <div className="grid grid-cols-2 gap-2 mt-2">
-            <div className="bg-white/10 rounded-xl px-3 py-2 text-center">
-              <p className="text-xs text-violet-300">En cuentas</p>
-              <p className="font-bold text-sm">{fmt(totalBalance)}</p>
+          <div className={`mt-2 rounded-xl px-4 py-2.5 flex items-center justify-between ${disponible >= 0 ? "bg-white/10" : "bg-red-500/30"}`}>
+            <div>
+              <p className="text-xs text-violet-300">Disponible total</p>
+              <p className="text-[10px] text-violet-400">saldo en cuentas − gastos del mes</p>
             </div>
-            <div className={`rounded-xl px-3 py-2 text-center ${disponible >= 0 ? "bg-white/10" : "bg-red-500/30"}`}>
-              <p className="text-xs text-violet-300">Disponible</p>
-              <p className={`font-bold text-sm ${disponible < 0 ? "text-red-200" : ""}`}>{fmt(disponible)}</p>
-              <p className="text-[10px] text-violet-300 leading-tight">saldo − gastos del mes</p>
-            </div>
+            <p className={`font-bold text-base ${disponible < 0 ? "text-red-200" : "text-white"}`}>{fmt(disponible)}</p>
           </div>
         )}
 
