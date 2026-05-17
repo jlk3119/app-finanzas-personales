@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
-import { Plus, Trash2, PlusCircle, CheckCircle2 } from "lucide-react";
+import { Plus, Trash2, PlusCircle, CheckCircle2, Pencil, X } from "lucide-react";
 
 type Props = { goals: Goal[]; onRefresh: () => void };
 
@@ -18,31 +18,22 @@ const fmt = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
 const ICONS = [
-  // Hogar y vida
   "🏠","🛋️","🔑","🏡","🏗️","🛁",
-  // Viajes
   "✈️","🏖️","🌍","🏕️","🚢","🗺️","🎒","🏔️",
-  // Vehículos
   "🚗","🏍️","🚲","⛵","🚐",
-  // Tecnología
   "📱","💻","🎮","📷","🎧","⌚","📺","🖥️",
-  // Educación
   "🎓","📚","🏫","🔬","✏️","🎨",
-  // Familia y vida
   "👶","💍","💒","👨‍👩‍👧","🐶","🐱",
-  // Salud y deporte
   "🏋️","🧘","🚴","⚽","🎾","🏊","🥊","🏆",
-  // Finanzas
   "💰","💎","📈","🏦","🪙","💵",
-  // Celebración
   "🎯","🎉","🎁","🌟","🥂","🎪",
-  // Otros
   "🌱","☕","🍕","🎵","📸","🧳",
 ];
 
 export default function GoalsList({ goals, onRefresh }: Props) {
   const supabase = createClient();
   const [showForm, setShowForm] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [name, setName] = useState("");
   const [target, setTarget] = useState("");
   const [current, setCurrent] = useState("0");
@@ -52,34 +43,69 @@ export default function GoalsList({ goals, onRefresh }: Props) {
   const [addingToGoal, setAddingToGoal] = useState<string | null>(null);
   const [addAmount, setAddAmount] = useState("");
 
-  useBackButtonClose(showForm, () => setShowForm(false));
+  const closeForm = () => {
+    setShowForm(false);
+    setEditingGoal(null);
+    setName(""); setTarget(""); setCurrent("0"); setDeadline(""); setIcon("🎯");
+  };
+
+  const openCreate = () => {
+    setEditingGoal(null);
+    setName(""); setTarget(""); setCurrent("0"); setDeadline(""); setIcon("🎯");
+    setShowForm(true);
+  };
+
+  const openEdit = (goal: Goal) => {
+    setEditingGoal(goal);
+    setName(goal.name);
+    setTarget(String(goal.target_amount));
+    setCurrent(String(goal.current_amount));
+    setDeadline(goal.deadline ?? "");
+    setIcon(goal.icon);
+    setShowForm(true);
+  };
+
+  useBackButtonClose(showForm, closeForm);
   useBackButtonClose(addingToGoal !== null, () => { setAddingToGoal(null); setAddAmount(""); });
 
-  const handleCreate = async () => {
+  const handleSave = async () => {
     if (!name || !target || Number(target) <= 0) return;
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
-    await supabase.from("goals").insert({
-      user_id: user.id,
-      name,
-      target_amount: Number(target),
-      current_amount: Number(current) || 0,
-      deadline: deadline || null,
-      icon,
-    });
-    setShowForm(false);
-    setName(""); setTarget(""); setCurrent("0"); setDeadline(""); setIcon("🎯");
+    const currentAmt = Number(current) || 0;
+    const targetAmt = Number(target);
+
+    if (editingGoal) {
+      await supabase.from("goals").update({
+        name,
+        target_amount: targetAmt,
+        current_amount: Math.min(currentAmt, targetAmt),
+        deadline: deadline || null,
+        icon,
+        completed: currentAmt >= targetAmt,
+      }).eq("id", editingGoal.id);
+    } else {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoading(false); return; }
+      await supabase.from("goals").insert({
+        user_id: user.id, name, icon,
+        target_amount: targetAmt,
+        current_amount: Math.min(currentAmt, targetAmt),
+        deadline: deadline || null,
+        completed: currentAmt >= targetAmt,
+      });
+    }
     setLoading(false);
+    closeForm();
     onRefresh();
   };
 
   const handleAddAmount = async (goal: Goal) => {
     const n = Number(addAmount);
     if (!n || n <= 0) return;
+    const newAmt = Math.min(goal.current_amount + n, goal.target_amount);
     await supabase.from("goals").update({
-      current_amount: Math.min(goal.current_amount + n, goal.target_amount),
-      completed: goal.current_amount + n >= goal.target_amount,
+      current_amount: newAmt,
+      completed: newAmt >= goal.target_amount,
     }).eq("id", goal.id);
     setAddingToGoal(null);
     setAddAmount("");
@@ -102,7 +128,7 @@ export default function GoalsList({ goals, onRefresh }: Props) {
               Define un objetivo de ahorro (viaje, fondo de emergencia, electrodoméstico…) y registra cuánto llevas acumulado.
             </p>
           </div>
-          <Button size="sm" className="bg-violet-600 hover:bg-violet-700" onClick={() => setShowForm(true)}>
+          <Button size="sm" className="bg-violet-600 hover:bg-violet-700" onClick={openCreate}>
             <Plus className="w-4 h-4 mr-1" /> Crear primera meta
           </Button>
         </div>
@@ -121,13 +147,16 @@ export default function GoalsList({ goals, onRefresh }: Props) {
                     <p className="font-semibold text-sm">{goal.name}</p>
                     {goal.deadline && (
                       <p className="text-xs text-muted-foreground">
-                        Meta: {new Date(goal.deadline + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })}
+                        Fecha límite: {new Date(goal.deadline + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })}
                       </p>
                     )}
                   </div>
                 </div>
-                <div className="flex items-center gap-1">
-                  {goal.completed && <Badge className="bg-green-500 text-xs">Completada</Badge>}
+                <div className="flex items-center gap-0.5">
+                  {goal.completed && <Badge className="bg-green-500 text-xs mr-1">Completada</Badge>}
+                  <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" onClick={() => openEdit(goal)}>
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
                   <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => handleDelete(goal.id)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
@@ -153,12 +182,13 @@ export default function GoalsList({ goals, onRefresh }: Props) {
                       value={addAmount}
                       onChange={(e) => setAddAmount(e.target.value)}
                       className="h-9 text-sm"
+                      autoFocus
                     />
-                    <Button size="sm" className="bg-violet-600 hover:bg-violet-700" onClick={() => handleAddAmount(goal)}>
+                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 shrink-0" onClick={() => handleAddAmount(goal)}>
                       <CheckCircle2 className="w-4 h-4" />
                     </Button>
-                    <Button size="sm" variant="outline" onClick={() => { setAddingToGoal(null); setAddAmount(""); }}>
-                      ✕
+                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => { setAddingToGoal(null); setAddAmount(""); }}>
+                      <X className="w-4 h-4" />
                     </Button>
                   </div>
                 ) : (
@@ -175,46 +205,53 @@ export default function GoalsList({ goals, onRefresh }: Props) {
       {showForm && (
         <Card>
           <CardContent className="pt-4 space-y-3">
-            <p className="font-semibold text-sm">Nueva meta financiera</p>
+            <p className="font-semibold text-sm">{editingGoal ? "Editar meta" : "Nueva meta financiera"}</p>
+
             <div className="space-y-1">
               <Label>Icono</Label>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-1.5">
                 {ICONS.map((ic) => (
                   <button key={ic} type="button" onClick={() => setIcon(ic)}
-                    className={`text-xl p-1 rounded-lg ${icon === ic ? "bg-violet-100 ring-2 ring-violet-400" : ""}`}>
+                    className={`text-xl p-1.5 rounded-lg transition-all ${icon === ic ? "bg-violet-100 ring-2 ring-violet-400 scale-110" : "hover:bg-gray-100"}`}>
                     {ic}
                   </button>
                 ))}
               </div>
             </div>
+
             <div className="space-y-1">
               <Label>Nombre de la meta</Label>
-              <Input placeholder="Ej: Viaje a la playa" value={name} onChange={(e) => setName(e.target.value)} />
+              <Input placeholder="Ej: Viaje a la playa, Fondo de emergencia…" value={name} onChange={(e) => setName(e.target.value)} autoFocus />
             </div>
+
             <div className="space-y-1">
               <Label>Monto objetivo</Label>
               <Input type="number" inputMode="decimal" placeholder="0" value={target} onChange={(e) => setTarget(e.target.value)} />
             </div>
+
             <div className="space-y-1">
-              <Label>Ahorro inicial <span className="text-muted-foreground font-normal">(opcional)</span></Label>
-              <Input type="number" inputMode="decimal" placeholder="0 — si ya tienes algo apartado" value={current} onChange={(e) => setCurrent(e.target.value)} />
+              <Label>{editingGoal ? "Monto ahorrado hasta ahora" : "Ahorro inicial"} <span className="text-muted-foreground font-normal text-xs">(opcional)</span></Label>
+              <Input type="number" inputMode="decimal" placeholder="0" value={current} onChange={(e) => setCurrent(e.target.value)} />
             </div>
+
             <div className="space-y-1">
-              <Label>Fecha límite (opcional)</Label>
+              <Label>Fecha límite <span className="text-muted-foreground font-normal text-xs">(opcional)</span></Label>
               <Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
             </div>
+
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => setShowForm(false)}>Cancelar</Button>
-              <Button className="flex-1 bg-violet-600 hover:bg-violet-700" onClick={handleCreate} disabled={loading}>
-                {loading ? "Guardando..." : "Crear meta"}
+              <Button variant="outline" className="flex-1" onClick={closeForm}>Cancelar</Button>
+              <Button className="flex-1 bg-violet-600 hover:bg-violet-700" onClick={handleSave}
+                disabled={loading || !name || !target || Number(target) <= 0}>
+                {loading ? "Guardando..." : editingGoal ? "Guardar cambios" : "Crear meta"}
               </Button>
             </div>
           </CardContent>
         </Card>
       )}
 
-      {!showForm && (
-        <Button variant="outline" className="w-full" onClick={() => setShowForm(true)}>
+      {!showForm && goals.length > 0 && (
+        <Button variant="outline" className="w-full" onClick={openCreate}>
           <Plus className="w-4 h-4 mr-1" /> Nueva meta
         </Button>
       )}
