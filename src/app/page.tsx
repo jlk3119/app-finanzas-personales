@@ -217,6 +217,9 @@ export default function Dashboard() {
   const monthBudget = budgets.find((b) => b.period === "monthly" && b.category_id === null && b.year === currentYear && b.month === currentMonth);
   const weekBudget = budgets.find((b) => b.period === "weekly" && b.category_id === null && b.year === currentYear && b.week === currentWeek);
 
+  const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
+  const disponible = totalBalance - totalMonth;
+
   const prevM = currentMonth === 1 ? 12 : currentMonth - 1;
   const prevY = currentMonth === 1 ? currentYear - 1 : currentYear;
   const prevMonthClosed = monthClosures.some((c) => c.year === prevY && c.month === prevM);
@@ -292,6 +295,20 @@ export default function Dashboard() {
             {monthBudget && <p className="text-xs text-violet-300">/ {fmt(monthBudget.amount)}</p>}
           </div>
         </div>
+
+        {accounts.length > 0 && (
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <div className="bg-white/10 rounded-xl px-3 py-2 text-center">
+              <p className="text-xs text-violet-300">En cuentas</p>
+              <p className="font-bold text-sm">{fmt(totalBalance)}</p>
+            </div>
+            <div className={`rounded-xl px-3 py-2 text-center ${disponible >= 0 ? "bg-white/10" : "bg-red-500/30"}`}>
+              <p className="text-xs text-violet-300">Disponible</p>
+              <p className={`font-bold text-sm ${disponible < 0 ? "text-red-200" : ""}`}>{fmt(disponible)}</p>
+              <p className="text-[10px] text-violet-300 leading-tight">saldo − gastos del mes</p>
+            </div>
+          </div>
+        )}
 
         {monthBudget && (
           <div className="mt-3">
