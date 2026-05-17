@@ -124,26 +124,29 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   };
 
   const handleSave = async () => {
-    if (!amount || Number(amount) <= 0) return;
+    const subTotal = Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0);
+    const hasSubcategories = subsOfSelected.length > 0;
+    const finalAmount = hasSubcategories ? subTotal : Number(amount);
+    if (finalAmount <= 0) return;
     setLoading(true);
 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    const data = {
+    const baseRow = {
       user_id: user.id,
       period,
       category_id: categoryId === "global" ? null : categoryId,
-      amount: Number(amount),
+      amount: finalAmount,
       year: period === "monthly" ? selectedYear : currentYear,
       month: period === "monthly" ? selectedMonth : null,
       week: period === "weekly" ? currentWeek : null,
     };
 
     if (editingId) {
-      await supabase.from("budgets").update({ amount: Number(amount) }).eq("id", editingId);
+      await supabase.from("budgets").update({ amount: finalAmount }).eq("id", editingId);
     } else {
-      await supabase.from("budgets").upsert(data, { onConflict: "user_id,category_id,period,year,month,week" });
+      await supabase.from("budgets").upsert(baseRow, { onConflict: "user_id,category_id,period,year,month,week" });
     }
 
     // Save sub-budgets for each subcategory that has an amount
@@ -210,8 +213,9 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     onRefresh();
   };
 
-  const BudgetRow = ({ b, isChild = false }: { b: Budget; isChild?: boolean }) => {
+  const BudgetRow = ({ b, isChild = false, displayAmount }: { b: Budget; isChild?: boolean; displayAmount?: number }) => {
     const cat = categories.find((c) => c.id === b.category_id);
+    const shownAmount = displayAmount ?? Number(b.amount);
     return (
       <div className={`flex items-center justify-between rounded-xl px-3 py-2 ${isChild ? "ml-5 bg-white border border-gray-100" : "bg-gray-50"}`}>
         <div className="flex items-center gap-2">
@@ -219,7 +223,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           <span className={isChild ? "text-base" : "text-lg"}>{cat?.icon ?? "🌐"}</span>
           <div>
             <p className={`font-medium ${isChild ? "text-xs" : "text-sm"}`}>{cat?.name ?? "Total general"}</p>
-            <p className="text-xs text-muted-foreground">{fmt(b.amount)}</p>
+            <p className="text-xs text-muted-foreground">{fmt(shownAmount)}</p>
           </div>
         </div>
         <div className="flex gap-1">
@@ -256,8 +260,11 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           })
         : [];
       children.forEach((c) => renderedChildIds.add(c.id));
+      const displayAmount = children.length > 0
+        ? children.reduce((s, c) => s + Number(c.amount), 0)
+        : Number(parent.amount);
       return [
-        <BudgetRow key={parent.id} b={parent} />,
+        <BudgetRow key={parent.id} b={parent} displayAmount={displayAmount} />,
         ...children.map((child) => <BudgetRow key={child.id} b={child} isChild />),
       ];
     });
@@ -459,22 +466,24 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                 </SelectContent>
               </Select>
             </div>
-            <div className="space-y-1">
-              <Label>Monto límite</Label>
-              <Input
-                type="number"
-                inputMode="decimal"
-                placeholder="0"
-                value={amount}
-                onChange={(e) => setAmount(e.target.value)}
-                className="h-11"
-                autoFocus
-              />
-            </div>
+            {subsOfSelected.length === 0 && (
+              <div className="space-y-1">
+                <Label>Monto límite</Label>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={amount}
+                  onChange={(e) => setAmount(e.target.value)}
+                  className="h-11"
+                  autoFocus
+                />
+              </div>
+            )}
 
             {subsOfSelected.length > 0 && (
               <div className="space-y-2 rounded-xl border border-dashed border-violet-200 bg-violet-50/50 p-3">
-                <p className="text-xs font-semibold text-violet-700">Subcategorías <span className="font-normal text-muted-foreground">(opcional)</span></p>
+                <p className="text-xs font-semibold text-violet-700">Montos por subcategoría</p>
                 {subsOfSelected.map((sub) => (
                   <div key={sub.id} className="flex items-center gap-2">
                     <span className="text-sm shrink-0 w-36 truncate text-muted-foreground">{sub.icon} {sub.name}</span>
@@ -488,6 +497,12 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                     />
                   </div>
                 ))}
+                <div className="flex justify-between items-center pt-1.5 border-t border-violet-200">
+                  <span className="text-xs font-semibold text-violet-700">Total</span>
+                  <span className="text-sm font-bold text-violet-800">
+                    {fmt(Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0))}
+                  </span>
+                </div>
               </div>
             )}
 
@@ -495,7 +510,11 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
               <Button variant="outline" className="flex-1" onClick={() => { setShowForm(false); setEditingId(null); setAmount(""); setSubAmounts({}); }}>
                 Cancelar
               </Button>
-              <Button className="flex-1 bg-violet-600 hover:bg-violet-700" onClick={handleSave} disabled={loading}>
+              <Button
+                className="flex-1 bg-violet-600 hover:bg-violet-700"
+                onClick={handleSave}
+                disabled={loading || (subsOfSelected.length === 0 ? !amount || Number(amount) <= 0 : Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0) <= 0)}
+              >
                 {loading ? "Guardando..." : "Guardar"}
               </Button>
             </div>

@@ -83,7 +83,7 @@ describe('BudgetManager', () => {
     const selects = screen.getAllByTestId('select')
     const categorySelect = selects[selects.length - 1] as HTMLSelectElement
     await user.selectOptions(categorySelect, 'cat-1')
-    expect(screen.getAllByText(/subcategorías/i).length).toBeGreaterThanOrEqual(1)
+    expect(screen.getAllByText(/montos por subcategor/i).length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText(/mercado/i).length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText(/restaurante/i).length).toBeGreaterThanOrEqual(1)
   })
@@ -102,9 +102,10 @@ describe('BudgetManager', () => {
     const user = userEvent.setup()
     render(<BudgetManager {...defaultProps} />)
     const editButtons = screen.getAllByRole('button', { name: /editar|pencil/i })
-    await user.click(editButtons[0])
+    // Usar el último botón editar (bud-2, global sin subcategorías) que siempre muestra el campo de monto
+    await user.click(editButtons[editButtons.length - 1])
     expect(screen.getByText(/editar presupuesto/i)).toBeInTheDocument()
-    expect((screen.getAllByPlaceholderText('0')[0] as HTMLInputElement).value).toBe('300000')
+    expect((screen.getAllByPlaceholderText('0')[0] as HTMLInputElement).value).toBe('2000000')
   })
 
   it('preselecciona subcategorías existentes al editar', async () => {
