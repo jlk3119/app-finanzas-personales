@@ -30,8 +30,9 @@ function formatDate(dateStr: string) {
   const today = new Date();
   const yesterday = new Date();
   yesterday.setDate(today.getDate() - 1);
-  if (dateStr === today.toISOString().split("T")[0]) return "Hoy";
-  if (dateStr === yesterday.toISOString().split("T")[0]) return "Ayer";
+  const toLocal = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  if (dateStr === toLocal(today)) return "Hoy";
+  if (dateStr === toLocal(yesterday)) return "Ayer";
   return d.toLocaleDateString("es-CO", { weekday: "short", day: "numeric", month: "short" });
 }
 

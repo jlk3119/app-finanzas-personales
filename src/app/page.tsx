@@ -207,7 +207,7 @@ export default function Dashboard() {
     return getWeekNumber(d) === currentWeek && d.getFullYear() === currentYear;
   });
 
-  const todayStr = now.toISOString().split("T")[0];
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const totalToday = expenses.filter((e) => e.date === todayStr).reduce((s, e) => s + Number(e.amount), 0);
   const totalWeek = thisWeekExpenses.reduce((s, e) => s + Number(e.amount), 0);
   const totalMonth = thisMonthExpenses.reduce((s, e) => s + Number(e.amount), 0);
