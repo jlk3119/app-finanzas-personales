@@ -42,6 +42,7 @@ export default function LoginPage() {
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const err = params.get("error");
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (err) setMessage({ text: translateError(err), type: "error" });
   }, []);
 

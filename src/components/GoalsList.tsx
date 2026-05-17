@@ -202,10 +202,10 @@ export default function GoalsList({ goals, categories, onRefresh }: Props) {
                 </div>
                 <div className="flex items-center gap-0.5">
                   {goal.completed && <Badge className="bg-green-500 text-xs mr-1">Completada</Badge>}
-                  <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" onClick={() => openEdit(goal)}>
+                  <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" aria-label="Editar" onClick={() => openEdit(goal)}>
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => handleDelete(goal.id)}>
+                  <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar" onClick={() => handleDelete(goal.id)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>

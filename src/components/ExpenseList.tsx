@@ -105,6 +105,7 @@ export default function ExpenseList({ expenses, categories, onRefresh, compact }
                       variant="ghost"
                       size="icon"
                       className="w-7 h-7 text-muted-foreground hover:text-red-500"
+                      aria-label="Eliminar"
                       onClick={() => handleDelete(e.id)}
                       disabled={deleting === e.id}
                     >

@@ -172,11 +172,13 @@ export default function Dashboard() {
     setLoading(false);
   }, [supabase, checkAutoAssign]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData(); }, [fetchData]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab") as TabValue | null;
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     if (tab && TABS.some((t) => t.value === tab)) setActiveTab(tab);
 
     const handlePop = () => {

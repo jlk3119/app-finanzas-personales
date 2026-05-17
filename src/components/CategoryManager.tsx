@@ -143,10 +143,10 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                             title="Agregar subcategoría" onClick={() => openCreateSub(cat)}>
                             <Plus className="w-3.5 h-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground" onClick={() => openEdit(cat)}>
+                          <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground" aria-label="Editar" onClick={() => openEdit(cat)}>
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400"
+                          <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400" aria-label="Eliminar"
                             onClick={() => handleDelete(cat.id)} disabled={deletingId === cat.id}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
@@ -165,10 +165,10 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                           <span className="text-sm text-gray-700">{child.name}</span>
                         </div>
                         <div className="flex gap-0.5">
-                          <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" onClick={() => openEdit(child)}>
+                          <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" aria-label="Editar" onClick={() => openEdit(child)}>
                             <Pencil className="w-3 h-3" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400"
+                          <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar"
                             onClick={() => handleDelete(child.id)} disabled={deletingId === child.id}>
                             <Trash2 className="w-3 h-3" />
                           </Button>

@@ -222,7 +222,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           </div>
         </div>
         <div className="flex gap-1">
-          <Button variant="ghost" size="icon" className="w-7 h-7" onClick={() => startEdit(b)}>
+          <Button variant="ghost" size="icon" className="w-7 h-7" aria-label="Editar" onClick={() => startEdit(b)}>
             <Pencil className="w-3.5 h-3.5" />
           </Button>
           <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => handleDelete(b.id)}>

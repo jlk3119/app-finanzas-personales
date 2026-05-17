@@ -2,6 +2,7 @@ import { useEffect, useRef } from "react";
 
 export function useBackButtonClose(isOpen: boolean, onClose: () => void) {
   const onCloseRef = useRef(onClose);
+  // eslint-disable-next-line react-hooks/refs
   onCloseRef.current = onClose;
   const closedByPopState = useRef(false);
 
