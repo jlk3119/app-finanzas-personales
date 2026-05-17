@@ -51,13 +51,37 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const [copying, setCopying] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCajaInfo, setShowCajaInfo] = useState(false);
+  const [subAmounts, setSubAmounts] = useState<Record<string, string>>({});
 
-  useBackButtonClose(showForm, () => { setShowForm(false); setEditingId(null); setAmount(""); });
+  useBackButtonClose(showForm, () => { setShowForm(false); setEditingId(null); setAmount(""); setSubAmounts({}); });
 
   // Build ordered list: parents first, then their children
   const topCats = categories.filter((c) => !c.parent_id);
   const subsOf = (pid: string) => categories.filter((c) => c.parent_id === pid);
   const orderedCats = topCats.flatMap((c) => [c, ...subsOf(c.id)]);
+
+  const subsOfSelected = categoryId !== "global" ? subsOf(categoryId) : [];
+
+  const budgetsForPeriod = (p: "monthly" | "weekly") =>
+    p === "monthly"
+      ? budgets.filter((b) => b.period === "monthly" && b.year === selectedYear && b.month === selectedMonth)
+      : budgets.filter((b) => b.period === "weekly" && b.year === currentYear && b.week === currentWeek);
+
+  const preloadSubAmounts = (parentCatId: string, p: "monthly" | "weekly") => {
+    const subs = parentCatId !== "global" ? subsOf(parentCatId) : [];
+    const pool = budgetsForPeriod(p);
+    const next: Record<string, string> = {};
+    subs.forEach((sub) => {
+      const existing = pool.find((b) => b.category_id === sub.id);
+      if (existing) next[sub.id] = String(existing.amount);
+    });
+    setSubAmounts(next);
+  };
+
+  const handleCategoryChange = (newCatId: string) => {
+    setCategoryId(newCatId);
+    preloadSubAmounts(newCatId, period);
+  };
 
   const categoryItems: Record<string, string> = {
     global: "🌐 Total general",
@@ -122,9 +146,25 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
       await supabase.from("budgets").upsert(data, { onConflict: "user_id,category_id,period,year,month,week" });
     }
 
+    // Save sub-budgets for each subcategory that has an amount
+    for (const [subCatId, subAmt] of Object.entries(subAmounts)) {
+      const n = Number(subAmt);
+      if (!n || n <= 0) continue;
+      await supabase.from("budgets").upsert({
+        user_id: user.id,
+        period,
+        category_id: subCatId,
+        amount: n,
+        year: period === "monthly" ? selectedYear : currentYear,
+        month: period === "monthly" ? selectedMonth : null,
+        week: period === "weekly" ? currentWeek : null,
+      }, { onConflict: "user_id,category_id,period,year,month,week" });
+    }
+
     setShowForm(false);
     setAmount("");
     setCategoryId("global");
+    setSubAmounts({});
     setEditingId(null);
     setLoading(false);
     onRefresh();
@@ -138,8 +178,10 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const startEdit = (b: Budget) => {
     setEditingId(b.id);
     setAmount(String(b.amount));
-    setCategoryId(b.category_id ?? "global");
+    const catId = b.category_id ?? "global";
+    setCategoryId(catId);
     setPeriod(b.period);
+    preloadSubAmounts(catId, b.period);
     setShowForm(true);
   };
 
@@ -369,7 +411,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                   <Settings2 className="w-3 h-3" /> Gestionar categorías
                 </button>
               </div>
-              <Select value={categoryId} onValueChange={(v) => setCategoryId(v ?? "global")} items={categoryItems}>
+              <Select value={categoryId} onValueChange={(v) => handleCategoryChange(v ?? "global")} items={categoryItems}>
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="global">🌐 Total general</SelectItem>
@@ -393,8 +435,28 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                 autoFocus
               />
             </div>
+
+            {subsOfSelected.length > 0 && (
+              <div className="space-y-2 rounded-xl border border-dashed border-violet-200 bg-violet-50/50 p-3">
+                <p className="text-xs font-semibold text-violet-700">Subcategorías <span className="font-normal text-muted-foreground">(opcional)</span></p>
+                {subsOfSelected.map((sub) => (
+                  <div key={sub.id} className="flex items-center gap-2">
+                    <span className="text-sm shrink-0 w-36 truncate text-muted-foreground">{sub.icon} {sub.name}</span>
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={subAmounts[sub.id] ?? ""}
+                      onChange={(e) => setSubAmounts((prev) => ({ ...prev, [sub.id]: e.target.value }))}
+                      className="h-8 text-sm"
+                    />
+                  </div>
+                ))}
+              </div>
+            )}
+
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => { setShowForm(false); setEditingId(null); setAmount(""); }}>
+              <Button variant="outline" className="flex-1" onClick={() => { setShowForm(false); setEditingId(null); setAmount(""); setSubAmounts({}); }}>
                 Cancelar
               </Button>
               <Button className="flex-1 bg-violet-600 hover:bg-violet-700" onClick={handleSave} disabled={loading}>
