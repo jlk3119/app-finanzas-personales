@@ -210,14 +210,15 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     onRefresh();
   };
 
-  const BudgetRow = ({ b }: { b: Budget }) => {
+  const BudgetRow = ({ b, isChild = false }: { b: Budget; isChild?: boolean }) => {
     const cat = categories.find((c) => c.id === b.category_id);
     return (
-      <div className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
+      <div className={`flex items-center justify-between rounded-xl px-3 py-2 ${isChild ? "ml-5 bg-white border border-gray-100" : "bg-gray-50"}`}>
         <div className="flex items-center gap-2">
-          <span className="text-lg">{cat?.icon ?? "🌐"}</span>
+          {isChild && <span className="text-muted-foreground text-xs shrink-0">↳</span>}
+          <span className={isChild ? "text-base" : "text-lg"}>{cat?.icon ?? "🌐"}</span>
           <div>
-            <p className="text-sm font-medium">{cat?.name ?? "Total general"}</p>
+            <p className={`font-medium ${isChild ? "text-xs" : "text-sm"}`}>{cat?.name ?? "Total general"}</p>
             <p className="text-xs text-muted-foreground">{fmt(b.amount)}</p>
           </div>
         </div>
@@ -225,12 +226,47 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           <Button variant="ghost" size="icon" className="w-7 h-7" aria-label="Editar" onClick={() => startEdit(b)}>
             <Pencil className="w-3.5 h-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => handleDelete(b.id)}>
+          <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar" onClick={() => handleDelete(b.id)}>
             <Trash2 className="w-3.5 h-3.5" />
           </Button>
         </div>
       </div>
     );
+  };
+
+  const renderBudgetList = (bList: Budget[]) => {
+    const parentBudgets = bList.filter((b) => {
+      if (!b.category_id) return true;
+      const cat = categories.find((c) => c.id === b.category_id);
+      return !cat?.parent_id;
+    });
+    const childBudgets = bList.filter((b) => {
+      if (!b.category_id) return false;
+      const cat = categories.find((c) => c.id === b.category_id);
+      return !!cat?.parent_id;
+    });
+    const renderedChildIds = new Set<string>();
+
+    const rows = parentBudgets.flatMap((parent) => {
+      const parentCat = parent.category_id ? categories.find((c) => c.id === parent.category_id) : null;
+      const children = parentCat
+        ? childBudgets.filter((sub) => {
+            const subCat = categories.find((c) => c.id === sub.category_id);
+            return subCat?.parent_id === parentCat.id;
+          })
+        : [];
+      children.forEach((c) => renderedChildIds.add(c.id));
+      return [
+        <BudgetRow key={parent.id} b={parent} />,
+        ...children.map((child) => <BudgetRow key={child.id} b={child} isChild />),
+      ];
+    });
+
+    // Subcategorías huérfanas (sin presupuesto del padre)
+    const orphans = childBudgets.filter((b) => !renderedChildIds.has(b.id));
+    orphans.forEach((b) => rows.push(<BudgetRow key={b.id} b={b} isChild />));
+
+    return rows;
   };
 
   return (
@@ -359,7 +395,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
             </div>
           )}
 
-          {monthlyBudgets.map((b) => <BudgetRow key={b.id} b={b} />)}
+          {renderBudgetList(monthlyBudgets)}
         </TabsContent>
 
         <TabsContent value="weekly" className="mt-3 space-y-2">
@@ -380,7 +416,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
               </p>
             </div>
           )}
-          {weeklyBudgets.map((b) => <BudgetRow key={b.id} b={b} />)}
+          {renderBudgetList(weeklyBudgets)}
         </TabsContent>
       </Tabs>
 
