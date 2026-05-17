@@ -211,13 +211,21 @@ export default function Dashboard() {
   const monthBudget = budgets.find((b) => b.period === "monthly" && b.category_id === null && b.year === currentYear && b.month === currentMonth);
   const weekBudget = budgets.find((b) => b.period === "weekly" && b.category_id === null && b.year === currentYear && b.week === currentWeek);
 
-  const categorySpend = categories.map((cat) => ({
-    name: cat.name,
-    icon: cat.icon,
-    color: cat.color,
-    total: thisMonthExpenses.filter((e) => e.category_id === cat.id).reduce((s, e) => s + Number(e.amount), 0),
-    budget: budgets.find((b) => b.category_id === cat.id && b.period === "monthly" && b.year === currentYear && b.month === currentMonth)?.amount,
-  })).filter((c) => c.total > 0);
+  const childrenOf = (pid: string) => categories.filter((c) => c.parent_id === pid);
+  const categorySpend = categories
+    .filter((c) => !c.parent_id)
+    .map((cat) => {
+      const subs = childrenOf(cat.id);
+      const allIds = [cat.id, ...subs.map((s) => s.id)];
+      return {
+        name: cat.name,
+        icon: cat.icon,
+        color: cat.color,
+        total: thisMonthExpenses.filter((e) => allIds.includes(e.category_id ?? "")).reduce((s, e) => s + Number(e.amount), 0),
+        budget: budgets.find((b) => b.category_id === cat.id && b.period === "monthly" && b.year === currentYear && b.month === currentMonth)?.amount,
+      };
+    })
+    .filter((c) => c.total > 0);
 
   const fmt = (n: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 

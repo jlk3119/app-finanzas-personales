@@ -17,7 +17,28 @@ type Props = { goals: Goal[]; onRefresh: () => void };
 const fmt = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
-const ICONS = ["🎯","🏠","✈️","🚗","📱","💻","🎓","💍","👶","🏖️","💰","🏋️"];
+const ICONS = [
+  // Hogar y vida
+  "🏠","🛋️","🔑","🏡","🏗️","🛁",
+  // Viajes
+  "✈️","🏖️","🌍","🏕️","🚢","🗺️","🎒","🏔️",
+  // Vehículos
+  "🚗","🏍️","🚲","⛵","🚐",
+  // Tecnología
+  "📱","💻","🎮","📷","🎧","⌚","📺","🖥️",
+  // Educación
+  "🎓","📚","🏫","🔬","✏️","🎨",
+  // Familia y vida
+  "👶","💍","💒","👨‍👩‍👧","🐶","🐱",
+  // Salud y deporte
+  "🏋️","🧘","🚴","⚽","🎾","🏊","🥊","🏆",
+  // Finanzas
+  "💰","💎","📈","🏦","🪙","💵",
+  // Celebración
+  "🎯","🎉","🎁","🌟","🥂","🎪",
+  // Otros
+  "🌱","☕","🍕","🎵","📸","🧳",
+];
 
 export default function GoalsList({ goals, onRefresh }: Props) {
   const supabase = createClient();

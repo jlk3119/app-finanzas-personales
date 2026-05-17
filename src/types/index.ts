@@ -5,6 +5,7 @@ export type Category = {
   icon: string;
   color: string;
   is_system: boolean;
+  parent_id: string | null;
   created_at: string;
 };
 

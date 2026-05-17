@@ -54,9 +54,14 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
   useBackButtonClose(showForm, () => { setShowForm(false); setEditingId(null); setAmount(""); });
 
+  // Build ordered list: parents first, then their children
+  const topCats = categories.filter((c) => !c.parent_id);
+  const subsOf = (pid: string) => categories.filter((c) => c.parent_id === pid);
+  const orderedCats = topCats.flatMap((c) => [c, ...subsOf(c.id)]);
+
   const categoryItems: Record<string, string> = {
     global: "🌐 Total general",
-    ...Object.fromEntries(categories.map((c) => [c.id, `${c.icon} ${c.name}`])),
+    ...Object.fromEntries(orderedCats.map((c) => [c.id, c.parent_id ? `↳ ${c.icon} ${c.name}` : `${c.icon} ${c.name}`])),
   };
 
   const monthlyBudgets = budgets.filter((b) =>
@@ -368,8 +373,10 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="global">🌐 Total general</SelectItem>
-                  {categories.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>{cat.icon} {cat.name}</SelectItem>
+                  {orderedCats.map((cat) => (
+                    <SelectItem key={cat.id} value={cat.id}>
+                      {cat.parent_id ? `↳ ${cat.icon} ${cat.name}` : `${cat.icon} ${cat.name}`}
+                    </SelectItem>
                   ))}
                 </SelectContent>
               </Select>

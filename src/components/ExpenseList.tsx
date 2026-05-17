@@ -85,15 +85,17 @@ export default function ExpenseList({ expenses, categories, onRefresh, compact }
           <div className="space-y-2">
             {items.map((e) => {
               const cat = categories.find((c) => c.id === e.category_id);
+              const parentCat = cat?.parent_id ? categories.find((c) => c.id === cat.parent_id) : null;
+              const catLabel = parentCat ? `${parentCat.name} › ${cat?.name}` : cat?.name;
               return (
                 <div key={e.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
                   <div className="flex items-center gap-2">
-                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-base" style={{ backgroundColor: cat?.color + "22" }}>
+                    <div className="w-8 h-8 rounded-full flex items-center justify-center text-base" style={{ backgroundColor: (parentCat?.color ?? cat?.color) + "22" }}>
                       {cat?.icon ?? "📦"}
                     </div>
                     <div>
                       <p className="text-sm font-medium leading-tight">{e.description || cat?.name || "Gasto"}</p>
-                      <p className="text-xs text-muted-foreground">{cat?.name}</p>
+                      <p className="text-xs text-muted-foreground">{catLabel}</p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
