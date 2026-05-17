@@ -102,6 +102,14 @@ describe('ExpenseForm', () => {
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
+  it('inicializa la fecha con la fecha local del dispositivo (no UTC)', () => {
+    render(<ExpenseForm categories={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
+    const dateInput = screen.getByLabelText(/fecha/i) as HTMLInputElement
+    const today = new Date()
+    const expectedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
+    expect(dateInput.value).toBe(expectedDate)
+  })
+
   it('deshabilita el botón submit mientras guarda', async () => {
     const { mockInsert } = makeMock()
     // Bloquear la promesa para observar el estado de carga

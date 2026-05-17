@@ -41,9 +41,10 @@ type AccountForm = { name: string; icon: string; color: string; balance: string 
 const EMPTY_ACCOUNT: AccountForm = { name: "", icon: "🏦", color: "#6366f1", balance: "0" };
 
 type IncomeForm = { amount: string; description: string; date: string; account_id: string };
-const emptyIncome = (): IncomeForm => ({
-  amount: "", description: "", date: new Date().toISOString().split("T")[0], account_id: "",
-});
+const emptyIncome = (): IncomeForm => {
+  const d = new Date();
+  return { amount: "", description: "", date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`, account_id: "" };
+};
 
 type RecurringForm = {
   name: string; amount: string;
@@ -596,10 +597,10 @@ export default function AccountsManager({ accounts, expenses, income, recurringI
                   </div>
                 </div>
                 <div className="flex gap-1">
-                  <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground" onClick={() => openEditAccount(acc)}>
+                  <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground" aria-label="Editar cuenta" onClick={() => openEditAccount(acc)}>
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400" onClick={() => deleteAccount(acc.id)} disabled={deletingId === acc.id}>
+                  <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400" aria-label="Eliminar cuenta" onClick={() => deleteAccount(acc.id)} disabled={deletingId === acc.id}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>

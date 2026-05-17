@@ -155,3 +155,73 @@ describe('BudgetManager', () => {
     expect(onManageCategories).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('BudgetManager — isRootBudget y doble conteo', () => {
+  it('no suma sub-presupuestos al Total presupuestado', () => {
+    const budgetsWithSub: Budget[] = [
+      ...budgets,
+      { id: 'bud-3', user_id: 'u1', category_id: 'cat-1a', period: 'monthly', amount: 150_000, year: 2026, month: 5, week: null, created_at: '' },
+    ]
+    render(<BudgetManager {...defaultProps} budgets={budgetsWithSub} />)
+    // Total = bud-1 (300k) + bud-2 (2M) = 2.300.000; NO 2.450.000 (que incluiría sub)
+    expect(screen.getAllByText(/2\.300\.000/).length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryAllByText(/2\.450\.000/).length).toBe(0)
+  })
+
+  it('muestra la fila "Otros" cuando el padre tiene más presupuesto que sus subcategorías', () => {
+    const budgetsWithSub: Budget[] = [
+      { id: 'bud-1', user_id: 'u1', category_id: 'cat-1', period: 'monthly', amount: 300_000, year: 2026, month: 5, week: null, created_at: '', categories: cats[0] },
+      { id: 'bud-3', user_id: 'u1', category_id: 'cat-1a', period: 'monthly', amount: 200_000, year: 2026, month: 5, week: null, created_at: '' },
+    ]
+    render(<BudgetManager {...defaultProps} budgets={budgetsWithSub} />)
+    // othersAmt = 300k - 200k = 100k → debe mostrar fila "Otros" con 100.000
+    expect(screen.getByText('Otros')).toBeInTheDocument()
+    expect(screen.getAllByText(/100\.000/).length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('no muestra la fila "Otros" cuando el padre está totalmente distribuido', () => {
+    const budgetsExact: Budget[] = [
+      { id: 'bud-1', user_id: 'u1', category_id: 'cat-1', period: 'monthly', amount: 300_000, year: 2026, month: 5, week: null, created_at: '', categories: cats[0] },
+      { id: 'bud-3', user_id: 'u1', category_id: 'cat-1a', period: 'monthly', amount: 300_000, year: 2026, month: 5, week: null, created_at: '' },
+    ]
+    render(<BudgetManager {...defaultProps} budgets={budgetsExact} />)
+    expect(screen.queryByText('Otros')).not.toBeInTheDocument()
+  })
+})
+
+describe('BudgetManager — campo Otros en formulario', () => {
+  it('precarga el campo Otros con el remanente al editar un presupuesto con sub-presupuestos', async () => {
+    const budgetsWithSub: Budget[] = [
+      ...budgets,
+      { id: 'bud-3', user_id: 'u1', category_id: 'cat-1a', period: 'monthly', amount: 200_000, year: 2026, month: 5, week: null, created_at: '' },
+    ]
+    const user = userEvent.setup()
+    render(<BudgetManager {...defaultProps} budgets={budgetsWithSub} />)
+    const editButtons = screen.getAllByRole('button', { name: /editar/i })
+    await user.click(editButtons[0]) // editar Alimentación (cat-1, 300k)
+    // Otros = 300k − 200k (Mercado) = 100k
+    const inputs = screen.getAllByPlaceholderText('0') as HTMLInputElement[]
+    const othersInput = inputs.find((i) => i.value === '100000')
+    expect(othersInput).toBeDefined()
+  })
+
+  it('muestra el botón "Agregar subcategoría" cuando se selecciona una categoría con hijos', async () => {
+    const user = userEvent.setup()
+    render(<BudgetManager {...defaultProps} />)
+    await user.click(screen.getByRole('button', { name: /agregar presupuesto/i }))
+    const selects = screen.getAllByTestId('select')
+    const categorySelect = selects[selects.length - 1] as HTMLSelectElement
+    await user.selectOptions(categorySelect, 'cat-1')
+    expect(screen.getByRole('button', { name: /agregar subcategor/i })).toBeInTheDocument()
+  })
+
+  it('despliega el formulario inline al hacer clic en "Agregar subcategoría"', async () => {
+    const user = userEvent.setup()
+    render(<BudgetManager {...defaultProps} />)
+    await user.click(screen.getByRole('button', { name: /agregar presupuesto/i }))
+    const selects = screen.getAllByTestId('select')
+    await user.selectOptions(selects[selects.length - 1] as HTMLSelectElement, 'cat-1')
+    await user.click(screen.getByRole('button', { name: /agregar subcategor/i }))
+    expect(screen.getByPlaceholderText(/nueva subcategor/i)).toBeInTheDocument()
+  })
+})
