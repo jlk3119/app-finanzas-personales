@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
-import type { Account, Income, RecurringIncome } from "@/types";
+import type { Account, Expense, Income, RecurringIncome } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -16,6 +16,7 @@ import {
 
 type Props = {
   accounts: Account[];
+  expenses: Expense[];
   income: Income[];
   recurringIncome: RecurringIncome[];
   onRefresh: () => void;
@@ -62,7 +63,7 @@ const EMPTY_RECURRING: RecurringForm = {
 
 type View = "main" | "account-form" | "income-form" | "recurring-form" | "income-list";
 
-export default function AccountsManager({ accounts, income, recurringIncome, onRefresh }: Props) {
+export default function AccountsManager({ accounts, expenses, income, recurringIncome, onRefresh }: Props) {
   const supabase = createClient();
   const [view, setView] = useState<View>("main");
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -77,6 +78,18 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
   useBackButtonClose(view !== "main", () => setView("main"));
 
   const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
+
+  const now = new Date();
+  const currentMonth = now.getMonth() + 1;
+  const currentYear = now.getFullYear();
+  const totalMonthExpenses = expenses
+    .filter((e) => { const d = new Date(e.date + "T12:00:00"); return d.getMonth() + 1 === currentMonth && d.getFullYear() === currentYear; })
+    .reduce((s, e) => s + Number(e.amount), 0);
+  const totalDisponible = totalBalance - totalMonthExpenses;
+
+  // Disponible por cuenta: distribución proporcional al saldo de cada cuenta
+  const accDisponible = (acc: Account) =>
+    totalBalance > 0 ? Number(acc.balance) - (totalMonthExpenses * Number(acc.balance) / totalBalance) : Number(acc.balance);
 
   /* ── Helpers ── */
   const getActivePeriod = (r: RecurringIncome) => {
@@ -542,11 +555,13 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
   return (
     <div className="space-y-6">
 
-      {/* Saldo total */}
+      {/* Disponible total */}
       <div className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-2xl px-5 py-5 text-center shadow-md">
-        <p className="text-violet-200 text-xs mb-1 uppercase tracking-wide">Saldo total disponible</p>
-        <p className="text-3xl font-bold">{fmt(totalBalance)}</p>
-        <p className="text-violet-300 text-xs mt-1">{accounts.length} {accounts.length === 1 ? "cuenta" : "cuentas"}</p>
+        <p className="text-violet-200 text-xs mb-1 uppercase tracking-wide">Disponible total</p>
+        <p className={`text-3xl font-bold ${totalDisponible < 0 ? "text-red-300" : ""}`}>{fmt(totalDisponible)}</p>
+        <p className="text-violet-300 text-xs mt-1">
+          Saldo {fmt(totalBalance)} − gastos del mes {fmt(totalMonthExpenses)}
+        </p>
       </div>
 
       {/* ── Cuentas ── */}
@@ -576,7 +591,8 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-800">{acc.name}</p>
-                    <p className="text-lg font-bold leading-tight" style={{ color: acc.color }}>{fmt(acc.balance)}</p>
+                    <p className="text-lg font-bold leading-tight" style={{ color: acc.color }}>{fmt(accDisponible(acc))}</p>
+                    <p className="text-[10px] text-muted-foreground leading-tight">Saldo bruto {fmt(acc.balance)}</p>
                   </div>
                 </div>
                 <div className="flex gap-1">

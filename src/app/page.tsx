@@ -476,6 +476,7 @@ export default function Dashboard() {
         {activeTab === "accounts" && (
           <AccountsManager
             accounts={accounts}
+            expenses={expenses}
             income={income}
             recurringIncome={recurringIncome}
             onRefresh={fetchData}
