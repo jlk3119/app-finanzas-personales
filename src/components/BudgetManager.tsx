@@ -53,7 +53,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const [showCajaInfo, setShowCajaInfo] = useState(false);
   const [subAmounts, setSubAmounts] = useState<Record<string, string>>({});
 
-  useBackButtonClose(showForm, () => { setShowForm(false); setEditingId(null); setAmount(""); setSubAmounts({}); });
+  useBackButtonClose(showForm, () => { setShowForm(false); setEditingId(null); setAmount(""); setSubAmounts({}); setCategoryId("global"); });
 
   // Build ordered list: parents first, then their children
   const topCats = categories.filter((c) => !c.parent_id);
@@ -85,7 +85,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
   const categoryItems: Record<string, string> = {
     global: "🌐 Total general",
-    ...Object.fromEntries(orderedCats.map((c) => [c.id, c.parent_id ? `↳ ${c.icon} ${c.name}` : `${c.icon} ${c.name}`])),
+    ...Object.fromEntries(topCats.map((c) => [c.id, `${c.icon} ${c.name}`])),
   };
 
   const monthlyBudgets = budgets.filter((b) =>
@@ -204,6 +204,26 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   };
 
   const startEdit = (b: Budget) => {
+    const cat = b.category_id ? categories.find((c) => c.id === b.category_id) : null;
+
+    // Subcategory → redirect to editing the parent budget
+    if (cat?.parent_id) {
+      const pool = budgetsForPeriod(b.period);
+      const parentBudget = pool.find((pb) => pb.category_id === cat.parent_id);
+      if (parentBudget) {
+        startEdit(parentBudget);
+        return;
+      }
+      // Parent budget doesn't exist yet — open new form with parent pre-selected
+      setEditingId(null);
+      setAmount("");
+      setCategoryId(cat.parent_id);
+      setPeriod(b.period);
+      preloadSubAmounts(cat.parent_id, b.period);
+      setShowForm(true);
+      return;
+    }
+
     setEditingId(b.id);
     setAmount(String(b.amount));
     const catId = b.category_id ?? "global";
@@ -462,7 +482,11 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
               <Label>Período</Label>
               <Select
                 value={period}
-                onValueChange={(v) => setPeriod(v as "monthly" | "weekly")}
+                onValueChange={(v) => {
+                  const p = v as "monthly" | "weekly";
+                  setPeriod(p);
+                  preloadSubAmounts(categoryId, p);
+                }}
                 items={{ monthly: "Mensual", weekly: "Semanal" }}
               >
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
@@ -483,9 +507,9 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                 <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="global">🌐 Total general</SelectItem>
-                  {orderedCats.map((cat) => (
+                  {topCats.map((cat) => (
                     <SelectItem key={cat.id} value={cat.id}>
-                      {cat.parent_id ? `↳ ${cat.icon} ${cat.name}` : `${cat.icon} ${cat.name}`}
+                      {cat.icon} {cat.name}
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -532,7 +556,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
             )}
 
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => { setShowForm(false); setEditingId(null); setAmount(""); setSubAmounts({}); }}>
+              <Button variant="outline" className="flex-1" onClick={() => { setShowForm(false); setEditingId(null); setAmount(""); setSubAmounts({}); setCategoryId("global"); }}>
                 Cancelar
               </Button>
               <Button
