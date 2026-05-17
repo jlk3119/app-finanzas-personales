@@ -476,9 +476,16 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
                 {recurringForm.auto_assign ? "Activa" : "Desactivada"}
               </p>
               <p className="text-xs text-muted-foreground">
-                {recurringForm.auto_assign
-                  ? "Se registrará solo el último día hábil (festivos CO incluidos)"
-                  : "Registras el ingreso manualmente con el botón Recibir"}
+                {recurringForm.auto_assign ? (() => {
+                  if (recurringForm.is_salary) return "Se registrará el último día hábil del período (festivos CO incluidos)";
+                  if (recurringForm.frequency === "weekly") return "Se registrará automáticamente cada semana";
+                  if (recurringForm.day_of_month) {
+                    if (recurringForm.frequency === "biweekly")
+                      return `Se registrará el día ${recurringForm.day_of_month} (1ª quincena) y el último día del mes (2ª quincena)`;
+                    return `Se registrará el día ${recurringForm.day_of_month} de cada mes`;
+                  }
+                  return "Configura el día de pago arriba para activar la asignación automática";
+                })() : "Registras el ingreso manualmente con el botón Recibir"}
               </p>
             </div>
           </button>
