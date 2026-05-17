@@ -82,3 +82,11 @@ export type Goal = {
   completed: boolean;
   created_at: string;
 };
+
+export type MonthClosure = {
+  id: string;
+  user_id: string;
+  year: number;
+  month: number;
+  closed_at: string;
+};

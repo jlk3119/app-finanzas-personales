@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
-import type { Expense, Budget, Category, Goal, Account, Income, RecurringIncome } from "@/types";
+import type { Expense, Budget, Category, Goal, Account, Income, RecurringIncome, MonthClosure } from "@/types";
 import { getCurrentPayPeriod, getCustomPayPeriod } from "@/utils/colombian-holidays";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +16,7 @@ import BudgetManager from "@/components/BudgetManager";
 import GoalsList from "@/components/GoalsList";
 import CategoryManager from "@/components/CategoryManager";
 import AccountsManager from "@/components/AccountsManager";
+import MonthClosureCard from "@/components/MonthClosureCard";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 function getWeekNumber(date: Date) {
@@ -45,6 +46,7 @@ export default function Dashboard() {
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [income, setIncome] = useState<Income[]>([]);
   const [recurringIncome, setRecurringIncome] = useState<RecurringIncome[]>([]);
+  const [monthClosures, setMonthClosures] = useState<MonthClosure[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [showCategories, setShowCategories] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -117,7 +119,7 @@ export default function Dashboard() {
   }, [supabase]);
 
   const fetchData = useCallback(async () => {
-    const [expRes, budRes, catRes, goalRes, accRes, incRes, recurRes] = await Promise.all([
+    const [expRes, budRes, catRes, goalRes, accRes, incRes, recurRes, closuresRes] = await Promise.all([
       supabase.from("expenses").select("*, categories(*)").order("date", { ascending: false }),
       supabase.from("budgets").select("*, categories(*)"),
       supabase.from("categories").select("*").order("name"),
@@ -125,6 +127,7 @@ export default function Dashboard() {
       supabase.from("accounts").select("*").order("created_at"),
       supabase.from("income").select("*, accounts(*)").order("date", { ascending: false }),
       supabase.from("recurring_income").select("*, accounts(*)").order("created_at"),
+      supabase.from("month_closures").select("*"),
     ]);
 
     if (expRes.data) setExpenses(expRes.data as Expense[]);
@@ -151,6 +154,7 @@ export default function Dashboard() {
     }
 
     if (goalRes.data) setGoals(goalRes.data as Goal[]);
+    if (closuresRes.data) setMonthClosures(closuresRes.data as MonthClosure[]);
     setAccounts(accData);
     setIncome(incData);
     setRecurringIncome(recurData);
@@ -210,6 +214,17 @@ export default function Dashboard() {
 
   const monthBudget = budgets.find((b) => b.period === "monthly" && b.category_id === null && b.year === currentYear && b.month === currentMonth);
   const weekBudget = budgets.find((b) => b.period === "weekly" && b.category_id === null && b.year === currentYear && b.week === currentWeek);
+
+  const prevM = currentMonth === 1 ? 12 : currentMonth - 1;
+  const prevY = currentMonth === 1 ? currentYear - 1 : currentYear;
+  const prevMonthClosed = monthClosures.some((c) => c.year === prevY && c.month === prevM);
+  const prevMonthHasData =
+    expenses.some((e) => {
+      const d = new Date(e.date + "T12:00:00");
+      return d.getMonth() + 1 === prevM && d.getFullYear() === prevY;
+    }) ||
+    budgets.some((b) => b.period === "monthly" && b.year === prevY && b.month === prevM);
+  const showClosure = !prevMonthClosed && prevMonthHasData;
 
   const childrenOf = (pid: string) => categories.filter((c) => c.parent_id === pid);
   const categorySpend = categories
@@ -291,6 +306,19 @@ export default function Dashboard() {
       <div className="px-4 mt-4 space-y-4">
         {activeTab === "dashboard" && (
           <>
+            {showClosure && (
+              <MonthClosureCard
+                prevYear={prevY}
+                prevMonth={prevM}
+                expenses={expenses}
+                categories={categories}
+                budgets={budgets}
+                goals={goals}
+                income={income}
+                onClose={() => setMonthClosures((prev) => [...prev, { id: "", user_id: "", year: prevY, month: prevM, closed_at: "" }])}
+                onRefresh={fetchData}
+              />
+            )}
             {(() => {
               const s1 = accounts.length > 0;
               const s2 = recurringIncome.length > 0;
