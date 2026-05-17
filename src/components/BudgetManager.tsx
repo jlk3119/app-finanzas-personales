@@ -146,22 +146,47 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     if (editingId) {
       await supabase.from("budgets").update({ amount: finalAmount }).eq("id", editingId);
     } else {
-      await supabase.from("budgets").upsert(baseRow, { onConflict: "user_id,category_id,period,year,month,week" });
+      // Delete any existing record first (upsert with NULL keys is unreliable in PostgreSQL)
+      let delParent = supabase.from("budgets").delete()
+        .eq("user_id", user.id)
+        .eq("period", period)
+        .eq("year", baseRow.year);
+      if (baseRow.category_id) delParent = delParent.eq("category_id", baseRow.category_id);
+      else delParent = delParent.is("category_id", null);
+      if (period === "monthly") delParent = delParent.eq("month", selectedMonth).is("week", null);
+      else delParent = delParent.eq("week", currentWeek).is("month", null);
+      await delParent;
+      await supabase.from("budgets").insert(baseRow);
     }
 
-    // Save sub-budgets for each subcategory that has an amount
-    for (const [subCatId, subAmt] of Object.entries(subAmounts)) {
-      const n = Number(subAmt);
-      if (!n || n <= 0) continue;
-      await supabase.from("budgets").upsert({
-        user_id: user.id,
-        period,
-        category_id: subCatId,
-        amount: n,
-        year: period === "monthly" ? selectedYear : currentYear,
-        month: period === "monthly" ? selectedMonth : null,
-        week: period === "weekly" ? currentWeek : null,
-      }, { onConflict: "user_id,category_id,period,year,month,week" });
+    // Save sub-budgets: delete existing then insert fresh to avoid NULL-key upsert duplicates
+    const subEntries = Object.entries(subAmounts).filter(([, v]) => Number(v) > 0);
+    if (subEntries.length > 0) {
+      const subYear = period === "monthly" ? selectedYear : currentYear;
+      const subCatIds = subEntries.map(([id]) => id);
+      let delQ = supabase.from("budgets").delete()
+        .in("category_id", subCatIds)
+        .eq("user_id", user.id)
+        .eq("period", period)
+        .eq("year", subYear);
+      if (period === "monthly") {
+        delQ = delQ.eq("month", selectedMonth).is("week", null);
+      } else {
+        delQ = delQ.eq("week", currentWeek).is("month", null);
+      }
+      await delQ;
+
+      await supabase.from("budgets").insert(
+        subEntries.map(([subCatId, subAmt]) => ({
+          user_id: user.id,
+          period,
+          category_id: subCatId,
+          amount: Number(subAmt),
+          year: subYear,
+          month: period === "monthly" ? selectedMonth : null,
+          week: period === "weekly" ? currentWeek : null,
+        }))
+      );
     }
 
     setShowForm(false);

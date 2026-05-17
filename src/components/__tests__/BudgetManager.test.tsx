@@ -34,15 +34,21 @@ const defaultProps = {
 }
 
 function makeMock() {
+  const mockInsert = jest.fn().mockResolvedValue({ data: null, error: null })
   const mockUpsert = jest.fn().mockResolvedValue({ data: null, error: null })
   const mockEq = jest.fn().mockResolvedValue({ data: null, error: null })
   const mockUpdate = jest.fn().mockReturnValue({ eq: mockEq })
-  const mockDelete = jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ data: null, error: null }) })
+  // Chainable delete mock: each method returns an object with all filter methods + resolves at the end
+  const chainable: any = { data: null, error: null }
+  const methods = ['eq', 'is', 'in', 'neq', 'gt', 'lt']
+  methods.forEach((m) => { chainable[m] = jest.fn().mockReturnValue(chainable) })
+  Object.assign(chainable, { then: (resolve: any) => Promise.resolve({ data: null, error: null }).then(resolve) })
+  const mockDelete = jest.fn().mockReturnValue(chainable)
   mockCreateClient.mockReturnValue({
     auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user' } } }) },
-    from: jest.fn().mockReturnValue({ upsert: mockUpsert, update: mockUpdate, delete: mockDelete }),
+    from: jest.fn().mockReturnValue({ insert: mockInsert, upsert: mockUpsert, update: mockUpdate, delete: mockDelete }),
   } as any)
-  return { mockUpsert, mockUpdate, mockEq }
+  return { mockInsert, mockUpsert, mockUpdate, mockEq }
 }
 
 beforeEach(() => makeMock())
@@ -124,7 +130,7 @@ describe('BudgetManager', () => {
   })
 
   it('guarda el presupuesto principal y los sub-presupuestos', async () => {
-    const { mockUpsert } = makeMock()
+    const { mockInsert } = makeMock()
     const user = userEvent.setup()
     render(<BudgetManager {...defaultProps} />)
     await user.click(screen.getByRole('button', { name: /agregar presupuesto/i }))
@@ -132,12 +138,11 @@ describe('BudgetManager', () => {
     const select = selects[selects.length - 1] as HTMLSelectElement
     await user.selectOptions(select, 'cat-1')
     const inputs = screen.getAllByPlaceholderText('0') as HTMLInputElement[]
-    await user.type(inputs[0], '300000') // monto principal
-    await user.type(inputs[1], '200000') // mercado
+    await user.type(inputs[0], '300000') // mercado
     await user.click(screen.getByRole('button', { name: /guardar/i }))
     await waitFor(() => {
-      // upsert llamado al menos dos veces: una por el principal, una por la subcategoría
-      expect(mockUpsert.mock.calls.length).toBeGreaterThanOrEqual(2)
+      // insert llamado al menos dos veces: padre + subcategorías
+      expect(mockInsert.mock.calls.length).toBeGreaterThanOrEqual(2)
     })
   })
 
