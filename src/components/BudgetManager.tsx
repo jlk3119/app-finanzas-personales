@@ -10,7 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Pencil, Trash2, Plus, Settings2, ChevronLeft, ChevronRight, Copy, Info } from "lucide-react";
+import { Pencil, Trash2, Plus, Settings2, ChevronLeft, ChevronRight, Copy, Info, Check, X } from "lucide-react";
 
 type Props = {
   budgets: Budget[];
@@ -52,8 +52,20 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCajaInfo, setShowCajaInfo] = useState(false);
   const [subAmounts, setSubAmounts] = useState<Record<string, string>>({});
+  const [extraSubs, setExtraSubs] = useState<Category[]>([]);
+  const [showAddSub, setShowAddSub] = useState(false);
+  const [newSubName, setNewSubName] = useState("");
+  const [newSubAmount, setNewSubAmount] = useState("");
+  const [addingSubLoading, setAddingSubLoading] = useState(false);
+  const [othersAmount, setOthersAmount] = useState("");
 
-  useBackButtonClose(showForm, () => { setShowForm(false); setEditingId(null); setAmount(""); setSubAmounts({}); setCategoryId("global"); });
+  const closeForm = () => {
+    setShowForm(false); setEditingId(null); setAmount(""); setSubAmounts({});
+    setCategoryId("global"); setExtraSubs([]); setShowAddSub(false);
+    setNewSubName(""); setNewSubAmount(""); setOthersAmount("");
+  };
+
+  useBackButtonClose(showForm, closeForm);
 
   // Build ordered list: parents first, then their children
   const topCats = categories.filter((c) => !c.parent_id);
@@ -61,6 +73,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const orderedCats = topCats.flatMap((c) => [c, ...subsOf(c.id)]);
 
   const subsOfSelected = categoryId !== "global" ? subsOf(categoryId) : [];
+  const allSubsInForm = [...subsOfSelected, ...extraSubs];
 
   const budgetsForPeriod = (p: "monthly" | "weekly") =>
     p === "monthly"
@@ -71,15 +84,24 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     const subs = parentCatId !== "global" ? subsOf(parentCatId) : [];
     const pool = budgetsForPeriod(p);
     const next: Record<string, string> = {};
+    let subTotal = 0;
     subs.forEach((sub) => {
       const existing = pool.find((b) => b.category_id === sub.id);
-      if (existing) next[sub.id] = String(existing.amount);
+      if (existing) { next[sub.id] = String(existing.amount); subTotal += Number(existing.amount); }
     });
     setSubAmounts(next);
+    if (parentCatId !== "global") {
+      const parentBud = pool.find((b) => b.category_id === parentCatId);
+      const diff = parentBud ? Number(parentBud.amount) - subTotal : 0;
+      setOthersAmount(diff > 0 ? String(diff) : "");
+    } else {
+      setOthersAmount("");
+    }
   };
 
   const handleCategoryChange = (newCatId: string) => {
     setCategoryId(newCatId);
+    setExtraSubs([]); setShowAddSub(false); setNewSubName(""); setNewSubAmount(""); setOthersAmount("");
     preloadSubAmounts(newCatId, period);
   };
 
@@ -125,8 +147,8 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
   const handleSave = async () => {
     const subTotal = Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0);
-    const hasSubcategories = subsOfSelected.length > 0;
-    const finalAmount = hasSubcategories ? subTotal : Number(amount);
+    const hasSubcategories = allSubsInForm.length > 0;
+    const finalAmount = hasSubcategories ? subTotal + (Number(othersAmount) || 0) : Number(amount);
     if (finalAmount <= 0) return;
     setLoading(true);
 
@@ -189,11 +211,9 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
       );
     }
 
-    setShowForm(false);
-    setAmount("");
-    setCategoryId("global");
-    setSubAmounts({});
-    setEditingId(null);
+    setShowForm(false); setAmount(""); setCategoryId("global"); setSubAmounts({});
+    setEditingId(null); setExtraSubs([]); setShowAddSub(false);
+    setNewSubName(""); setNewSubAmount(""); setOthersAmount("");
     setLoading(false);
     onRefresh();
   };
@@ -215,8 +235,8 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
         return;
       }
       // Parent budget doesn't exist yet — open new form with parent pre-selected
-      setEditingId(null);
-      setAmount("");
+      setEditingId(null); setAmount(""); setExtraSubs([]); setShowAddSub(false);
+      setNewSubName(""); setNewSubAmount(""); setOthersAmount("");
       setCategoryId(cat.parent_id);
       setPeriod(b.period);
       preloadSubAmounts(cat.parent_id, b.period);
@@ -231,6 +251,25 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     setPeriod(b.period);
     preloadSubAmounts(catId, b.period);
     setShowForm(true);
+  };
+
+  const handleAddSub = async () => {
+    if (!newSubName.trim()) return;
+    setAddingSubLoading(true);
+    const { data: { user } } = await supabase.auth.getUser();
+    if (!user) { setAddingSubLoading(false); return; }
+    const parentCat = categories.find((c) => c.id === categoryId);
+    const { data: newCat, error } = await supabase
+      .from("categories")
+      .insert({ user_id: user.id, name: newSubName.trim(), icon: parentCat?.icon ?? "📂", color: parentCat?.color ?? "#6b7280", is_system: false, parent_id: categoryId })
+      .select()
+      .single();
+    if (!error && newCat) {
+      setExtraSubs((prev) => [...prev, newCat as Category]);
+      if (newSubAmount) setSubAmounts((prev) => ({ ...prev, [(newCat as Category).id]: newSubAmount }));
+    }
+    setShowAddSub(false); setNewSubName(""); setNewSubAmount("");
+    setAddingSubLoading(false);
   };
 
   const copyFromPrevMonth = async () => {
@@ -305,12 +344,23 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           })
         : [];
       children.forEach((c) => renderedChildIds.add(c.id));
-      const displayAmount = children.length > 0
-        ? children.reduce((s, c) => s + Number(c.amount), 0)
-        : Number(parent.amount);
+      const childrenTotal = children.reduce((s, c) => s + Number(c.amount), 0);
+      const othersAmt = children.length > 0 ? Number(parent.amount) - childrenTotal : 0;
       return [
-        <BudgetRow key={parent.id} b={parent} displayAmount={displayAmount} />,
+        <BudgetRow key={parent.id} b={parent} displayAmount={Number(parent.amount)} />,
         ...children.map((child) => <BudgetRow key={child.id} b={child} isChild />),
+        ...(othersAmt > 0 ? [
+          <div key={`${parent.id}-otros`} className="ml-5 bg-white border border-gray-100 flex items-center justify-between rounded-xl px-3 py-2">
+            <div className="flex items-center gap-2">
+              <span className="text-muted-foreground text-xs shrink-0">↳</span>
+              <span className="text-base">📋</span>
+              <div>
+                <p className="font-medium text-xs">Otros</p>
+                <p className="text-xs text-muted-foreground">{fmt(othersAmt)}</p>
+              </div>
+            </div>
+          </div>
+        ] : []),
       ];
     });
 
@@ -515,7 +565,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                 </SelectContent>
               </Select>
             </div>
-            {subsOfSelected.length === 0 && (
+            {allSubsInForm.length === 0 && (
               <div className="space-y-1">
                 <Label>Monto límite</Label>
                 <Input
@@ -530,10 +580,10 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
               </div>
             )}
 
-            {subsOfSelected.length > 0 && (
+            {allSubsInForm.length > 0 && (
               <div className="space-y-2 rounded-xl border border-dashed border-violet-200 bg-violet-50/50 p-3">
                 <p className="text-xs font-semibold text-violet-700">Montos por subcategoría</p>
-                {subsOfSelected.map((sub) => (
+                {allSubsInForm.map((sub) => (
                   <div key={sub.id} className="flex items-center gap-2">
                     <span className="text-sm shrink-0 w-36 truncate text-muted-foreground">{sub.icon} {sub.name}</span>
                     <Input
@@ -546,23 +596,82 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                     />
                   </div>
                 ))}
+
+                {/* Otros: monto adicional no asignado a ninguna subcategoría */}
+                <div className="flex items-center gap-2">
+                  <span className="text-sm shrink-0 w-36 truncate text-muted-foreground">📋 Otros</span>
+                  <Input
+                    type="number"
+                    inputMode="decimal"
+                    placeholder="0"
+                    value={othersAmount}
+                    onChange={(e) => setOthersAmount(e.target.value)}
+                    className="h-8 text-sm"
+                  />
+                </div>
+
+                {/* Agregar subcategoría inline */}
+                {!showAddSub ? (
+                  <button
+                    type="button"
+                    onClick={() => setShowAddSub(true)}
+                    className="flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-800 font-medium py-0.5"
+                  >
+                    <Plus className="w-3.5 h-3.5" /> Agregar subcategoría
+                  </button>
+                ) : (
+                  <div className="flex items-center gap-1.5 pt-1">
+                    <Input
+                      placeholder="Nueva subcategoría"
+                      value={newSubName}
+                      onChange={(e) => setNewSubName(e.target.value)}
+                      className="h-8 text-sm flex-1"
+                      autoFocus
+                      onKeyDown={(e) => { if (e.key === "Enter") handleAddSub(); if (e.key === "Escape") { setShowAddSub(false); setNewSubName(""); setNewSubAmount(""); } }}
+                    />
+                    <Input
+                      type="number"
+                      inputMode="decimal"
+                      placeholder="0"
+                      value={newSubAmount}
+                      onChange={(e) => setNewSubAmount(e.target.value)}
+                      className="h-8 text-sm w-24"
+                    />
+                    <button
+                      type="button"
+                      onClick={handleAddSub}
+                      disabled={!newSubName.trim() || addingSubLoading}
+                      className="p-1.5 rounded-lg bg-violet-600 text-white disabled:opacity-40"
+                    >
+                      <Check className="w-3.5 h-3.5" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => { setShowAddSub(false); setNewSubName(""); setNewSubAmount(""); }}
+                      className="p-1.5 rounded-lg border text-muted-foreground"
+                    >
+                      <X className="w-3.5 h-3.5" />
+                    </button>
+                  </div>
+                )}
+
                 <div className="flex justify-between items-center pt-1.5 border-t border-violet-200">
                   <span className="text-xs font-semibold text-violet-700">Total</span>
                   <span className="text-sm font-bold text-violet-800">
-                    {fmt(Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0))}
+                    {fmt(Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0) + (Number(othersAmount) || 0))}
                   </span>
                 </div>
               </div>
             )}
 
             <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={() => { setShowForm(false); setEditingId(null); setAmount(""); setSubAmounts({}); setCategoryId("global"); }}>
+              <Button variant="outline" className="flex-1" onClick={closeForm}>
                 Cancelar
               </Button>
               <Button
                 className="flex-1 bg-violet-600 hover:bg-violet-700"
                 onClick={handleSave}
-                disabled={loading || (subsOfSelected.length === 0 ? !amount || Number(amount) <= 0 : Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0) <= 0)}
+                disabled={loading || (allSubsInForm.length === 0 ? !amount || Number(amount) <= 0 : Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0) + (Number(othersAmount) || 0) <= 0)}
               >
                 {loading ? "Guardando..." : "Guardar"}
               </Button>
