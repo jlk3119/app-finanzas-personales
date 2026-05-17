@@ -123,7 +123,7 @@ export default function Dashboard() {
       supabase.from("expenses").select("*, categories(*)").order("date", { ascending: false }),
       supabase.from("budgets").select("*, categories(*)"),
       supabase.from("categories").select("*").order("name"),
-      supabase.from("goals").select("*").order("created_at", { ascending: false }),
+      supabase.from("goals").select("*, categories(*)").order("created_at", { ascending: false }),
       supabase.from("accounts").select("*").order("created_at"),
       supabase.from("income").select("*, accounts(*)").order("date", { ascending: false }),
       supabase.from("recurring_income").select("*, accounts(*)").order("created_at"),
@@ -455,7 +455,7 @@ export default function Dashboard() {
         )}
 
         {activeTab === "goals" && (
-          <GoalsList goals={goals} onRefresh={fetchData} />
+          <GoalsList goals={goals} categories={categories} onRefresh={fetchData} />
         )}
 
         {activeTab === "accounts" && (

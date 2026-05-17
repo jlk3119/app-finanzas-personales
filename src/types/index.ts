@@ -80,7 +80,9 @@ export type Goal = {
   deadline: string | null;
   icon: string;
   completed: boolean;
+  category_id: string | null;
   created_at: string;
+  categories?: Category;
 };
 
 export type MonthClosure = {

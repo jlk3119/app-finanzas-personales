@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
-import type { Goal } from "@/types";
+import type { Goal, Category } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -12,10 +12,13 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { Plus, Trash2, PlusCircle, CheckCircle2, Pencil, X } from "lucide-react";
 
-type Props = { goals: Goal[]; onRefresh: () => void };
+type Props = { goals: Goal[]; categories: Category[]; onRefresh: () => void };
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
+
+const toLocalDateStr = (d: Date) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
 const ICONS = [
   "🏠","🛋️","🔑","🏡","🏗️","🛁",
@@ -30,7 +33,7 @@ const ICONS = [
   "🌱","☕","🍕","🎵","📸","🧳",
 ];
 
-export default function GoalsList({ goals, onRefresh }: Props) {
+export default function GoalsList({ goals, categories, onRefresh }: Props) {
   const supabase = createClient();
   const [showForm, setShowForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
@@ -39,19 +42,25 @@ export default function GoalsList({ goals, onRefresh }: Props) {
   const [current, setCurrent] = useState("0");
   const [deadline, setDeadline] = useState("");
   const [icon, setIcon] = useState("🎯");
+  const [formCategoryId, setFormCategoryId] = useState<string>("");
   const [loading, setLoading] = useState(false);
-  const [addingToGoal, setAddingToGoal] = useState<string | null>(null);
+
+  const [addingToGoal, setAddingToGoal] = useState<Goal | null>(null);
   const [addAmount, setAddAmount] = useState("");
+  const [addCategoryId, setAddCategoryId] = useState<string>("");
+
+  // Only show top-level categories (no subcategories) in dropdowns
+  const rootCategories = categories.filter((c) => !c.parent_id);
 
   const closeForm = () => {
     setShowForm(false);
     setEditingGoal(null);
-    setName(""); setTarget(""); setCurrent("0"); setDeadline(""); setIcon("🎯");
+    setName(""); setTarget(""); setCurrent("0"); setDeadline(""); setIcon("🎯"); setFormCategoryId("");
   };
 
   const openCreate = () => {
     setEditingGoal(null);
-    setName(""); setTarget(""); setCurrent("0"); setDeadline(""); setIcon("🎯");
+    setName(""); setTarget(""); setCurrent("0"); setDeadline(""); setIcon("🎯"); setFormCategoryId("");
     setShowForm(true);
   };
 
@@ -62,17 +71,31 @@ export default function GoalsList({ goals, onRefresh }: Props) {
     setCurrent(String(goal.current_amount));
     setDeadline(goal.deadline ?? "");
     setIcon(goal.icon);
+    setFormCategoryId(goal.category_id ?? "");
     setShowForm(true);
   };
 
+  const openAddSaving = (goal: Goal) => {
+    setAddingToGoal(goal);
+    setAddAmount("");
+    setAddCategoryId(goal.category_id ?? "");
+  };
+
+  const closeAddSaving = () => {
+    setAddingToGoal(null);
+    setAddAmount("");
+    setAddCategoryId("");
+  };
+
   useBackButtonClose(showForm, closeForm);
-  useBackButtonClose(addingToGoal !== null, () => { setAddingToGoal(null); setAddAmount(""); });
+  useBackButtonClose(addingToGoal !== null, closeAddSaving);
 
   const handleSave = async () => {
     if (!name || !target || Number(target) <= 0) return;
     setLoading(true);
     const currentAmt = Number(current) || 0;
     const targetAmt = Number(target);
+    const categoryId = formCategoryId || null;
 
     if (editingGoal) {
       await supabase.from("goals").update({
@@ -81,6 +104,7 @@ export default function GoalsList({ goals, onRefresh }: Props) {
         current_amount: Math.min(currentAmt, targetAmt),
         deadline: deadline || null,
         icon,
+        category_id: categoryId,
         completed: currentAmt >= targetAmt,
       }).eq("id", editingGoal.id);
     } else {
@@ -91,6 +115,7 @@ export default function GoalsList({ goals, onRefresh }: Props) {
         target_amount: targetAmt,
         current_amount: Math.min(currentAmt, targetAmt),
         deadline: deadline || null,
+        category_id: categoryId,
         completed: currentAmt >= targetAmt,
       });
     }
@@ -99,16 +124,33 @@ export default function GoalsList({ goals, onRefresh }: Props) {
     onRefresh();
   };
 
-  const handleAddAmount = async (goal: Goal) => {
+  const handleAddAmount = async () => {
+    if (!addingToGoal) return;
+    const goal = addingToGoal;
     const n = Number(addAmount);
     if (!n || n <= 0) return;
+
     const newAmt = Math.min(goal.current_amount + n, goal.target_amount);
     await supabase.from("goals").update({
       current_amount: newAmt,
       completed: newAmt >= goal.target_amount,
     }).eq("id", goal.id);
-    setAddingToGoal(null);
-    setAddAmount("");
+
+    // If a source category is selected, also record it as an expense so the budget reflects it
+    if (addCategoryId) {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        await supabase.from("expenses").insert({
+          user_id: user.id,
+          category_id: addCategoryId,
+          amount: n,
+          description: `Ahorro: ${goal.name}`,
+          date: toLocalDateStr(new Date()),
+        });
+      }
+    }
+
+    closeAddSaving();
     onRefresh();
   };
 
@@ -137,6 +179,7 @@ export default function GoalsList({ goals, onRefresh }: Props) {
       {goals.map((goal) => {
         const pct = Math.min((goal.current_amount / goal.target_amount) * 100, 100);
         const remaining = goal.target_amount - goal.current_amount;
+        const isAdding = addingToGoal?.id === goal.id;
         return (
           <Card key={goal.id} className={goal.completed ? "border-green-200 bg-green-50" : ""}>
             <CardContent className="pt-4 space-y-3">
@@ -145,6 +188,11 @@ export default function GoalsList({ goals, onRefresh }: Props) {
                   <span className="text-2xl">{goal.icon}</span>
                   <div>
                     <p className="font-semibold text-sm">{goal.name}</p>
+                    {goal.category_id && goal.categories && (
+                      <p className="text-xs text-muted-foreground">
+                        {goal.categories.icon} {goal.categories.name}
+                      </p>
+                    )}
                     {goal.deadline && (
                       <p className="text-xs text-muted-foreground">
                         Fecha límite: {new Date(goal.deadline + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short", year: "numeric" })}
@@ -173,26 +221,43 @@ export default function GoalsList({ goals, onRefresh }: Props) {
               </div>
 
               {!goal.completed && (
-                addingToGoal === goal.id ? (
-                  <div className="flex gap-2">
+                isAdding ? (
+                  <div className="space-y-2">
                     <Input
                       type="number"
                       inputMode="decimal"
-                      placeholder="Monto a agregar"
+                      placeholder="Monto a ahorrar"
                       value={addAmount}
                       onChange={(e) => setAddAmount(e.target.value)}
                       className="h-9 text-sm"
                       autoFocus
                     />
-                    <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 shrink-0" onClick={() => handleAddAmount(goal)}>
-                      <CheckCircle2 className="w-4 h-4" />
-                    </Button>
-                    <Button size="sm" variant="outline" className="shrink-0" onClick={() => { setAddingToGoal(null); setAddAmount(""); }}>
-                      <X className="w-4 h-4" />
-                    </Button>
+                    <select
+                      value={addCategoryId}
+                      onChange={(e) => setAddCategoryId(e.target.value)}
+                      className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+                    >
+                      <option value="">Sin categoría (solo actualiza el ahorro)</option>
+                      {rootCategories.map((c) => (
+                        <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                      ))}
+                    </select>
+                    {addCategoryId && (
+                      <p className="text-xs text-muted-foreground">
+                        Se registrará un gasto en <strong>{rootCategories.find(c => c.id === addCategoryId)?.name}</strong> para descontar del presupuesto.
+                      </p>
+                    )}
+                    <div className="flex gap-2">
+                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 flex-1" onClick={handleAddAmount}>
+                        <CheckCircle2 className="w-4 h-4 mr-1" /> Guardar ahorro
+                      </Button>
+                      <Button size="sm" variant="outline" className="shrink-0" onClick={closeAddSaving}>
+                        <X className="w-4 h-4" />
+                      </Button>
+                    </div>
                   </div>
                 ) : (
-                  <Button variant="outline" size="sm" className="w-full" onClick={() => setAddingToGoal(goal.id)}>
+                  <Button variant="outline" size="sm" className="w-full" onClick={() => openAddSaving(goal)}>
                     <PlusCircle className="w-3.5 h-3.5 mr-1" /> Agregar ahorro
                   </Button>
                 )
@@ -237,6 +302,21 @@ export default function GoalsList({ goals, onRefresh }: Props) {
             <div className="space-y-1">
               <Label>Fecha límite <span className="text-muted-foreground font-normal text-xs">(opcional)</span></Label>
               <Input type="date" value={deadline} onChange={(e) => setDeadline(e.target.value)} />
+            </div>
+
+            <div className="space-y-1">
+              <Label>Categoría fuente por defecto <span className="text-muted-foreground font-normal text-xs">(opcional)</span></Label>
+              <select
+                value={formCategoryId}
+                onChange={(e) => setFormCategoryId(e.target.value)}
+                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
+              >
+                <option value="">Sin categoría predeterminada</option>
+                {rootCategories.map((c) => (
+                  <option key={c.id} value={c.id}>{c.icon} {c.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">Al agregar ahorros se preseleccionará esta categoría para descontar del presupuesto.</p>
             </div>
 
             <div className="flex gap-2">
