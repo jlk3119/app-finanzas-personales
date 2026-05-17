@@ -483,16 +483,18 @@ export default function Dashboard() {
         )}
       </div>
 
-      {/* FAB — encima del nav inferior */}
-      <div className="fixed bottom-[76px] right-4 z-50">
-        <button
-          className="flex items-center gap-2 bg-violet-600 active:bg-violet-800 text-white rounded-full pl-4 pr-5 py-3 shadow-lg active:scale-95 transition-transform"
-          onClick={() => setShowForm(true)}
-        >
-          <PlusCircle className="w-5 h-5 shrink-0" />
-          <span className="text-sm font-semibold">Nuevo gasto</span>
-        </button>
-      </div>
+      {/* FAB — solo en Resumen y Gastos */}
+      {(activeTab === "dashboard" || activeTab === "expenses") && (
+        <div className="fixed bottom-[76px] right-4 z-50">
+          <button
+            className="flex items-center gap-2 bg-violet-600 active:bg-violet-800 text-white rounded-full pl-4 pr-5 py-3 shadow-lg active:scale-95 transition-transform"
+            onClick={() => setShowForm(true)}
+          >
+            <PlusCircle className="w-5 h-5 shrink-0" />
+            <span className="text-sm font-semibold">Nuevo gasto</span>
+          </button>
+        </div>
+      )}
 
       {/* Barra de navegación inferior */}
       <nav className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-100 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] flex">
