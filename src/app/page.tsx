@@ -120,7 +120,7 @@ export default function Dashboard() {
 
   const fetchData = useCallback(async () => {
     const [expRes, budRes, catRes, goalRes, accRes, incRes, recurRes, closuresRes] = await Promise.all([
-      supabase.from("expenses").select("*, categories(*)").order("date", { ascending: false }),
+      supabase.from("expenses").select("*, categories(*), accounts(*)").order("date", { ascending: false }),
       supabase.from("budgets").select("*, categories(*)"),
       supabase.from("categories").select("*").order("name"),
       supabase.from("goals").select("*, categories(*)").order("created_at", { ascending: false }),
@@ -159,42 +159,14 @@ export default function Dashboard() {
     setIncome(incData);
     setRecurringIncome(recurData);
 
-    let latestAccs = accData;
     const assigned = await checkAutoAssign(recurData, incData, accData);
     if (assigned) {
       const [accRefresh, incRefresh] = await Promise.all([
         supabase.from("accounts").select("*").order("created_at"),
         supabase.from("income").select("*, accounts(*)").order("date", { ascending: false }),
       ]);
-      if (accRefresh.data) { latestAccs = accRefresh.data as Account[]; setAccounts(latestAccs); }
+      if (accRefresh.data) setAccounts(accRefresh.data as Account[]);
       if (incRefresh.data) setIncome(incRefresh.data as Income[]);
-    }
-
-    // One-time migration: deduct existing current-month expenses from account balances
-    // so accounts.balance always reflects the real available amount going forward.
-    const { data: { user: authUser } } = await supabase.auth.getUser();
-    if (authUser) {
-      const reconcileKey = `reconciled_v2_${authUser.id}`;
-      if (!localStorage.getItem(reconcileKey) && latestAccs.length > 0) {
-        const nowMig = new Date();
-        const cm = nowMig.getMonth() + 1;
-        const cy = nowMig.getFullYear();
-        const monthExp = (expRes.data as Expense[] ?? [])
-          .filter((e) => { const d = new Date(e.date + "T12:00:00"); return d.getMonth() + 1 === cm && d.getFullYear() === cy; })
-          .reduce((s, e) => s + Number(e.amount), 0);
-        if (monthExp > 0) {
-          const totalBal = latestAccs.reduce((s, a) => s + Number(a.balance), 0);
-          if (totalBal > 0) {
-            await Promise.all(latestAccs.map((acc) => {
-              const share = monthExp * Number(acc.balance) / totalBal;
-              return supabase.from("accounts").update({ balance: Math.max(0, Number(acc.balance) - share) }).eq("id", acc.id);
-            }));
-            const { data: accPost } = await supabase.from("accounts").select("*").order("created_at");
-            if (accPost) setAccounts(accPost as Account[]);
-          }
-        }
-        localStorage.setItem(reconcileKey, "1");
-      }
     }
 
     setLoading(false);

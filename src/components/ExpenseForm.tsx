@@ -20,8 +20,9 @@ export default function ExpenseForm({ categories, accounts, onClose, onSaved }: 
   const supabase = createClient();
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
-  const [categoryId, setCategoryId] = useState("");    // padre seleccionado
-  const [subCategoryId, setSubCategoryId] = useState(""); // hijo seleccionado
+  const [categoryId, setCategoryId] = useState("");
+  const [subCategoryId, setSubCategoryId] = useState("");
+  const [accountId, setAccountId] = useState(accounts.length === 1 ? accounts[0].id : "");
   const [date, setDate] = useState(() => {
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -47,26 +48,27 @@ export default function ExpenseForm({ categories, accounts, onClose, onSaved }: 
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
 
-    // Si hay subcategoría seleccionada, usarla; si no, usar la categoría padre
     const finalCategoryId = subCategoryId || categoryId || null;
+    const finalAccountId = accountId || null;
 
     const { error: err } = await supabase.from("expenses").insert({
       amount: Number(amount),
       description: description || null,
       category_id: finalCategoryId,
+      account_id: finalAccountId,
       date,
       user_id: user.id,
     });
 
     if (err) { setError(err.message); setLoading(false); return; }
 
-    const expenseAmount = Number(amount);
-    const totalBal = accounts.reduce((s, a) => s + Number(a.balance), 0);
-    if (accounts.length > 0 && totalBal > 0) {
-      await Promise.all(accounts.map((acc) => {
-        const share = expenseAmount * Number(acc.balance) / totalBal;
-        return supabase.from("accounts").update({ balance: Math.max(0, Number(acc.balance) - share) }).eq("id", acc.id);
-      }));
+    if (finalAccountId) {
+      const acc = accounts.find((a) => a.id === finalAccountId);
+      if (acc) {
+        await supabase.from("accounts").update({
+          balance: Math.max(0, Number(acc.balance) - Number(amount)),
+        }).eq("id", finalAccountId);
+      }
     }
 
     onSaved();
@@ -99,6 +101,33 @@ export default function ExpenseForm({ categories, accounts, onClose, onSaved }: 
                 autoFocus
               />
             </div>
+
+            {/* Cuenta */}
+            {accounts.length > 0 && (
+              <div className="space-y-2">
+                <Label>Cuenta <span className="text-xs font-normal text-muted-foreground">(opcional)</span></Label>
+                <div className="flex flex-wrap gap-2">
+                  {accounts.map((acc) => {
+                    const isSelected = accountId === acc.id;
+                    return (
+                      <button
+                        key={acc.id}
+                        type="button"
+                        onClick={() => setAccountId(isSelected ? "" : acc.id)}
+                        className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all ${
+                          isSelected
+                            ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
+                            : "border-gray-200 bg-white text-gray-700"
+                        }`}
+                      >
+                        <span>{acc.icon}</span>
+                        <span>{acc.name}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
 
             {/* Categoría — grid de chips */}
             <div className="space-y-2">

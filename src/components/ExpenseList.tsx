@@ -45,13 +45,12 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
     setDeleting(id);
     const expense = expenses.find((e) => e.id === id);
     await supabase.from("expenses").delete().eq("id", id);
-    if (expense) {
-      const totalBal = accounts.reduce((s, a) => s + Number(a.balance), 0);
-      if (accounts.length > 0 && totalBal > 0) {
-        await Promise.all(accounts.map((acc) => {
-          const share = Number(expense.amount) * Number(acc.balance) / totalBal;
-          return supabase.from("accounts").update({ balance: Number(acc.balance) + share }).eq("id", acc.id);
-        }));
+    if (expense?.account_id) {
+      const acc = accounts.find((a) => a.id === expense.account_id);
+      if (acc) {
+        await supabase.from("accounts").update({
+          balance: Number(acc.balance) + Number(expense.amount),
+        }).eq("id", acc.id);
       }
     }
     onRefresh();

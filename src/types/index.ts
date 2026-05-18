@@ -13,11 +13,13 @@ export type Expense = {
   id: string;
   user_id: string;
   category_id: string | null;
+  account_id?: string | null;
   amount: number;
   description: string | null;
   date: string;
   created_at: string;
   categories?: Category;
+  accounts?: Account;
 };
 
 export type Budget = {

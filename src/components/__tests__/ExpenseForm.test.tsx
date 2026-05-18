@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ExpenseForm from '../ExpenseForm'
 import { createClient } from '@/utils/supabase/client'
-import type { Category } from '@/types'
+import type { Account, Category } from '@/types'
 
 jest.mock('@/utils/supabase/client', () => ({ createClient: jest.fn() }))
 
@@ -110,6 +110,40 @@ describe('ExpenseForm', () => {
     const today = new Date()
     const expectedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
     expect(dateInput.value).toBe(expectedDate)
+  })
+
+  it('pre-selecciona la cuenta si solo hay una disponible', () => {
+    const mockAccount: Account = { id: 'acc-1', user_id: 'u1', name: 'Nequi', balance: 300000, icon: '📱', color: '#6366f1', created_at: '' }
+    render(<ExpenseForm categories={[]} accounts={[mockAccount]} onClose={jest.fn()} onSaved={jest.fn()} />)
+    const accountBtn = screen.getByRole('button', { name: /nequi/i })
+    expect(accountBtn).toHaveClass('border-violet-500')
+  })
+
+  it('selecciona una cuenta al hacer clic cuando hay varias', async () => {
+    const acc1: Account = { id: 'acc-1', user_id: 'u1', name: 'Nequi', balance: 300000, icon: '📱', color: '#6366f1', created_at: '' }
+    const acc2: Account = { id: 'acc-2', user_id: 'u1', name: 'Bancolombia', balance: 100000, icon: '🏦', color: '#3b82f6', created_at: '' }
+    const user = userEvent.setup()
+    render(<ExpenseForm categories={[]} accounts={[acc1, acc2]} onClose={jest.fn()} onSaved={jest.fn()} />)
+    const acc2Btn = screen.getByRole('button', { name: /bancolombia/i })
+    expect(acc2Btn).not.toHaveClass('border-violet-500')
+    await user.click(acc2Btn)
+    expect(acc2Btn).toHaveClass('border-violet-500')
+  })
+
+  it('descuenta el gasto del saldo de la cuenta seleccionada', async () => {
+    const mockAccount: Account = { id: 'acc-1', user_id: 'u1', name: 'Nequi', balance: 300000, icon: '📱', color: '#6366f1', created_at: '' }
+    const { supabase } = makeMock()
+    const mockUpdate = jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ data: null, error: null }) })
+    ;(supabase.from as jest.Mock).mockImplementation((table: string) => {
+      if (table === 'accounts') return { update: mockUpdate }
+      return { insert: jest.fn().mockResolvedValue({ data: null, error: null }) }
+    })
+    const user = userEvent.setup()
+    render(<ExpenseForm categories={[]} accounts={[mockAccount]} onClose={jest.fn()} onSaved={jest.fn()} />)
+    await user.type(screen.getByLabelText(/monto/i), '50000')
+    // Nequi es la única cuenta — se pre-selecciona automáticamente
+    await user.click(screen.getByRole('button', { name: /guardar gasto/i }))
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith({ balance: 250000 }))
   })
 
   it('deshabilita el botón submit mientras guarda', async () => {
