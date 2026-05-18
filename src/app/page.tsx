@@ -159,14 +159,42 @@ export default function Dashboard() {
     setIncome(incData);
     setRecurringIncome(recurData);
 
+    let latestAccs = accData;
     const assigned = await checkAutoAssign(recurData, incData, accData);
     if (assigned) {
       const [accRefresh, incRefresh] = await Promise.all([
         supabase.from("accounts").select("*").order("created_at"),
         supabase.from("income").select("*, accounts(*)").order("date", { ascending: false }),
       ]);
-      if (accRefresh.data) setAccounts(accRefresh.data as Account[]);
+      if (accRefresh.data) { latestAccs = accRefresh.data as Account[]; setAccounts(latestAccs); }
       if (incRefresh.data) setIncome(incRefresh.data as Income[]);
+    }
+
+    // One-time migration: deduct existing current-month expenses from account balances
+    // so accounts.balance always reflects the real available amount going forward.
+    const { data: { user: authUser } } = await supabase.auth.getUser();
+    if (authUser) {
+      const reconcileKey = `reconciled_v2_${authUser.id}`;
+      if (!localStorage.getItem(reconcileKey) && latestAccs.length > 0) {
+        const nowMig = new Date();
+        const cm = nowMig.getMonth() + 1;
+        const cy = nowMig.getFullYear();
+        const monthExp = (expRes.data as Expense[] ?? [])
+          .filter((e) => { const d = new Date(e.date + "T12:00:00"); return d.getMonth() + 1 === cm && d.getFullYear() === cy; })
+          .reduce((s, e) => s + Number(e.amount), 0);
+        if (monthExp > 0) {
+          const totalBal = latestAccs.reduce((s, a) => s + Number(a.balance), 0);
+          if (totalBal > 0) {
+            await Promise.all(latestAccs.map((acc) => {
+              const share = monthExp * Number(acc.balance) / totalBal;
+              return supabase.from("accounts").update({ balance: Math.max(0, Number(acc.balance) - share) }).eq("id", acc.id);
+            }));
+            const { data: accPost } = await supabase.from("accounts").select("*").order("created_at");
+            if (accPost) setAccounts(accPost as Account[]);
+          }
+        }
+        localStorage.setItem(reconcileKey, "1");
+      }
     }
 
     setLoading(false);
@@ -218,7 +246,7 @@ export default function Dashboard() {
   const weekBudget = budgets.find((b) => b.period === "weekly" && b.category_id === null && b.year === currentYear && b.week === currentWeek);
 
   const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
-  const disponible = totalBalance - totalMonth;
+  const disponible = totalBalance;
 
   const prevM = currentMonth === 1 ? 12 : currentMonth - 1;
   const prevY = currentMonth === 1 ? currentYear - 1 : currentYear;
@@ -300,7 +328,7 @@ export default function Dashboard() {
           <div className={`mt-2 rounded-xl px-4 py-2.5 flex items-center justify-between ${disponible >= 0 ? "bg-white/10" : "bg-red-500/30"}`}>
             <div>
               <p className="text-xs text-violet-300">Disponible total</p>
-              <p className="text-[10px] text-violet-400">saldo en cuentas − gastos del mes</p>
+              <p className="text-[10px] text-violet-400">saldo real en cuentas</p>
             </div>
             <p className={`font-bold text-base ${disponible < 0 ? "text-red-200" : "text-white"}`}>{fmt(disponible)}</p>
           </div>
@@ -441,7 +469,7 @@ export default function Dashboard() {
                 <CardTitle className="text-sm">Últimos gastos</CardTitle>
               </CardHeader>
               <CardContent>
-                <ExpenseList expenses={expenses.slice(0, 5)} categories={categories} onRefresh={fetchData} compact />
+                <ExpenseList expenses={expenses.slice(0, 5)} categories={categories} accounts={accounts} onRefresh={fetchData} compact />
               </CardContent>
             </Card>
           </>
@@ -450,7 +478,7 @@ export default function Dashboard() {
         {activeTab === "expenses" && (
           <Card>
             <CardContent className="pt-4">
-              <ExpenseList expenses={expenses} categories={categories} onRefresh={fetchData} />
+              <ExpenseList expenses={expenses} categories={categories} accounts={accounts} onRefresh={fetchData} />
             </CardContent>
           </Card>
         )}
@@ -476,7 +504,6 @@ export default function Dashboard() {
         {activeTab === "accounts" && (
           <AccountsManager
             accounts={accounts}
-            expenses={expenses}
             income={income}
             recurringIncome={recurringIncome}
             onRefresh={fetchData}
@@ -516,6 +543,7 @@ export default function Dashboard() {
       {showForm && (
         <ExpenseForm
           categories={categories}
+          accounts={accounts}
           onClose={() => setShowForm(false)}
           onSaved={() => { setShowForm(false); fetchData(); }}
         />

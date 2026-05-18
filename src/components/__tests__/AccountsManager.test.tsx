@@ -4,25 +4,13 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import AccountsManager from '../AccountsManager'
 import { createClient } from '@/utils/supabase/client'
-import type { Account, Expense, Income, RecurringIncome } from '@/types'
+import type { Account, Income, RecurringIncome } from '@/types'
 
 jest.mock('@/utils/supabase/client', () => ({ createClient: jest.fn() }))
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>
 
-const now = new Date()
-const cy = now.getFullYear()
-const cm = now.getMonth() + 1
-const pad = (n: number) => String(n).padStart(2, '0')
-const thisMonth = (day = 10) => `${cy}-${pad(cm)}-${pad(day)}`
-const lastMonth = cm === 1 ? `${cy - 1}-12-10` : `${cy}-${pad(cm - 1)}-10`
-
 const makeAccount = (id: string, name: string, balance: number): Account => ({
   id, user_id: 'u1', name, balance, icon: '🏦', color: '#6366f1', created_at: '',
-})
-
-const makeExpense = (amount: number, date: string): Expense => ({
-  id: `e-${Math.random()}`, user_id: 'u1', category_id: null,
-  amount, description: null, date, created_at: '',
 })
 
 const acc1 = makeAccount('acc-1', 'Lulobank', 500_000)
@@ -30,7 +18,6 @@ const acc2 = makeAccount('acc-2', 'Bancolombia', 300_000)
 
 const defaultProps = {
   accounts: [acc1],
-  expenses: [] as Expense[],
   income: [] as Income[],
   recurringIncome: [] as RecurringIncome[],
   onRefresh: jest.fn(),
@@ -58,40 +45,22 @@ function makeMock() {
 beforeEach(() => makeMock())
 afterEach(() => jest.clearAllMocks())
 
-describe('AccountsManager — disponible dinámico', () => {
-  it('muestra el disponible igual al saldo cuando no hay gastos', () => {
+describe('AccountsManager — saldos dinámicos', () => {
+  it('muestra el saldo real de la cuenta en el banner y en la tarjeta', () => {
     render(<AccountsManager {...defaultProps} />)
-    // banner y tarjeta deben mostrar 500 000
     expect(screen.getAllByText(/500\.?000/).length).toBeGreaterThanOrEqual(1)
     expect(screen.getByText(/disponible total/i)).toBeInTheDocument()
   })
 
-  it('descuenta los gastos del mes actual del disponible total', () => {
-    const expenses = [makeExpense(100_000, thisMonth(5)), makeExpense(50_000, thisMonth(8))]
-    render(<AccountsManager {...defaultProps} expenses={expenses} />)
-    // disponible = 500 000 − 150 000 = 350 000
-    expect(screen.getAllByText(/350\.?000/).length).toBeGreaterThanOrEqual(1)
+  it('muestra "Saldo total en cuentas" como subtítulo del banner', () => {
+    render(<AccountsManager {...defaultProps} />)
+    expect(screen.getByText(/saldo total en cuentas/i)).toBeInTheDocument()
   })
 
-  it('no descuenta gastos de meses anteriores', () => {
-    const expenses = [makeExpense(200_000, lastMonth)]
-    render(<AccountsManager {...defaultProps} expenses={expenses} />)
-    // disponible sigue siendo 500 000
-    expect(screen.getAllByText(/500\.?000/).length).toBeGreaterThanOrEqual(1)
-  })
-
-  it('el saldo bruto de la cuenta aparece como referencia', () => {
-    const expenses = [makeExpense(100_000, thisMonth())]
-    render(<AccountsManager {...defaultProps} expenses={expenses} />)
-    // el saldo bruto 500 000 debe aparecer en algún lugar (referencia pequeña)
-    expect(screen.getAllByText(/500\.?000/).length).toBeGreaterThanOrEqual(1)
-  })
-
-  it('con múltiples cuentas el disponible es la suma total menos los gastos', () => {
-    const expenses = [makeExpense(200_000, thisMonth())]
-    render(<AccountsManager {...defaultProps} accounts={[acc1, acc2]} expenses={expenses} />)
-    // 500 000 + 300 000 − 200 000 = 600 000
-    expect(screen.getAllByText(/600\.?000/).length).toBeGreaterThanOrEqual(1)
+  it('con múltiples cuentas el disponible es la suma de los saldos', () => {
+    render(<AccountsManager {...defaultProps} accounts={[acc1, acc2]} />)
+    // 500 000 + 300 000 = 800 000
+    expect(screen.getAllByText(/800\.?000/).length).toBeGreaterThanOrEqual(1)
   })
 
   it('muestra el nombre de cada cuenta', () => {
@@ -100,11 +69,9 @@ describe('AccountsManager — disponible dinámico', () => {
     expect(screen.getByText('Bancolombia')).toBeInTheDocument()
   })
 
-  it('muestra el detalle saldo − gastos en el banner', () => {
-    const expenses = [makeExpense(50_000, thisMonth())]
-    render(<AccountsManager {...defaultProps} expenses={expenses} />)
-    // el banner tiene el subtítulo con los montos
-    expect(screen.getByText(/gastos del mes/i)).toBeInTheDocument()
+  it('no muestra etiqueta "Saldo bruto"', () => {
+    render(<AccountsManager {...defaultProps} />)
+    expect(screen.queryByText(/saldo bruto/i)).not.toBeInTheDocument()
   })
 })
 

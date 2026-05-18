@@ -19,9 +19,11 @@ const mockCategories: Category[] = [
 
 function makeMock(insertResult = { data: null, error: null }) {
   const mockInsert = jest.fn().mockResolvedValue(insertResult)
+  const chainable: any = {}
+  ;['eq'].forEach((m) => { chainable[m] = jest.fn().mockResolvedValue({ data: null, error: null }) })
   const supabase = {
     auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user' } } }) },
-    from: jest.fn().mockReturnValue({ insert: mockInsert }),
+    from: jest.fn().mockReturnValue({ insert: mockInsert, update: jest.fn().mockReturnValue(chainable) }),
   }
   mockCreateClient.mockReturnValue(supabase as any)
   return { mockInsert, supabase }
@@ -32,7 +34,7 @@ afterEach(() => jest.clearAllMocks())
 
 describe('ExpenseForm', () => {
   it('renderiza el formulario con los campos requeridos', () => {
-    render(<ExpenseForm categories={mockCategories} onClose={jest.fn()} onSaved={jest.fn()} />)
+    render(<ExpenseForm categories={mockCategories} accounts={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
     expect(screen.getByLabelText(/monto/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/descripción/i)).toBeInTheDocument()
     expect(screen.getByLabelText(/fecha/i)).toBeInTheDocument()
@@ -40,14 +42,14 @@ describe('ExpenseForm', () => {
   })
 
   it('muestra las categorías padre como botones', () => {
-    render(<ExpenseForm categories={mockCategories} onClose={jest.fn()} onSaved={jest.fn()} />)
+    render(<ExpenseForm categories={mockCategories} accounts={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
     expect(screen.getByText(/alimentación/i)).toBeInTheDocument()
     expect(screen.getByText(/transporte/i)).toBeInTheDocument()
   })
 
   it('muestra subcategorías al seleccionar una categoría padre con hijos', async () => {
     const user = userEvent.setup()
-    render(<ExpenseForm categories={mockCategories} onClose={jest.fn()} onSaved={jest.fn()} />)
+    render(<ExpenseForm categories={mockCategories} accounts={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
     // Alimentación tiene subcategorías, aparece con "›"
     await user.click(screen.getByText(/alimentación/i))
     expect(screen.getByText(/mercado/i)).toBeInTheDocument()
@@ -56,21 +58,21 @@ describe('ExpenseForm', () => {
 
   it('no muestra subcategorías para categorías sin hijos', async () => {
     const user = userEvent.setup()
-    render(<ExpenseForm categories={mockCategories} onClose={jest.fn()} onSaved={jest.fn()} />)
+    render(<ExpenseForm categories={mockCategories} accounts={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
     await user.click(screen.getByText(/transporte/i))
     expect(screen.queryByText(/mercado/i)).not.toBeInTheDocument()
   })
 
   it('muestra error de validación cuando el monto está vacío', async () => {
     const user = userEvent.setup()
-    render(<ExpenseForm categories={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
+    render(<ExpenseForm categories={[]} accounts={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
     await user.click(screen.getByRole('button', { name: /guardar gasto/i }))
     expect(screen.getByText(/monto válido/i)).toBeInTheDocument()
   })
 
   it('muestra error de validación cuando el monto es cero', async () => {
     const user = userEvent.setup()
-    render(<ExpenseForm categories={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
+    render(<ExpenseForm categories={[]} accounts={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
     await user.type(screen.getByLabelText(/monto/i), '0')
     await user.click(screen.getByRole('button', { name: /guardar gasto/i }))
     expect(screen.getByText(/monto válido/i)).toBeInTheDocument()
@@ -79,7 +81,7 @@ describe('ExpenseForm', () => {
   it('llama a onSaved después de guardar exitosamente', async () => {
     const onSaved = jest.fn()
     const user = userEvent.setup()
-    render(<ExpenseForm categories={[]} onClose={jest.fn()} onSaved={onSaved} />)
+    render(<ExpenseForm categories={[]} accounts={[]} onClose={jest.fn()} onSaved={onSaved} />)
     await user.type(screen.getByLabelText(/monto/i), '50000')
     await user.click(screen.getByRole('button', { name: /guardar gasto/i }))
     await waitFor(() => expect(onSaved).toHaveBeenCalledTimes(1))
@@ -88,7 +90,7 @@ describe('ExpenseForm', () => {
   it('muestra mensaje de error si Supabase retorna error', async () => {
     makeMock({ data: null, error: { message: 'Error de conexión' } as any })
     const user = userEvent.setup()
-    render(<ExpenseForm categories={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
+    render(<ExpenseForm categories={[]} accounts={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
     await user.type(screen.getByLabelText(/monto/i), '50000')
     await user.click(screen.getByRole('button', { name: /guardar gasto/i }))
     await waitFor(() => expect(screen.getByText(/error de conexión/i)).toBeInTheDocument())
@@ -97,13 +99,13 @@ describe('ExpenseForm', () => {
   it('llama a onClose al presionar Cancelar', async () => {
     const onClose = jest.fn()
     const user = userEvent.setup()
-    render(<ExpenseForm categories={[]} onClose={onClose} onSaved={jest.fn()} />)
+    render(<ExpenseForm categories={[]} accounts={[]} onClose={onClose} onSaved={jest.fn()} />)
     await user.click(screen.getByRole('button', { name: /cancelar/i }))
     expect(onClose).toHaveBeenCalledTimes(1)
   })
 
   it('inicializa la fecha con la fecha local del dispositivo (no UTC)', () => {
-    render(<ExpenseForm categories={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
+    render(<ExpenseForm categories={[]} accounts={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
     const dateInput = screen.getByLabelText(/fecha/i) as HTMLInputElement
     const today = new Date()
     const expectedDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`
@@ -117,7 +119,7 @@ describe('ExpenseForm', () => {
     mockInsert.mockReturnValue(new Promise((res) => { resolveInsert = res }))
 
     const user = userEvent.setup()
-    render(<ExpenseForm categories={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
+    render(<ExpenseForm categories={[]} accounts={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
     await user.type(screen.getByLabelText(/monto/i), '50000')
     await user.click(screen.getByRole('button', { name: /guardar gasto/i }))
 

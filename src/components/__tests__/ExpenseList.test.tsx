@@ -27,7 +27,9 @@ const mockExpenses: Expense[] = [
 function makeDeleteMock() {
   const mockEq = jest.fn().mockResolvedValue({ data: null, error: null })
   const mockDelete = jest.fn().mockReturnValue({ eq: mockEq })
-  mockCreateClient.mockReturnValue({ from: jest.fn().mockReturnValue({ delete: mockDelete }) } as any)
+  const updateChainable: any = { eq: jest.fn().mockResolvedValue({ data: null, error: null }) }
+  const mockUpdate = jest.fn().mockReturnValue(updateChainable)
+  mockCreateClient.mockReturnValue({ from: jest.fn().mockReturnValue({ delete: mockDelete, update: mockUpdate }) } as any)
   return { mockDelete, mockEq }
 }
 
@@ -36,31 +38,31 @@ afterEach(() => jest.clearAllMocks())
 
 describe('ExpenseList', () => {
   it('renderiza la lista de gastos', () => {
-    render(<ExpenseList expenses={mockExpenses} categories={[cat]} onRefresh={jest.fn()} />)
+    render(<ExpenseList expenses={mockExpenses} categories={[cat]} accounts={[]} onRefresh={jest.fn()} />)
     expect(screen.getByText('Supermercado')).toBeInTheDocument()
     expect(screen.getByText('Bus')).toBeInTheDocument()
     expect(screen.getByText('Café')).toBeInTheDocument()
   })
 
   it('muestra "Hoy" para el gasto de hoy', () => {
-    render(<ExpenseList expenses={[mockExpenses[0]]} categories={[cat]} onRefresh={jest.fn()} />)
+    render(<ExpenseList expenses={[mockExpenses[0]]} categories={[cat]} accounts={[]} onRefresh={jest.fn()} />)
     expect(screen.getByText('Hoy')).toBeInTheDocument()
   })
 
   it('muestra "Ayer" para el gasto de ayer', () => {
-    render(<ExpenseList expenses={[mockExpenses[1]]} categories={[cat]} onRefresh={jest.fn()} />)
+    render(<ExpenseList expenses={[mockExpenses[1]]} categories={[cat]} accounts={[]} onRefresh={jest.fn()} />)
     expect(screen.getByText('Ayer')).toBeInTheDocument()
   })
 
   it('muestra una fecha formateada para gastos anteriores', () => {
-    render(<ExpenseList expenses={[mockExpenses[2]]} categories={[]} onRefresh={jest.fn()} />)
+    render(<ExpenseList expenses={[mockExpenses[2]]} categories={[]} accounts={[]} onRefresh={jest.fn()} />)
     // No debe decir "Hoy" ni "Ayer"
     expect(screen.queryByText('Hoy')).not.toBeInTheDocument()
     expect(screen.queryByText('Ayer')).not.toBeInTheDocument()
   })
 
   it('muestra los montos formateados en COP', () => {
-    render(<ExpenseList expenses={mockExpenses} categories={[cat]} onRefresh={jest.fn()} />)
+    render(<ExpenseList expenses={mockExpenses} categories={[cat]} accounts={[]} onRefresh={jest.fn()} />)
     expect(screen.getAllByText(/50\.?000/).length).toBeGreaterThanOrEqual(1)
     expect(screen.getAllByText(/15\.?000/).length).toBeGreaterThanOrEqual(1)
   })
@@ -68,19 +70,19 @@ describe('ExpenseList', () => {
   it('llama a onRefresh después de eliminar un gasto', async () => {
     const onRefresh = jest.fn()
     const user = userEvent.setup()
-    render(<ExpenseList expenses={mockExpenses} categories={[cat]} onRefresh={onRefresh} />)
+    render(<ExpenseList expenses={mockExpenses} categories={[cat]} accounts={[]} onRefresh={onRefresh} />)
     const deleteButtons = screen.getAllByRole('button', { name: /eliminar|trash|delete/i })
     await user.click(deleteButtons[0])
     await waitFor(() => expect(onRefresh).toHaveBeenCalled())
   })
 
   it('muestra estado vacío cuando no hay gastos', () => {
-    render(<ExpenseList expenses={[]} categories={[]} onRefresh={jest.fn()} />)
+    render(<ExpenseList expenses={[]} categories={[]} accounts={[]} onRefresh={jest.fn()} />)
     expect(screen.getByText(/sin gastos/i)).toBeInTheDocument()
   })
 
   it('en modo compact solo muestra los primeros gastos sin edición', () => {
-    render(<ExpenseList expenses={mockExpenses} categories={[cat]} onRefresh={jest.fn()} compact />)
+    render(<ExpenseList expenses={mockExpenses} categories={[cat]} accounts={[]} onRefresh={jest.fn()} compact />)
     // En modo compact no hay botones de eliminar
     expect(screen.queryByRole('button', { name: /eliminar/i })).not.toBeInTheDocument()
   })

@@ -2,13 +2,14 @@
 
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import type { Expense, Category } from "@/types";
+import type { Account, Expense, Category } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Trash2 } from "lucide-react";
 
 type Props = {
   expenses: Expense[];
   categories: Category[];
+  accounts: Account[];
   onRefresh: () => void;
   compact?: boolean;
 };
@@ -36,13 +37,23 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("es-CO", { weekday: "short", day: "numeric", month: "short" });
 }
 
-export default function ExpenseList({ expenses, categories, onRefresh, compact }: Props) {
+export default function ExpenseList({ expenses, categories, accounts, onRefresh, compact }: Props) {
   const supabase = createClient();
   const [deleting, setDeleting] = useState<string | null>(null);
 
   const handleDelete = async (id: string) => {
     setDeleting(id);
+    const expense = expenses.find((e) => e.id === id);
     await supabase.from("expenses").delete().eq("id", id);
+    if (expense) {
+      const totalBal = accounts.reduce((s, a) => s + Number(a.balance), 0);
+      if (accounts.length > 0 && totalBal > 0) {
+        await Promise.all(accounts.map((acc) => {
+          const share = Number(expense.amount) * Number(acc.balance) / totalBal;
+          return supabase.from("accounts").update({ balance: Number(acc.balance) + share }).eq("id", acc.id);
+        }));
+      }
+    }
     onRefresh();
     setDeleting(null);
   };

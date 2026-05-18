@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import type { Category } from "@/types";
+import type { Account, Category } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -11,11 +11,12 @@ import { X } from "lucide-react";
 
 type Props = {
   categories: Category[];
+  accounts: Account[];
   onClose: () => void;
   onSaved: () => void;
 };
 
-export default function ExpenseForm({ categories, onClose, onSaved }: Props) {
+export default function ExpenseForm({ categories, accounts, onClose, onSaved }: Props) {
   const supabase = createClient();
   const [amount, setAmount] = useState("");
   const [description, setDescription] = useState("");
@@ -58,6 +59,16 @@ export default function ExpenseForm({ categories, onClose, onSaved }: Props) {
     });
 
     if (err) { setError(err.message); setLoading(false); return; }
+
+    const expenseAmount = Number(amount);
+    const totalBal = accounts.reduce((s, a) => s + Number(a.balance), 0);
+    if (accounts.length > 0 && totalBal > 0) {
+      await Promise.all(accounts.map((acc) => {
+        const share = expenseAmount * Number(acc.balance) / totalBal;
+        return supabase.from("accounts").update({ balance: Math.max(0, Number(acc.balance) - share) }).eq("id", acc.id);
+      }));
+    }
+
     onSaved();
   };
 
