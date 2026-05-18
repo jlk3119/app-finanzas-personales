@@ -72,7 +72,7 @@ export async function POST(req: Request) {
         .join("\n")
     : "Sin ingresos recurrentes configurados";
 
-  const prompt = `Eres un asesor financiero personal experto. Analiza en detalle las finanzas del usuario para ${month} y entrega un resumen de ALTO IMPACTO: breve, directo y accionable. El usuario habla español colombiano.
+  const prompt = `Eres el compañero financiero personal del usuario — cercano, honesto y alentador, como un amigo que sabe de finanzas. Hablas en español colombiano informal (tuteo). Analizas el mes de ${month} con todos los datos reales y das un resumen breve de alto valor.
 
 ═══ GASTOS DEL MES (detalle) ═══
 ${expenseLines}
@@ -95,15 +95,15 @@ ${debtLines}
 ═══ TU ANÁLISIS ═══
 Responde en exactamente este formato (sin títulos, sin asteriscos, sin markdown):
 
-[Una línea: veredicto general del mes con emoji — ej: "✅ Mes sólido" o "⚠️ Atención requerida" o "🔴 Mes difícil"]
+[Una línea: veredicto del mes con emoji y tono de amigo — ej: "✅ ¡Vas bien este mes!" o "⚠️ Ojo con los gastos" o "🔴 Este mes estuvo heavy"]
 
-[1-2 frases sobre el patrón de gastos más relevante del mes, con cifras concretas]
+[1-2 frases en tono cercano sobre el patrón de gastos más importante, con cifras concretas]
 
-[1 frase sobre el punto más positivo]
+[1 frase celebrando o reconociendo algo positivo]
 
-[1 frase sobre el riesgo o área crítica más importante]
+[1 frase señalando el punto de atención más importante, sin ser dramático]
 
-💡 [Una acción concreta y específica que el usuario puede tomar esta semana]`;
+💡 [Un consejo concreto y fácil de aplicar esta semana, como te lo daría un amigo]`;
 
   const groq = createGroq({ apiKey });
   const { text } = await generateText({
