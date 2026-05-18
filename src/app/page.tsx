@@ -14,6 +14,7 @@ import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import BudgetManager from "@/components/BudgetManager";
 import GoalsList from "@/components/GoalsList";
+import FinancialSummaryCard from "@/components/FinancialSummaryCard";
 import DebtManager from "@/components/DebtManager";
 import CategoryManager from "@/components/CategoryManager";
 import AccountsManager from "@/components/AccountsManager";
@@ -458,6 +459,17 @@ export default function Dashboard() {
                 <ExpenseList expenses={expenses.slice(0, 5)} categories={categories} accounts={accounts} onRefresh={fetchData} compact />
               </CardContent>
             </Card>
+
+            <FinancialSummaryCard
+              expenses={expenses}
+              budgets={budgets}
+              goals={goals}
+              debts={debts}
+              categories={categories}
+              accounts={accounts}
+              currentMonth={currentMonth}
+              currentYear={currentYear}
+            />
           </>
         )}
 
