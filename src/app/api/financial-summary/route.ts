@@ -106,17 +106,33 @@ Elige status: "good" si todo va bien, "warning" si hay algo que cuidar, "critica
     maxOutputTokens: 200,
   });
 
-  // Extract JSON robustly — strip any surrounding prose the model may add
-  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  // Extract JSON robustly — strip markdown fences and surrounding prose
+  const clean = text.replace(/```json|```/g, "").trim();
+  const jsonMatch = clean.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
     return Response.json({ error: "Respuesta inesperada del modelo" }, { status: 500 });
   }
-  const parsed = JSON.parse(jsonMatch[0]) as {
-    status: "good" | "warning" | "critical";
-    verdict: string;
-    insight: string;
-    action: string;
-  };
 
-  return Response.json(parsed);
+  let parsed: { status: string; verdict: string; insight: string; action: string };
+  try {
+    parsed = JSON.parse(jsonMatch[0]);
+  } catch {
+    return Response.json({ error: "JSON inválido en la respuesta del modelo" }, { status: 500 });
+  }
+
+  // Normalize status to known values
+  const rawStatus = String(parsed.status ?? "").toLowerCase();
+  const status: "good" | "warning" | "critical" =
+    rawStatus === "critical" ? "critical" : rawStatus === "warning" ? "warning" : "good";
+
+  // Strip asterisks, backticks and trim each text field
+  const sanitize = (s: unknown) =>
+    String(s ?? "").replace(/[*`_]/g, "").replace(/\n/g, " ").trim();
+
+  return Response.json({
+    status,
+    verdict: sanitize(parsed.verdict),
+    insight: sanitize(parsed.insight),
+    action: sanitize(parsed.action),
+  });
 }

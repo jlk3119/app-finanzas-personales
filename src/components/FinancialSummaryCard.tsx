@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState, useCallback, useMemo } from "react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Sparkles, RefreshCw, AlertCircle, Lightbulb } from "lucide-react";
@@ -41,6 +41,21 @@ export default function FinancialSummaryCard({
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Fingerprint of relevant data — re-fetch only when something actually changed
+  const dataFingerprint = useMemo(() => {
+    const monthExp = expenses.filter((e) => {
+      const d = new Date(e.date + "T12:00:00");
+      return d.getMonth() + 1 === currentMonth && d.getFullYear() === currentYear;
+    });
+    return [
+      monthExp.map((e) => `${e.id}:${e.amount}`).sort().join(","),
+      accounts.map((a) => `${a.id}:${a.balance}`).join(","),
+      goals.map((g) => `${g.id}:${g.current_amount}`).join(","),
+      debts.map((d) => `${d.id}:${d.paid_amount}`).join(","),
+      `${currentMonth}-${currentYear}`,
+    ].join("|");
+  }, [expenses, accounts, goals, debts, currentMonth, currentYear]);
 
   const buildPayload = useCallback(() => {
     const thisMonthExpenses = expenses.filter((e) => {
@@ -132,7 +147,16 @@ export default function FinancialSummaryCard({
     }
   }, [buildPayload]);
 
-  useEffect(() => { fetchSummary(); }, [fetchSummary]);
+  // Keep a ref so the fingerprint effect always calls the latest fetchSummary
+  const fetchSummaryRef = useRef(fetchSummary);
+  useEffect(() => { fetchSummaryRef.current = fetchSummary; }, [fetchSummary]);
+
+  const prevFingerprintRef = useRef<string | null>(null);
+  useEffect(() => {
+    if (dataFingerprint === prevFingerprintRef.current) return;
+    prevFingerprintRef.current = dataFingerprint;
+    fetchSummaryRef.current();
+  }, [dataFingerprint]);
 
   const cfg = summary ? STATUS_CONFIG[summary.status] ?? STATUS_CONFIG.good : null;
 
