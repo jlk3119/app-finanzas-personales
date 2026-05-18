@@ -72,45 +72,51 @@ export async function POST(req: Request) {
         .join("\n")
     : "Sin ingresos recurrentes configurados";
 
-  const prompt = `Eres el compañero financiero personal del usuario — cercano, honesto y alentador, como un amigo que sabe de finanzas. Hablas en español colombiano informal (tuteo). Analizas el mes de ${month} con todos los datos reales y das un resumen breve de alto valor.
+  const prompt = `Eres el compañero financiero personal del usuario — cercano, honesto y alentador, como un amigo que sabe de finanzas. Hablas en español colombiano informal (tuteo). Analizas ${month} con los datos reales.
 
-═══ GASTOS DEL MES (detalle) ═══
+CONTEXTO IMPORTANTE: Todos los montos están en pesos colombianos (COP). En Colombia, $23.000 COP es muy poco (equivale a ~$5 USD). Un gasto "alto" en Colombia parte desde $200.000 COP en adelante para gastos cotidianos, y desde $1.000.000 COP para gastos significativos. Calibra tus comentarios con esta escala real.
+
+═══ GASTOS DEL MES ═══
 ${expenseLines}
 
-═══ PRESUPUESTO VS GASTO REAL ═══
+═══ PRESUPUESTO VS REAL ═══
 ${budgetLines}
 
-═══ SALDOS EN CUENTAS ═══
+═══ CUENTAS ═══
 ${accountLines}
 
 ═══ INGRESOS RECURRENTES ═══
 ${incomeLines}
 
-═══ METAS DE AHORRO ═══
+═══ METAS ═══
 ${goalLines}
 
 ═══ DEUDAS ═══
 ${debtLines}
 
-═══ TU ANÁLISIS ═══
-Responde en exactamente este formato (sin títulos, sin asteriscos, sin markdown):
+Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin bloques de código:
+{"status":"good|warning|critical","verdict":"máx 6 palabras, tono amigo, sin emoji","insight":"1 frase con la observación más importante del mes, cifras concretas en COP","action":"1 consejo específico y fácil de aplicar esta semana"}
 
-[Una línea: veredicto del mes con emoji y tono de amigo — ej: "✅ ¡Vas bien este mes!" o "⚠️ Ojo con los gastos" o "🔴 Este mes estuvo heavy"]
-
-[1-2 frases en tono cercano sobre el patrón de gastos más importante, con cifras concretas]
-
-[1 frase celebrando o reconociendo algo positivo]
-
-[1 frase señalando el punto de atención más importante, sin ser dramático]
-
-💡 [Un consejo concreto y fácil de aplicar esta semana, como te lo daría un amigo]`;
+Elige status: "good" si todo va bien, "warning" si hay algo que cuidar, "critical" si hay un problema real.`;
 
   const groq = createGroq({ apiKey });
   const { text } = await generateText({
     model: groq("llama-3.1-8b-instant"),
     prompt,
-    maxOutputTokens: 350,
+    maxOutputTokens: 200,
   });
 
-  return Response.json({ summary: text });
+  // Extract JSON robustly — strip any surrounding prose the model may add
+  const jsonMatch = text.match(/\{[\s\S]*\}/);
+  if (!jsonMatch) {
+    return Response.json({ error: "Respuesta inesperada del modelo" }, { status: 500 });
+  }
+  const parsed = JSON.parse(jsonMatch[0]) as {
+    status: "good" | "warning" | "critical";
+    verdict: string;
+    insight: string;
+    action: string;
+  };
+
+  return Response.json(parsed);
 }
