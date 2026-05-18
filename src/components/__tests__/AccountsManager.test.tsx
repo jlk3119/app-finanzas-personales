@@ -20,6 +20,8 @@ const defaultProps = {
   accounts: [acc1],
   income: [] as Income[],
   recurringIncome: [] as RecurringIncome[],
+  disponible: 500_000,
+  unlinkedMonthTotal: 0,
   onRefresh: jest.fn(),
 }
 
@@ -52,13 +54,18 @@ describe('AccountsManager — saldos dinámicos', () => {
     expect(screen.getByText(/disponible total/i)).toBeInTheDocument()
   })
 
-  it('muestra "Saldo total en cuentas" como subtítulo del banner', () => {
-    render(<AccountsManager {...defaultProps} />)
+  it('muestra "Saldo total en cuentas" cuando no hay gastos sin cuenta', () => {
+    render(<AccountsManager {...defaultProps} unlinkedMonthTotal={0} />)
     expect(screen.getByText(/saldo total en cuentas/i)).toBeInTheDocument()
   })
 
+  it('muestra el desglose cuando hay gastos sin cuenta asignada', () => {
+    render(<AccountsManager {...defaultProps} disponible={400_000} unlinkedMonthTotal={100_000} />)
+    expect(screen.getByText(/sin cuenta/i)).toBeInTheDocument()
+  })
+
   it('con múltiples cuentas el disponible es la suma de los saldos', () => {
-    render(<AccountsManager {...defaultProps} accounts={[acc1, acc2]} />)
+    render(<AccountsManager {...defaultProps} accounts={[acc1, acc2]} disponible={800_000} />)
     // 500 000 + 300 000 = 800 000
     expect(screen.getAllByText(/800\.?000/).length).toBeGreaterThanOrEqual(1)
   })

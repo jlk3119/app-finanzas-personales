@@ -220,7 +220,11 @@ export default function Dashboard() {
   const weekBudget = budgets.find((b) => b.period === "weekly" && b.category_id === null && b.year === currentYear && b.week === currentWeek);
 
   const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
-  const disponible = totalBalance;
+  // Gastos sin cuenta asignada no descuentan de ningún balance → restarlos explícitamente
+  const unlinkedMonthTotal = thisMonthExpenses
+    .filter((e) => !e.account_id)
+    .reduce((s, e) => s + Number(e.amount), 0);
+  const disponible = totalBalance - unlinkedMonthTotal;
 
   const prevM = currentMonth === 1 ? 12 : currentMonth - 1;
   const prevY = currentMonth === 1 ? currentYear - 1 : currentYear;
@@ -302,7 +306,11 @@ export default function Dashboard() {
           <div className={`mt-2 rounded-xl px-4 py-2.5 flex items-center justify-between ${disponible >= 0 ? "bg-white/10" : "bg-red-500/30"}`}>
             <div>
               <p className="text-xs text-violet-300">Disponible total</p>
-              <p className="text-[10px] text-violet-400">saldo real en cuentas</p>
+              <p className="text-[10px] text-violet-400">
+                {unlinkedMonthTotal > 0
+                  ? `saldo en cuentas − ${fmt(unlinkedMonthTotal)} sin cuenta`
+                  : "saldo real en cuentas"}
+              </p>
             </div>
             <p className={`font-bold text-base ${disponible < 0 ? "text-red-200" : "text-white"}`}>{fmt(disponible)}</p>
           </div>
@@ -480,6 +488,8 @@ export default function Dashboard() {
             accounts={accounts}
             income={income}
             recurringIncome={recurringIncome}
+            disponible={disponible}
+            unlinkedMonthTotal={unlinkedMonthTotal}
             onRefresh={fetchData}
           />
         )}

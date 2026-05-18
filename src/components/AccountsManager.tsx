@@ -18,6 +18,8 @@ type Props = {
   accounts: Account[];
   income: Income[];
   recurringIncome: RecurringIncome[];
+  disponible: number;
+  unlinkedMonthTotal: number;
   onRefresh: () => void;
 };
 
@@ -63,7 +65,7 @@ const EMPTY_RECURRING: RecurringForm = {
 
 type View = "main" | "account-form" | "income-form" | "recurring-form" | "income-list";
 
-export default function AccountsManager({ accounts, income, recurringIncome, onRefresh }: Props) {
+export default function AccountsManager({ accounts, income, recurringIncome, disponible, unlinkedMonthTotal, onRefresh }: Props) {
   const supabase = createClient();
   const [view, setView] = useState<View>("main");
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
@@ -546,8 +548,12 @@ export default function AccountsManager({ accounts, income, recurringIncome, onR
       {/* Disponible total */}
       <div className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-2xl px-5 py-5 text-center shadow-md">
         <p className="text-violet-200 text-xs mb-1 uppercase tracking-wide">Disponible total</p>
-        <p className={`text-3xl font-bold ${totalBalance < 0 ? "text-red-300" : ""}`}>{fmt(totalBalance)}</p>
-        <p className="text-violet-300 text-xs mt-1">Saldo total en cuentas</p>
+        <p className={`text-3xl font-bold ${disponible < 0 ? "text-red-300" : ""}`}>{fmt(disponible)}</p>
+        <p className="text-violet-300 text-xs mt-1">
+          {unlinkedMonthTotal > 0
+            ? `${fmt(totalBalance)} en cuentas − ${fmt(unlinkedMonthTotal)} sin cuenta`
+            : "Saldo total en cuentas"}
+        </p>
       </div>
 
       {/* ── Cuentas ── */}
