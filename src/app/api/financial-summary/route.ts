@@ -1,5 +1,5 @@
 import { createGroq } from "@ai-sdk/groq";
-import { generateObject } from "ai";
+import { generateText } from "ai";
 import { z } from "zod";
 
 export const runtime = "nodejs";
@@ -131,19 +131,28 @@ ${incomeLines}
 ${goalLines}
 
 ═══ DEUDAS ═══
-${debtLines}`;
+${debtLines}
+
+INSTRUCCIÓN DE RESPUESTA:
+Responde ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, sin bloques de código markdown. Usa exactamente esta estructura:
+{"status":"good","verdict":"texto máx 6 palabras sin emojis","insight":"1 frase con observación importante y cifras COP reales","action":"1 consejo concreto aplicable esta semana"}
+Valores válidos para status: "good" (finanzas saludables), "warning" (atención necesaria), "critical" (situación urgente).`;
 
   const groq = createGroq({ apiKey });
 
   try {
-    const { object } = await generateObject({
+    const { text } = await generateText({
       model: groq("llama-3.3-70b-versatile"),
-      schema: SummarySchema,
       prompt,
     });
-    return Response.json(object);
+
+    const match = text.match(/\{[\s\S]*\}/);
+    if (!match) throw new Error("El modelo no devolvió JSON");
+    const parsed = JSON.parse(match[0]);
+    const validated = SummarySchema.parse(parsed);
+    return Response.json(validated);
   } catch (err) {
-    console.error("[financial-summary] generateObject error:", err);
+    console.error("[financial-summary] error:", err);
     const message = err instanceof Error ? err.message : "Error al generar el resumen";
     return Response.json({ error: message }, { status: 500 });
   }
