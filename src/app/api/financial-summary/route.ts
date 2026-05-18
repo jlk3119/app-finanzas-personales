@@ -135,11 +135,16 @@ ${debtLines}`;
 
   const groq = createGroq({ apiKey });
 
-  const { object } = await generateObject({
-    model: groq("llama-3.1-8b-instant"),
-    schema: SummarySchema,
-    prompt,
-  });
-
-  return Response.json(object);
+  try {
+    const { object } = await generateObject({
+      model: groq("llama-3.3-70b-versatile"),
+      schema: SummarySchema,
+      prompt,
+    });
+    return Response.json(object);
+  } catch (err) {
+    console.error("[financial-summary] generateObject error:", err);
+    const message = err instanceof Error ? err.message : "Error al generar el resumen";
+    return Response.json({ error: message }, { status: 500 });
+  }
 }
