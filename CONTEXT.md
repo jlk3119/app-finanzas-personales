@@ -60,6 +60,7 @@ expenses (
   id uuid PK,
   user_id uuid,
   category_id uuid → categories(id) ON DELETE SET NULL,
+  account_id uuid → accounts(id) ON DELETE SET NULL,
   amount numeric(12,2),
   description text,
   date date
@@ -138,7 +139,7 @@ month_closures (
 
 ```typescript
 type Category = { id, user_id, name, icon, color, is_system, parent_id, created_at }
-type Expense  = { id, user_id, category_id, amount, description, date, categories? }
+type Expense  = { id, user_id, category_id, account_id?, amount, description, date, categories?, accounts? }
 type Budget   = { id, user_id, category_id, period, amount, year, month, week, categories? }
 type Goal     = { id, user_id, name, target_amount, current_amount, deadline, icon, completed, category_id, categories? }
 type Account  = { id, user_id, name, balance, icon, color }
