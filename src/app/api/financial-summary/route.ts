@@ -1,5 +1,6 @@
 import { createGroq } from "@ai-sdk/groq";
-import { generateText } from "ai";
+import { generateObject } from "ai";
+import { z } from "zod";
 
 export const runtime = "nodejs";
 
@@ -12,9 +13,16 @@ type ExpenseRow = {
   account?: string;
 };
 type MonthBlock = { label: string; total: number; rows: ExpenseRow[] };
-type BudgetRow = { category: string; amount: number; spent: number };
-type GoalRow = { name: string; target: number; current: number; completed: boolean; deadline?: string };
-type DebtRow = { name: string; entity: string; total: number; paid: number };
+type BudgetRow  = { category: string; amount: number; spent: number };
+type GoalRow    = { name: string; target: number; current: number; completed: boolean; deadline?: string };
+type DebtRow    = { name: string; entity: string; total: number; paid: number };
+
+const SummarySchema = z.object({
+  status:  z.enum(["good", "warning", "critical"]),
+  verdict: z.string().describe("Máx 6 palabras. Tono de amigo. Sin emojis."),
+  insight: z.string().describe("1 frase con la observación más importante basada en el historial real, con cifras COP."),
+  action:  z.string().describe("1 consejo concreto y fácil de aplicar esta semana, basado en datos reales."),
+});
 
 export async function POST(req: Request) {
   const apiKey = process.env.GROQ_API_KEY;
@@ -24,6 +32,7 @@ export async function POST(req: Request) {
 
   const {
     currentMonth,
+    today,
     expensesByMonth,
     budgetsByMonth,
     accounts,
@@ -32,6 +41,7 @@ export async function POST(req: Request) {
     debts,
   } = await req.json() as {
     currentMonth: string;
+    today: string;
     expensesByMonth: MonthBlock[];
     budgetsByMonth: Record<string, BudgetRow[]>;
     accounts: { name: string; balance: number }[];
@@ -40,7 +50,6 @@ export async function POST(req: Request) {
     debts: DebtRow[];
   };
 
-  // Build historical expense section
   const expenseSection = expensesByMonth.length > 0
     ? expensesByMonth.map((month) => {
         const rows = month.rows
@@ -48,25 +57,32 @@ export async function POST(req: Request) {
             `  ${e.date} | ${e.category}${e.subcategory ? ` > ${e.subcategory}` : ""} | $${e.amount.toLocaleString("es-CO")} | ${e.description}${e.account ? ` [${e.account}]` : ""}`
           )
           .join("\n");
-        return `[${month.label}] — Total: $${month.total.toLocaleString("es-CO")}\n${rows}`;
+        return `[${month.label}] — Total gastado: $${month.total.toLocaleString("es-CO")}\n${rows || "  (sin gastos registrados en este mes)"}`;
       }).join("\n\n")
-    : "Sin gastos registrados";
+    : "Sin gastos registrados aún (la app puede ser nueva)";
 
-  // Build budget vs real section
   const budgetSection = Object.keys(budgetsByMonth).length > 0
     ? Object.entries(budgetsByMonth)
         .sort(([a], [b]) => a.localeCompare(b))
         .map(([key, rows]) => {
           const [y, m] = key.split("-").map(Number);
-          const label = `${["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][m - 1]} ${y}`;
+          const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
+          const isFuture = (y > parseInt(today.slice(0,4))) || (y === parseInt(today.slice(0,4)) && m > parseInt(today.slice(5,7)));
+          const label = `${MONTHS[m - 1]} ${y}${isFuture ? " (MES FUTURO — presupuesto ya definido)" : ""}`;
           const lines = rows
-            .map((b) => `  ${b.category}: presupuesto $${b.amount.toLocaleString("es-CO")}, gastado $${b.spent.toLocaleString("es-CO")} (${Math.round((b.spent / b.amount) * 100)}%)`)
+            .map((b) => {
+              const pct = b.amount > 0 ? Math.round((b.spent / b.amount) * 100) : 0;
+              return `  ${b.category}: presupuesto $${b.amount.toLocaleString("es-CO")}, gastado $${b.spent.toLocaleString("es-CO")} (${pct}%)`;
+            })
             .join("\n");
           return `[${label}]\n${lines}`;
         }).join("\n\n")
     : "Sin presupuestos definidos";
 
-  const accountLines = accounts.map((a) => `  ${a.name}: $${a.balance.toLocaleString("es-CO")}`).join("\n");
+  const accountLines = accounts.length > 0
+    ? accounts.map((a) => `  ${a.name}: $${a.balance.toLocaleString("es-CO")}`).join("\n")
+    : "  Sin cuentas registradas";
+
   const incomeLines = recurringIncome.length > 0
     ? recurringIncome.map((r) => `  ${r.name}: $${r.amount.toLocaleString("es-CO")} (${r.frequency})`).join("\n")
     : "  Sin ingresos recurrentes";
@@ -74,7 +90,7 @@ export async function POST(req: Request) {
   const goalLines = goals.length > 0
     ? goals.map((g) => {
         const pct = g.target > 0 ? Math.round((g.current / g.target) * 100) : 0;
-        const status = g.completed ? "✅ Completada" : `${pct}% — faltan $${(g.target - g.current).toLocaleString("es-CO")}`;
+        const status = g.completed ? "COMPLETADA" : `${pct}% — faltan $${(g.target - g.current).toLocaleString("es-CO")}`;
         return `  ${g.name}: $${g.current.toLocaleString("es-CO")} de $${g.target.toLocaleString("es-CO")} (${status})${g.deadline ? `, límite ${g.deadline}` : ""}`;
       }).join("\n")
     : "  Sin metas";
@@ -87,20 +103,25 @@ export async function POST(req: Request) {
       }).join("\n")
     : "  Sin deudas";
 
-  const prompt = `Eres el compañero financiero personal del usuario — cercano, honesto y alentador como un amigo que sabe de finanzas. Hablas en español colombiano informal (tuteo).
+  const prompt = `Eres el compañero financiero personal del usuario, cercano y honesto como un amigo que sabe de finanzas. Tuteo, español colombiano.
 
-CONTEXTO CLAVE:
-- Moneda: pesos colombianos (COP). $23.000 COP ≈ $5 USD — es muy poco. Un gasto cotidiano "alto" parte desde $200.000 COP; uno significativo desde $1.000.000 COP.
-- Mes actual bajo análisis: ${currentMonth}
-- Tienes acceso al historial completo: úsalo para identificar tendencias, comparar meses y detectar patrones.
+FECHA DE HOY: ${today}
+MES ACTUAL: ${currentMonth}
 
-═══ HISTORIAL DE GASTOS (todos los meses) ═══
+REGLAS PARA INTERPRETAR LOS DATOS:
+- Moneda: pesos colombianos (COP). $23.000 COP ≈ $5 USD. "Alto" parte desde $200.000 COP cotidiano, $1.000.000 COP para gasto significativo.
+- Si un mes tiene pocos gastos, puede ser porque la app es nueva o el mes acaba de empezar. NO asumas que no hay actividad financiera.
+- Los presupuestos marcados como "MES FUTURO" son planificación real del usuario — reconócela como algo positivo.
+- Si hay presupuesto definido para el mes actual con bajo % de ejecución, puede significar que el mes está en curso y no que el usuario no presupuesta.
+- Usa el historial completo para detectar tendencias reales.
+
+═══ GASTOS POR MES ═══
 ${expenseSection}
 
-═══ PRESUPUESTO VS GASTO REAL (por mes) ═══
+═══ PRESUPUESTO VS GASTO REAL ═══
 ${budgetSection}
 
-═══ SALDOS ACTUALES EN CUENTAS ═══
+═══ SALDOS EN CUENTAS ═══
 ${accountLines}
 
 ═══ INGRESOS RECURRENTES ═══
@@ -110,44 +131,15 @@ ${incomeLines}
 ${goalLines}
 
 ═══ DEUDAS ═══
-${debtLines}
-
-Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin bloques de código:
-{"status":"good|warning|critical","verdict":"máx 6 palabras, tono de amigo, sin emoji","insight":"1 frase con la observación más importante considerando el historial completo, con cifras COP concretas","action":"1 consejo específico y fácil de aplicar esta semana, basado en patrones reales del historial"}
-
-status: "good" = todo bien, "warning" = algo que cuidar, "critical" = problema real.`;
+${debtLines}`;
 
   const groq = createGroq({ apiKey });
-  const { text } = await generateText({
+
+  const { object } = await generateObject({
     model: groq("llama-3.1-8b-instant"),
+    schema: SummarySchema,
     prompt,
-    maxOutputTokens: 200,
   });
 
-  const clean = text.replace(/```json|```/g, "").trim();
-  const jsonMatch = clean.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) {
-    return Response.json({ error: "Respuesta inesperada del modelo" }, { status: 500 });
-  }
-
-  let parsed: { status: string; verdict: string; insight: string; action: string };
-  try {
-    parsed = JSON.parse(jsonMatch[0]);
-  } catch {
-    return Response.json({ error: "JSON inválido en la respuesta del modelo" }, { status: 500 });
-  }
-
-  const rawStatus = String(parsed.status ?? "").toLowerCase();
-  const status: "good" | "warning" | "critical" =
-    rawStatus === "critical" ? "critical" : rawStatus === "warning" ? "warning" : "good";
-
-  const sanitize = (s: unknown) =>
-    String(s ?? "").replace(/[*`_]/g, "").replace(/\n/g, " ").trim();
-
-  return Response.json({
-    status,
-    verdict: sanitize(parsed.verdict),
-    insight: sanitize(parsed.insight),
-    action: sanitize(parsed.action),
-  });
+  return Response.json(object);
 }

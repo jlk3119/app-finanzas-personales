@@ -108,8 +108,12 @@ export default function FinancialSummaryCard({
       return map;
     })();
 
+    const now = new Date();
+    const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
     return {
       currentMonth: `${MONTHS[currentMonth - 1]} ${currentYear}`,
+      today: todayStr,
       expensesByMonth,
       budgetsByMonth,
       accounts: accounts.map((a) => ({ name: a.name, balance: Number(a.balance) })),
