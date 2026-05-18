@@ -4,13 +4,14 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import type { Account, Expense, Category } from "@/types";
 import { Button } from "@/components/ui/button";
-import { Trash2 } from "lucide-react";
+import { Pencil, Trash2 } from "lucide-react";
 
 type Props = {
   expenses: Expense[];
   categories: Category[];
   accounts: Account[];
   onRefresh: () => void;
+  onEdit?: (expense: Expense) => void;
   compact?: boolean;
 };
 
@@ -37,7 +38,7 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("es-CO", { weekday: "short", day: "numeric", month: "short" });
 }
 
-export default function ExpenseList({ expenses, categories, accounts, onRefresh, compact }: Props) {
+export default function ExpenseList({ expenses, categories, accounts, onRefresh, onEdit, compact }: Props) {
   const supabase = createClient();
   const [deleting, setDeleting] = useState<string | null>(null);
 
@@ -109,8 +110,19 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
                       <p className="text-xs text-muted-foreground">{catLabel}</p>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className="text-sm font-semibold">{fmt(Number(e.amount))}</span>
+                  <div className="flex items-center gap-1">
+                    <span className="text-sm font-semibold mr-1">{fmt(Number(e.amount))}</span>
+                    {onEdit && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-7 h-7 text-muted-foreground hover:text-violet-600"
+                        aria-label="Editar"
+                        onClick={() => onEdit(e)}
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"

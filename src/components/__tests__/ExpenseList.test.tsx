@@ -89,6 +89,24 @@ describe('ExpenseList', () => {
     expect(screen.queryByRole('button', { name: /eliminar/i })).not.toBeInTheDocument()
   })
 
+  it('muestra botón editar cuando se provee onEdit', () => {
+    render(<ExpenseList expenses={mockExpenses} categories={[cat]} accounts={[]} onRefresh={jest.fn()} onEdit={jest.fn()} />)
+    expect(screen.getAllByRole('button', { name: /editar/i }).length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('llama a onEdit con el gasto correcto al hacer clic en editar', async () => {
+    const onEdit = jest.fn()
+    const user = userEvent.setup()
+    render(<ExpenseList expenses={[mockExpenses[0]]} categories={[cat]} accounts={[]} onRefresh={jest.fn()} onEdit={onEdit} />)
+    await user.click(screen.getByRole('button', { name: /editar/i }))
+    expect(onEdit).toHaveBeenCalledWith(mockExpenses[0])
+  })
+
+  it('no muestra botón editar cuando no se provee onEdit', () => {
+    render(<ExpenseList expenses={mockExpenses} categories={[cat]} accounts={[]} onRefresh={jest.fn()} />)
+    expect(screen.queryByRole('button', { name: /editar/i })).not.toBeInTheDocument()
+  })
+
   it('restaura el saldo de la cuenta vinculada al eliminar un gasto', async () => {
     const { mockEq } = makeDeleteMock()
     const mockUpdateEq = mockEq

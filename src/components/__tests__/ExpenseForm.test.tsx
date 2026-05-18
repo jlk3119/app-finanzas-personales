@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import ExpenseForm from '../ExpenseForm'
 import { createClient } from '@/utils/supabase/client'
-import type { Account, Category } from '@/types'
+import type { Account, Category, Expense } from '@/types'
 
 jest.mock('@/utils/supabase/client', () => ({ createClient: jest.fn() }))
 
@@ -144,6 +144,32 @@ describe('ExpenseForm', () => {
     // Nequi es la única cuenta — se pre-selecciona automáticamente
     await user.click(screen.getByRole('button', { name: /guardar gasto/i }))
     await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith({ balance: 250000 }))
+  })
+
+  it('en modo edición muestra el título "Editar gasto" y pre-llena los campos', () => {
+    const expense: Expense = {
+      id: 'e1', user_id: 'u1', category_id: null, account_id: null,
+      amount: 75000, description: 'Almuerzo', date: '2026-05-10', created_at: '',
+    }
+    render(<ExpenseForm categories={[]} accounts={[]} editingExpense={expense} onClose={jest.fn()} onSaved={jest.fn()} />)
+    expect(screen.getByText(/editar gasto/i)).toBeInTheDocument()
+    expect((screen.getByLabelText(/monto/i) as HTMLInputElement).value).toBe('75000')
+    expect((screen.getByLabelText(/descripción/i) as HTMLInputElement).value).toBe('Almuerzo')
+    expect(screen.getByRole('button', { name: /guardar cambios/i })).toBeInTheDocument()
+  })
+
+  it('en modo edición llama a update en lugar de insert', async () => {
+    const expense: Expense = {
+      id: 'e1', user_id: 'u1', category_id: null, account_id: null,
+      amount: 50000, description: 'Bus', date: '2026-05-10', created_at: '',
+    }
+    const { supabase } = makeMock()
+    const mockUpdate = jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ data: null, error: null }) })
+    ;(supabase.from as jest.Mock).mockImplementation(() => ({ update: mockUpdate, insert: jest.fn() }))
+    const user = userEvent.setup()
+    render(<ExpenseForm categories={[]} accounts={[]} editingExpense={expense} onClose={jest.fn()} onSaved={jest.fn()} />)
+    await user.click(screen.getByRole('button', { name: /guardar cambios/i }))
+    await waitFor(() => expect(mockUpdate).toHaveBeenCalled())
   })
 
   it('deshabilita el botón submit mientras guarda', async () => {

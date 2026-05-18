@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import type { Account, Category } from "@/types";
+import type { Account, Category, Expense } from "@/types";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -12,20 +12,40 @@ import { X } from "lucide-react";
 type Props = {
   categories: Category[];
   accounts: Account[];
+  editingExpense?: Expense | null;
   onClose: () => void;
   onSaved: () => void;
 };
 
-export default function ExpenseForm({ categories, accounts, onClose, onSaved }: Props) {
+export default function ExpenseForm({ categories, accounts, editingExpense, onClose, onSaved }: Props) {
   const supabase = createClient();
-  const [amount, setAmount] = useState("");
-  const [description, setDescription] = useState("");
-  const [categoryId, setCategoryId] = useState("");
-  const [subCategoryId, setSubCategoryId] = useState("");
-  const [accountId, setAccountId] = useState(accounts.length === 1 ? accounts[0].id : "");
+  const editing = editingExpense != null;
+
+  const [amount, setAmount] = useState(editing ? String(editingExpense.amount) : "");
+  const [description, setDescription] = useState(editing ? (editingExpense.description ?? "") : "");
   const [date, setDate] = useState(() => {
+    if (editing) return editingExpense.date;
     const d = new Date();
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+  });
+
+  // Resolve initial category selection from expense (may be subcategory)
+  const initialCatId = (() => {
+    if (!editing) return "";
+    const cat = categories.find((c) => c.id === editingExpense.category_id);
+    return cat?.parent_id ? cat.parent_id : (editingExpense.category_id ?? "");
+  })();
+  const initialSubCatId = (() => {
+    if (!editing) return "";
+    const cat = categories.find((c) => c.id === editingExpense.category_id);
+    return cat?.parent_id ? (editingExpense.category_id ?? "") : "";
+  })();
+
+  const [categoryId, setCategoryId] = useState(initialCatId);
+  const [subCategoryId, setSubCategoryId] = useState(initialSubCatId);
+  const [accountId, setAccountId] = useState(() => {
+    if (editing) return editingExpense.account_id ?? "";
+    return accounts.length === 1 ? accounts[0].id : "";
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
@@ -50,24 +70,68 @@ export default function ExpenseForm({ categories, accounts, onClose, onSaved }: 
 
     const finalCategoryId = subCategoryId || categoryId || null;
     const finalAccountId = accountId || null;
+    const newAmount = Number(amount);
 
-    const { error: err } = await supabase.from("expenses").insert({
-      amount: Number(amount),
-      description: description || null,
-      category_id: finalCategoryId,
-      account_id: finalAccountId,
-      date,
-      user_id: user.id,
-    });
+    if (editing) {
+      const { error: err } = await supabase.from("expenses").update({
+        amount: newAmount,
+        description: description || null,
+        category_id: finalCategoryId,
+        account_id: finalAccountId,
+        date,
+      }).eq("id", editingExpense.id);
+      if (err) { setError(err.message); setLoading(false); return; }
 
-    if (err) { setError(err.message); setLoading(false); return; }
+      // Adjust account balances for the edit
+      const oldAccountId = editingExpense.account_id ?? null;
+      const oldAmount = Number(editingExpense.amount);
 
-    if (finalAccountId) {
-      const acc = accounts.find((a) => a.id === finalAccountId);
-      if (acc) {
-        await supabase.from("accounts").update({
-          balance: Math.max(0, Number(acc.balance) - Number(amount)),
-        }).eq("id", finalAccountId);
+      if (oldAccountId === finalAccountId && finalAccountId !== null) {
+        // Same account: apply delta
+        const acc = accounts.find((a) => a.id === finalAccountId);
+        if (acc) {
+          await supabase.from("accounts").update({
+            balance: Math.max(0, Number(acc.balance) - newAmount + oldAmount),
+          }).eq("id", finalAccountId);
+        }
+      } else {
+        // Restore old account
+        if (oldAccountId) {
+          const oldAcc = accounts.find((a) => a.id === oldAccountId);
+          if (oldAcc) {
+            await supabase.from("accounts").update({
+              balance: Number(oldAcc.balance) + oldAmount,
+            }).eq("id", oldAccountId);
+          }
+        }
+        // Deduct from new account
+        if (finalAccountId) {
+          const newAcc = accounts.find((a) => a.id === finalAccountId);
+          if (newAcc) {
+            await supabase.from("accounts").update({
+              balance: Math.max(0, Number(newAcc.balance) - newAmount),
+            }).eq("id", finalAccountId);
+          }
+        }
+      }
+    } else {
+      const { error: err } = await supabase.from("expenses").insert({
+        amount: newAmount,
+        description: description || null,
+        category_id: finalCategoryId,
+        account_id: finalAccountId,
+        date,
+        user_id: user.id,
+      });
+      if (err) { setError(err.message); setLoading(false); return; }
+
+      if (finalAccountId) {
+        const acc = accounts.find((a) => a.id === finalAccountId);
+        if (acc) {
+          await supabase.from("accounts").update({
+            balance: Math.max(0, Number(acc.balance) - newAmount),
+          }).eq("id", finalAccountId);
+        }
       }
     }
 
@@ -78,7 +142,7 @@ export default function ExpenseForm({ categories, accounts, onClose, onSaved }: 
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="bottom" className="rounded-t-2xl max-h-[92vh] flex flex-col gap-0 p-0 pb-8" showCloseButton={false}>
         <SheetHeader className="sticky top-0 z-10 bg-white rounded-t-2xl flex-row items-center justify-between px-4 py-3 border-b mb-0 gap-0">
-          <SheetTitle className="text-base">Nuevo gasto</SheetTitle>
+          <SheetTitle className="text-base">{editing ? "Editar gasto" : "Nuevo gasto"}</SheetTitle>
           <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground" onClick={onClose}>
             <X className="w-4 h-4" />
           </Button>
@@ -157,7 +221,7 @@ export default function ExpenseForm({ categories, accounts, onClose, onSaved }: 
               </div>
             </div>
 
-            {/* Subcategoría — aparece solo si la categoría seleccionada tiene hijos */}
+            {/* Subcategoría */}
             {selectedChildren.length > 0 && (
               <div className="space-y-2">
                 <Label>
@@ -215,7 +279,7 @@ export default function ExpenseForm({ categories, accounts, onClose, onSaved }: 
                 Cancelar
               </Button>
               <Button type="submit" className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={loading}>
-                {loading ? "Guardando..." : "Guardar gasto"}
+                {loading ? "Guardando..." : editing ? "Guardar cambios" : "Guardar gasto"}
               </Button>
             </div>
           </form>

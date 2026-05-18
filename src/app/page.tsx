@@ -48,11 +48,13 @@ export default function Dashboard() {
   const [recurringIncome, setRecurringIncome] = useState<RecurringIncome[]>([]);
   const [monthClosures, setMonthClosures] = useState<MonthClosure[]>([]);
   const [showForm, setShowForm] = useState(false);
+  const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [showCategories, setShowCategories] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
 
   useBackButtonClose(showForm, () => setShowForm(false));
+  useBackButtonClose(editingExpense !== null, () => setEditingExpense(null));
   useBackButtonClose(showCategories, () => setShowCategories(false));
 
   const now = new Date();
@@ -450,7 +452,7 @@ export default function Dashboard() {
         {activeTab === "expenses" && (
           <Card>
             <CardContent className="pt-4">
-              <ExpenseList expenses={expenses} categories={categories} accounts={accounts} onRefresh={fetchData} />
+              <ExpenseList expenses={expenses} categories={categories} accounts={accounts} onRefresh={fetchData} onEdit={setEditingExpense} />
             </CardContent>
           </Card>
         )}
@@ -512,12 +514,13 @@ export default function Dashboard() {
         ))}
       </nav>
 
-      {showForm && (
+      {(showForm || editingExpense !== null) && (
         <ExpenseForm
           categories={categories}
           accounts={accounts}
-          onClose={() => setShowForm(false)}
-          onSaved={() => { setShowForm(false); fetchData(); }}
+          editingExpense={editingExpense}
+          onClose={() => { setShowForm(false); setEditingExpense(null); }}
+          onSaved={() => { setShowForm(false); setEditingExpense(null); fetchData(); }}
         />
       )}
 
