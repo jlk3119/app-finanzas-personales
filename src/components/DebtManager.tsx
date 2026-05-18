@@ -22,12 +22,16 @@ const ICONS = [
   "⚡","💧","🌐","✈️","🏍️","🛋️","👔","💍","🔑","📄",
 ];
 
-const COLORS = [
-  "#ef4444","#f97316","#eab308","#84cc16","#22c55e",
-  "#06b6d4","#3b82f6","#8b5cf6","#ec4899","#6b7280",
-];
-
 type View = "list" | "form" | "pay";
+type SortBy = "created" | "total" | "paid" | "remaining" | "progress";
+
+const SORT_OPTIONS: { value: SortBy; label: string }[] = [
+  { value: "created",   label: "Recientes" },
+  { value: "remaining", label: "Mayor pendiente" },
+  { value: "total",     label: "Mayor deuda" },
+  { value: "paid",      label: "Mayor pagado" },
+  { value: "progress",  label: "Más avanzadas" },
+];
 
 export default function DebtManager({ debts, onRefresh }: Props) {
   const supabase = createClient();
@@ -42,19 +46,30 @@ export default function DebtManager({ debts, onRefresh }: Props) {
   const [paidAmount, setPaidAmount] = useState("0");
   const [notes, setNotes] = useState("");
   const [icon, setIcon] = useState("💳");
-  const [color, setColor] = useState("#ef4444");
   const [loading, setLoading] = useState(false);
-
   const [payAmount, setPayAmount] = useState("");
+  const [sortBy, setSortBy] = useState<SortBy>("created");
 
   const totalDebt = debts.reduce((s, d) => s + Number(d.total_amount), 0);
   const totalPaid = debts.reduce((s, d) => s + Number(d.paid_amount), 0);
   const totalRemaining = totalDebt - totalPaid;
 
+  const sortedDebts = [...debts].sort((a, b) => {
+    const aTotal = Number(a.total_amount), bTotal = Number(b.total_amount);
+    const aPaid = Number(a.paid_amount),   bPaid = Number(b.paid_amount);
+    switch (sortBy) {
+      case "total":     return bTotal - aTotal;
+      case "paid":      return bPaid - aPaid;
+      case "remaining": return (bTotal - bPaid) - (aTotal - aPaid);
+      case "progress":  return (bPaid / bTotal) - (aPaid / aTotal);
+      default:          return 0;
+    }
+  });
+
   const closeForm = () => {
     setView("list");
     setEditingDebt(null);
-    setName(""); setEntity(""); setTotalAmount(""); setPaidAmount("0"); setNotes(""); setIcon("💳"); setColor("#ef4444");
+    setName(""); setEntity(""); setTotalAmount(""); setPaidAmount("0"); setNotes(""); setIcon("💳");
   };
 
   const closePay = () => {
@@ -65,7 +80,7 @@ export default function DebtManager({ debts, onRefresh }: Props) {
 
   const openCreate = () => {
     setEditingDebt(null);
-    setName(""); setEntity(""); setTotalAmount(""); setPaidAmount("0"); setNotes(""); setIcon("💳"); setColor("#ef4444");
+    setName(""); setEntity(""); setTotalAmount(""); setPaidAmount("0"); setNotes(""); setIcon("💳");
     setView("form");
   };
 
@@ -77,7 +92,6 @@ export default function DebtManager({ debts, onRefresh }: Props) {
     setPaidAmount(String(debt.paid_amount));
     setNotes(debt.notes ?? "");
     setIcon(debt.icon);
-    setColor(debt.color);
     setView("form");
   };
 
@@ -98,7 +112,7 @@ export default function DebtManager({ debts, onRefresh }: Props) {
     if (editingDebt) {
       await supabase.from("debts").update({
         name, entity, total_amount: total, paid_amount: paid,
-        notes: notes || null, icon, color,
+        notes: notes || null, icon,
       }).eq("id", editingDebt.id);
     } else {
       const { data: { user } } = await supabase.auth.getUser();
@@ -106,7 +120,7 @@ export default function DebtManager({ debts, onRefresh }: Props) {
       await supabase.from("debts").insert({
         user_id: user.id, name, entity,
         total_amount: total, paid_amount: paid,
-        notes: notes || null, icon, color,
+        notes: notes || null, icon,
       });
     }
     setLoading(false);
@@ -143,17 +157,6 @@ export default function DebtManager({ debts, onRefresh }: Props) {
                   className={`text-xl p-1.5 rounded-lg transition-all ${icon === ic ? "bg-orange-100 ring-2 ring-orange-400 scale-110" : "hover:bg-gray-100"}`}>
                   {ic}
                 </button>
-              ))}
-            </div>
-          </div>
-
-          <div className="space-y-1">
-            <Label>Color</Label>
-            <div className="flex gap-2 flex-wrap">
-              {COLORS.map((c) => (
-                <button key={c} type="button" onClick={() => setColor(c)}
-                  className={`w-7 h-7 rounded-full transition-all ${color === c ? "ring-2 ring-offset-2 ring-gray-400 scale-110" : ""}`}
-                  style={{ backgroundColor: c }} />
               ))}
             </div>
           </div>
@@ -240,6 +243,25 @@ export default function DebtManager({ debts, onRefresh }: Props) {
 
   return (
     <div className="space-y-4">
+      {debts.length > 1 && (
+        <div className="flex gap-1.5 flex-wrap">
+          {SORT_OPTIONS.map((opt) => (
+            <button
+              key={opt.value}
+              type="button"
+              onClick={() => setSortBy(opt.value)}
+              className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
+                sortBy === opt.value
+                  ? "bg-orange-600 text-white border-orange-600"
+                  : "bg-white text-gray-500 border-gray-200"
+              }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+        </div>
+      )}
+
       {debts.length > 0 && (
         <Card className="border-orange-100 bg-orange-50">
           <CardContent className="pt-4">
@@ -288,7 +310,7 @@ export default function DebtManager({ debts, onRefresh }: Props) {
         </div>
       )}
 
-      {debts.map((debt) => {
+      {sortedDebts.map((debt) => {
         const total = Number(debt.total_amount);
         const paid = Number(debt.paid_amount);
         const remaining = total - paid;

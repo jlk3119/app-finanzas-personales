@@ -30,7 +30,7 @@ const ICONS = [
   "🛡️","⛑️","🚨","🧯","🆘",
   "🌿","⚽","🏖️","🌍","🔖",
 ];
-const COLORS = ["#f59e0b","#3b82f6","#8b5cf6","#ef4444","#ec4899","#14b8a6","#f97316","#6b7280","#10b981","#06b6d4","#84cc16","#a855f7"];
+const AUTO_COLORS = ["#f59e0b","#3b82f6","#8b5cf6","#ef4444","#ec4899","#14b8a6","#f97316","#6b7280","#10b981","#06b6d4","#84cc16","#a855f7"];
 
 type FormState = { name: string; icon: string; color: string; parent_id: string };
 const EMPTY: FormState = { name: "", icon: "📦", color: "#6b7280", parent_id: "" };
@@ -46,7 +46,12 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
   const parents = categories.filter((c) => !c.parent_id);
   const childrenOf = (pid: string) => categories.filter((c) => c.parent_id === pid);
 
-  const openCreate = () => { setForm(EMPTY); setEditingId(null); setShowForm(true); };
+  const openCreate = () => {
+    const autoColor = AUTO_COLORS[categories.filter(c => !c.parent_id).length % AUTO_COLORS.length];
+    setForm({ ...EMPTY, color: autoColor });
+    setEditingId(null);
+    setShowForm(true);
+  };
   const openCreateSub = (parentCat: Category) => {
     setForm({ name: "", icon: parentCat.icon, color: parentCat.color, parent_id: parentCat.id });
     setEditingId(null);
@@ -241,19 +246,6 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                     <button key={ic} type="button" onClick={() => setForm({ ...form, icon: ic })}
                       className={`text-2xl p-1.5 rounded-xl transition-all ${form.icon === ic ? "ring-2 ring-violet-500 bg-violet-50 scale-110" : "hover:bg-gray-100"}`}>
                       {ic}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label>Color</Label>
-                <div className="flex flex-wrap gap-2">
-                  {COLORS.map((c) => (
-                    <button key={c} type="button" onClick={() => setForm({ ...form, color: c })}
-                      className="w-9 h-9 rounded-full flex items-center justify-center transition-transform hover:scale-110"
-                      style={{ backgroundColor: c }}>
-                      {form.color === c && <Check className="w-4 h-4 text-white" strokeWidth={3} />}
                     </button>
                   ))}
                 </div>
