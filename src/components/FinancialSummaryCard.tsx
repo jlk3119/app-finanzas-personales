@@ -16,6 +16,7 @@ type Props = {
   recurringIncome: RecurringIncome[];
   currentMonth: number;
   currentYear: number;
+  dataLoaded: boolean;
 };
 
 type Summary = {
@@ -24,6 +25,9 @@ type Summary = {
   insight: string;
   action: string;
 };
+
+const CACHE_KEY = "mf_summary_v1";
+const FP_KEY    = "mf_summary_fp_v1";
 
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 const FREQ_LABEL: Record<string, string> = { monthly: "mensual", biweekly: "quincenal", weekly: "semanal" };
@@ -36,11 +40,19 @@ const STATUS_CONFIG = {
 
 export default function FinancialSummaryCard({
   expenses, budgets, goals, debts, categories, accounts, recurringIncome,
-  currentMonth, currentYear,
+  currentMonth, currentYear, dataLoaded,
 }: Props) {
   const [summary, setSummary] = useState<Summary | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  // Restore cached summary on mount to avoid blank state on page refresh
+  useEffect(() => {
+    try {
+      const cached = localStorage.getItem(CACHE_KEY);
+      if (cached) setSummary(JSON.parse(cached) as Summary);
+    } catch {}
+  }, []);
 
   // Fingerprint covers ALL data — re-fetch whenever anything changes
   const dataFingerprint = useMemo(() => [
@@ -146,6 +158,7 @@ export default function FinancialSummaryCard({
       const data = await res.json();
       if (!res.ok) throw new Error(data.error ?? "Error al obtener el análisis");
       setSummary(data as Summary);
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch {}
     } catch (e) {
       setError(e instanceof Error ? e.message : "Error desconocido");
     } finally {
@@ -159,10 +172,16 @@ export default function FinancialSummaryCard({
 
   const prevFingerprintRef = useRef<string | null>(null);
   useEffect(() => {
+    if (!dataLoaded) return;
+    // Seed from localStorage on first run so page refreshes don't re-call the LLM
+    if (prevFingerprintRef.current === null) {
+      prevFingerprintRef.current = localStorage.getItem(FP_KEY) ?? "";
+    }
     if (dataFingerprint === prevFingerprintRef.current) return;
     prevFingerprintRef.current = dataFingerprint;
+    try { localStorage.setItem(FP_KEY, dataFingerprint); } catch {}
     fetchSummaryRef.current();
-  }, [dataFingerprint]);
+  }, [dataFingerprint, dataLoaded]);
 
   const cfg = summary ? STATUS_CONFIG[summary.status] ?? STATUS_CONFIG.good : null;
 

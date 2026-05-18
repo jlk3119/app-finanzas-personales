@@ -469,6 +469,7 @@ export default function Dashboard() {
               recurringIncome={recurringIncome}
               currentMonth={currentMonth}
               currentYear={currentYear}
+              dataLoaded={!loading}
             />
         </div>
 
