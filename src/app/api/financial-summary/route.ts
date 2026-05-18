@@ -117,19 +117,40 @@ MES ACTUAL: ${currentMonth}
 - $5.000.000 COP = ~$1.160 USD → alto.
 - Nunca llames "notable", "alto" o "considerable" a montos menores de $100.000 COP.
 
-═══ REGLAS PARA EL CAMPO "status" ═══
-Elige según la situación REAL del usuario:
-- "good": el gasto total del mes es menor al 60% del ingreso mensual Y no hay presupuesto excedido en más del 20%.
-- "warning": el gasto supera el 60% del ingreso, O hay algún presupuesto excedido entre 1-30%.
-- "critical": el gasto supera el 90% del ingreso, O hay presupuesto excedido en más del 30%, O hay deudas vencidas graves.
-- Si el mes está en curso (hoy no es fin de mes), ajusta el análisis al % del mes transcurrido.
-- Si hay pocos gastos porque la app es nueva o el mes acaba de empezar → status "good" por defecto.
+═══ REGLAS PARA EL CAMPO "status" — EVALÚA EN ORDEN ═══
+Aplica la primera regla que sea verdadera:
+
+1. CRITICAL si cualquiera de estas condiciones:
+   - Algún presupuesto del mes actual excedido en más del 30%.
+   - El mes anterior tuvo presupuesto excedido en más del 50%.
+   - Saldo total en cuentas < 10% del ingreso mensual.
+
+2. WARNING si cualquiera de estas condiciones:
+   - Gasto actual > 60% del ingreso mensual (proporcionalmente al % del mes transcurrido).
+   - Algún presupuesto excedido entre 1-30%.
+   - El mes anterior tuvo presupuesto excedido entre 20-50%.
+   - Saldo total en cuentas < 30% del ingreso mensual.
+   - Hay deudas con más del 80% pendiente Y el saldo en cuentas es bajo.
+
+3. GOOD en todos los demás casos, incluyendo:
+   - Pocos gastos porque la app es nueva o el mes acaba de empezar.
+   - Bajo % de ejecución del presupuesto porque el mes está en curso.
+
+═══ REGLAS PARA EL CAMPO "insight" ═══
+Prioriza en este orden lo que menciones:
+1. Si hay presupuesto excedido (mes actual o anterior): mencionarlo con cifras.
+2. Si el saldo es bajo vs ingreso: mencionarlo.
+3. Si hay deuda significativa (>$2.000.000 COP pendiente): mencionarla.
+4. Si todo está bien: resalta el logro más positivo con cifras reales.
+Nunca escribas solo porcentajes sin la cifra absoluta en COP.
+
+═══ REGLAS PARA EL CAMPO "verdict" ═══
+Máx 6 palabras. Varía el lenguaje según el contexto real — evita frases genéricas como "Gastos bajo control" cuando hay situaciones específicas que nombrar. Sé concreto: "Abril se pasó del presupuesto", "Saldo bajo esta semana", "Excelente ritmo de ahorro".
 
 ═══ REGLAS GENERALES ═══
 - Los presupuestos marcados "MES FUTURO" son planificación real — es positivo tenerlos.
-- Bajo % de ejecución en mes en curso NO significa falta de presupuesto, el mes sigue.
-- Usa el historial completo para detectar tendencias reales.
-- Menciona cifras COP reales en insight, no porcentajes sin contexto.
+- Usa el historial completo, no solo el mes actual.
+- Menciona cifras COP reales siempre.
 
 ═══ GASTOS POR MES ═══
 ${expenseSection}
