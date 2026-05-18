@@ -467,6 +467,7 @@ export default function Dashboard() {
               debts={debts}
               categories={categories}
               accounts={accounts}
+              recurringIncome={recurringIncome}
               currentMonth={currentMonth}
               currentYear={currentYear}
             />

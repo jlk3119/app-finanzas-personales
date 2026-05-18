@@ -9,76 +9,107 @@ export async function POST(req: Request) {
     return Response.json({ error: "GROQ_API_KEY no configurada" }, { status: 500 });
   }
 
-  const body = await req.json();
   const {
-    monthName,
-    totalSpent,
-    totalBudget,
-    topCategories,
-    budgetItems,
+    month,
+    expenses,
+    budgets,
+    accounts,
     goals,
     debts,
-    disponible,
-  } = body;
+    recurringIncome,
+  } = await req.json();
 
-  const categoryLines = topCategories
-    .map((c: { name: string; spent: number; budget: number | null }) => {
-      const pct = c.budget ? Math.round((c.spent / c.budget) * 100) : null;
-      return `  - ${c.name}: gastado $${c.spent.toLocaleString("es-CO")}${c.budget ? ` de $${c.budget.toLocaleString("es-CO")} presupuestado (${pct}%)` : " (sin presupuesto)"}`;
-    })
+  // Build expense lines
+  const expenseLines = expenses.length > 0
+    ? expenses
+        .map((e: { date: string; category: string; subcategory?: string; amount: number; description: string; account?: string }) =>
+          `${e.date} | ${e.category}${e.subcategory ? ` > ${e.subcategory}` : ""} | $${e.amount.toLocaleString("es-CO")} | ${e.description}${e.account ? ` [${e.account}]` : ""}`
+        )
+        .join("\n")
+    : "Sin gastos registrados este mes";
+
+  // Build budget lines
+  const budgetLines = budgets.length > 0
+    ? budgets
+        .map((b: { category: string; amount: number; spent: number }) =>
+          `${b.category}: presupuesto $${b.amount.toLocaleString("es-CO")}, gastado $${b.spent.toLocaleString("es-CO")} (${Math.round((b.spent / b.amount) * 100)}%)`
+        )
+        .join("\n")
+    : "Sin presupuesto definido";
+
+  // Build account lines
+  const accountLines = accounts
+    .map((a: { name: string; balance: number }) => `${a.name}: $${a.balance.toLocaleString("es-CO")}`)
     .join("\n");
 
-  const goalLines =
-    goals.length > 0
-      ? goals
-          .map((g: { name: string; pct: number }) => `  - ${g.name}: ${g.pct}% completado`)
-          .join("\n")
-      : "  Sin metas registradas";
+  // Build goal lines
+  const goalLines = goals.length > 0
+    ? goals
+        .map((g: { name: string; target: number; current: number; deadline?: string }) => {
+          const pct = g.target > 0 ? Math.round((g.current / g.target) * 100) : 0;
+          return `${g.name}: $${g.current.toLocaleString("es-CO")} de $${g.target.toLocaleString("es-CO")} (${pct}%)${g.deadline ? `, fecha límite ${g.deadline}` : ""}`;
+        })
+        .join("\n")
+    : "Sin metas activas";
 
-  const debtLines =
-    debts.length > 0
-      ? debts
-          .map((d: { name: string; entity: string; pct: number; remaining: number }) =>
-            `  - ${d.name} (${d.entity}): ${d.pct}% pagado, pendiente $${d.remaining.toLocaleString("es-CO")}`
-          )
-          .join("\n")
-      : "  Sin deudas registradas";
+  // Build debt lines
+  const debtLines = debts.length > 0
+    ? debts
+        .map((d: { name: string; entity: string; total: number; paid: number }) => {
+          const remaining = d.total - d.paid;
+          const pct = d.total > 0 ? Math.round((d.paid / d.total) * 100) : 0;
+          return `${d.name} (${d.entity}): total $${d.total.toLocaleString("es-CO")}, pagado $${d.paid.toLocaleString("es-CO")}, pendiente $${remaining.toLocaleString("es-CO")} (${pct}% pagado)`;
+        })
+        .join("\n")
+    : "Sin deudas registradas";
 
-  const budgetSummary =
-    totalBudget > 0
-      ? `Presupuesto total del mes: $${totalBudget.toLocaleString("es-CO")}. Gastado: $${totalSpent.toLocaleString("es-CO")} (${Math.round((totalSpent / totalBudget) * 100)}% del presupuesto).`
-      : `Gasto total del mes: $${totalSpent.toLocaleString("es-CO")}. Sin presupuesto mensual definido.`;
+  // Build income lines
+  const incomeLines = recurringIncome.length > 0
+    ? recurringIncome
+        .map((r: { name: string; amount: number; frequency: string }) =>
+          `${r.name}: $${r.amount.toLocaleString("es-CO")} (${r.frequency})`
+        )
+        .join("\n")
+    : "Sin ingresos recurrentes configurados";
 
-  const prompt = `Eres un asesor financiero personal amigable y directo. Analiza el estado financiero del usuario para ${monthName} y da una evaluación breve y útil en español.
+  const prompt = `Eres un asesor financiero personal experto. Analiza en detalle las finanzas del usuario para ${month} y entrega un resumen de ALTO IMPACTO: breve, directo y accionable. El usuario habla español colombiano.
 
-DATOS FINANCIEROS:
-${budgetSummary}
-Saldo disponible en cuentas: $${disponible.toLocaleString("es-CO")}
+═══ GASTOS DEL MES (detalle) ═══
+${expenseLines}
 
-Gastos por categoría este mes:
-${categoryLines || "  Sin gastos registrados"}
+═══ PRESUPUESTO VS GASTO REAL ═══
+${budgetLines}
 
-Metas de ahorro:
+═══ SALDOS EN CUENTAS ═══
+${accountLines}
+
+═══ INGRESOS RECURRENTES ═══
+${incomeLines}
+
+═══ METAS DE AHORRO ═══
 ${goalLines}
 
-Deudas:
+═══ DEUDAS ═══
 ${debtLines}
 
-INSTRUCCIONES:
-- Sé directo y concreto, máximo 4 párrafos cortos.
-- Empieza con una evaluación general (buena, regular, atención requerida).
-- Señala 1-2 puntos positivos.
-- Señala 1-2 áreas de mejora concretas basadas en los datos.
-- Termina con un consejo accionable para los próximos días.
-- Usa COP (pesos colombianos) y formato colombiano.
-- No inventes datos que no están en el resumen.
-- Tono cercano, no técnico ni condescendiente.`;
+═══ TU ANÁLISIS ═══
+Responde en exactamente este formato (sin títulos, sin asteriscos, sin markdown):
+
+[Una línea: veredicto general del mes con emoji — ej: "✅ Mes sólido" o "⚠️ Atención requerida" o "🔴 Mes difícil"]
+
+[1-2 frases sobre el patrón de gastos más relevante del mes, con cifras concretas]
+
+[1 frase sobre el punto más positivo]
+
+[1 frase sobre el riesgo o área crítica más importante]
+
+💡 [Una acción concreta y específica que el usuario puede tomar esta semana]`;
 
   const groq = createGroq({ apiKey });
   const { text } = await generateText({
     model: groq("llama-3.1-8b-instant"),
     prompt,
-    maxOutputTokens: 500,
+    maxOutputTokens: 350,
   });
 
   return Response.json({ summary: text });
