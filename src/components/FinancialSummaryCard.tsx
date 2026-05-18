@@ -42,86 +42,88 @@ export default function FinancialSummaryCard({
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fingerprint of relevant data — re-fetch only when something actually changed
-  const dataFingerprint = useMemo(() => {
-    const monthExp = expenses.filter((e) => {
-      const d = new Date(e.date + "T12:00:00");
-      return d.getMonth() + 1 === currentMonth && d.getFullYear() === currentYear;
-    });
-    return [
-      monthExp.map((e) => `${e.id}:${e.amount}`).sort().join(","),
-      accounts.map((a) => `${a.id}:${a.balance}`).join(","),
-      goals.map((g) => `${g.id}:${g.current_amount}`).join(","),
-      debts.map((d) => `${d.id}:${d.paid_amount}`).join(","),
-      `${currentMonth}-${currentYear}`,
-    ].join("|");
-  }, [expenses, accounts, goals, debts, currentMonth, currentYear]);
+  // Fingerprint covers ALL data — re-fetch whenever anything changes
+  const dataFingerprint = useMemo(() => [
+    expenses.map((e) => `${e.id}:${e.amount}`).sort().join(","),
+    accounts.map((a) => `${a.id}:${a.balance}`).join(","),
+    goals.map((g) => `${g.id}:${g.current_amount}`).join(","),
+    debts.map((d) => `${d.id}:${d.paid_amount}`).join(","),
+    budgets.map((b) => `${b.id}:${b.amount}`).sort().join(","),
+    `${currentMonth}-${currentYear}`,
+  ].join("|"), [expenses, accounts, goals, debts, budgets, currentMonth, currentYear]);
 
   const buildPayload = useCallback(() => {
-    const thisMonthExpenses = expenses.filter((e) => {
+    // Group expenses by year-month key, sorted chronologically
+    const byMonth: Record<string, typeof expenses> = {};
+    for (const e of expenses) {
       const d = new Date(e.date + "T12:00:00");
-      return d.getMonth() + 1 === currentMonth && d.getFullYear() === currentYear;
-    });
-
-    const monthlyBudgets = budgets.filter(
-      (b) => b.period === "monthly" && b.year === currentYear && b.month === currentMonth
-    );
-
-    const spentByCategory: Record<string, number> = {};
-    for (const e of thisMonthExpenses) {
-      if (!e.category_id) continue;
-      const cat = categories.find((c) => c.id === e.category_id);
-      const rootId = cat?.parent_id ?? cat?.id;
-      if (!rootId) continue;
-      spentByCategory[rootId] = (spentByCategory[rootId] ?? 0) + Number(e.amount);
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+      if (!byMonth[key]) byMonth[key] = [];
+      byMonth[key].push(e);
     }
+    const sortedMonthKeys = Object.keys(byMonth).sort();
 
-    const expenseRows = thisMonthExpenses.map((e) => {
-      const cat = categories.find((c) => c.id === e.category_id);
-      const rootCat = cat?.parent_id ? categories.find((c) => c.id === cat.parent_id) : cat;
-      const account = accounts.find((a) => a.id === e.account_id);
-      return {
-        date: e.date,
-        category: rootCat ? `${rootCat.icon} ${rootCat.name}` : "Sin categoría",
-        subcategory: cat?.parent_id ? `${cat.icon} ${cat.name}` : undefined,
-        amount: Number(e.amount),
-        description: e.description ?? "",
-        account: account?.name,
-      };
+    const expensesByMonth = sortedMonthKeys.map((key) => {
+      const [y, m] = key.split("-").map(Number);
+      const label = `${MONTHS[m - 1]} ${y}${(m === currentMonth && y === currentYear) ? " (MES ACTUAL)" : ""}`;
+      const rows = byMonth[key].map((e) => {
+        const cat = categories.find((c) => c.id === e.category_id);
+        const rootCat = cat?.parent_id ? categories.find((c) => c.id === cat.parent_id) : cat;
+        const account = accounts.find((a) => a.id === e.account_id);
+        return {
+          date: e.date,
+          category: rootCat ? `${rootCat.icon} ${rootCat.name}` : "Sin categoría",
+          subcategory: cat?.parent_id ? `${cat.icon} ${cat.name}` : undefined,
+          amount: Number(e.amount),
+          description: e.description ?? "",
+          account: account?.name,
+        };
+      });
+      const total = rows.reduce((s, r) => s + r.amount, 0);
+      return { label, total, rows };
     });
 
-    const budgetRows = monthlyBudgets
-      .filter((b) => {
+    // All monthly budgets grouped the same way
+    const budgetsByMonth = (() => {
+      const map: Record<string, { category: string; amount: number; spent: number }[]> = {};
+      const monthlyBudgets = budgets.filter((b) => b.period === "monthly");
+      for (const b of monthlyBudgets) {
         const cat = b.category_id ? categories.find((c) => c.id === b.category_id) : null;
-        return !cat?.parent_id;
-      })
-      .map((b) => {
-        const cat = b.category_id ? categories.find((c) => c.id === b.category_id) : null;
+        if (cat?.parent_id) continue; // skip sub-budgets
+        const key = `${b.year}-${String(b.month ?? 1).padStart(2, "0")}`;
+        if (!map[key]) map[key] = [];
+        const monthExp = byMonth[key] ?? [];
         const spent = b.category_id
-          ? (spentByCategory[b.category_id] ?? 0)
-          : thisMonthExpenses.reduce((s, e) => s + Number(e.amount), 0);
-        return {
+          ? monthExp.filter((e) => {
+              const cat2 = categories.find((c) => c.id === e.category_id);
+              return (cat2?.parent_id ?? cat2?.id) === b.category_id;
+            }).reduce((s, e) => s + Number(e.amount), 0)
+          : monthExp.reduce((s, e) => s + Number(e.amount), 0);
+        map[key].push({
           category: cat ? `${cat.icon} ${cat.name}` : "🌐 Total general",
           amount: Number(b.amount),
           spent,
-        };
-      });
+        });
+      }
+      return map;
+    })();
 
     return {
-      month: `${MONTHS[currentMonth - 1]} ${currentYear}`,
-      expenses: expenseRows,
-      budgets: budgetRows,
+      currentMonth: `${MONTHS[currentMonth - 1]} ${currentYear}`,
+      expensesByMonth,
+      budgetsByMonth,
       accounts: accounts.map((a) => ({ name: a.name, balance: Number(a.balance) })),
       recurringIncome: recurringIncome.map((r) => ({
         name: r.name, amount: Number(r.amount), frequency: FREQ_LABEL[r.frequency] ?? r.frequency,
       })),
-      goals: goals.filter((g) => !g.completed).map((g) => ({
+      goals: goals.map((g) => ({
         name: `${g.icon} ${g.name}`,
         target: Number(g.target_amount),
         current: Number(g.current_amount),
+        completed: g.completed,
         deadline: g.deadline ?? undefined,
       })),
-      debts: debts.filter((d) => Number(d.paid_amount) < Number(d.total_amount)).map((d) => ({
+      debts: debts.map((d) => ({
         name: d.name, entity: d.entity,
         total: Number(d.total_amount), paid: Number(d.paid_amount),
       })),

@@ -3,6 +3,19 @@ import { generateText } from "ai";
 
 export const runtime = "nodejs";
 
+type ExpenseRow = {
+  date: string;
+  category: string;
+  subcategory?: string;
+  amount: number;
+  description: string;
+  account?: string;
+};
+type MonthBlock = { label: string; total: number; rows: ExpenseRow[] };
+type BudgetRow = { category: string; amount: number; spent: number };
+type GoalRow = { name: string; target: number; current: number; completed: boolean; deadline?: string };
+type DebtRow = { name: string; entity: string; total: number; paid: number };
+
 export async function POST(req: Request) {
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
@@ -10,94 +23,99 @@ export async function POST(req: Request) {
   }
 
   const {
-    month,
-    expenses,
-    budgets,
+    currentMonth,
+    expensesByMonth,
+    budgetsByMonth,
     accounts,
+    recurringIncome,
     goals,
     debts,
-    recurringIncome,
-  } = await req.json();
+  } = await req.json() as {
+    currentMonth: string;
+    expensesByMonth: MonthBlock[];
+    budgetsByMonth: Record<string, BudgetRow[]>;
+    accounts: { name: string; balance: number }[];
+    recurringIncome: { name: string; amount: number; frequency: string }[];
+    goals: GoalRow[];
+    debts: DebtRow[];
+  };
 
-  // Build expense lines
-  const expenseLines = expenses.length > 0
-    ? expenses
-        .map((e: { date: string; category: string; subcategory?: string; amount: number; description: string; account?: string }) =>
-          `${e.date} | ${e.category}${e.subcategory ? ` > ${e.subcategory}` : ""} | $${e.amount.toLocaleString("es-CO")} | ${e.description}${e.account ? ` [${e.account}]` : ""}`
-        )
-        .join("\n")
-    : "Sin gastos registrados este mes";
+  // Build historical expense section
+  const expenseSection = expensesByMonth.length > 0
+    ? expensesByMonth.map((month) => {
+        const rows = month.rows
+          .map((e) =>
+            `  ${e.date} | ${e.category}${e.subcategory ? ` > ${e.subcategory}` : ""} | $${e.amount.toLocaleString("es-CO")} | ${e.description}${e.account ? ` [${e.account}]` : ""}`
+          )
+          .join("\n");
+        return `[${month.label}] — Total: $${month.total.toLocaleString("es-CO")}\n${rows}`;
+      }).join("\n\n")
+    : "Sin gastos registrados";
 
-  // Build budget lines
-  const budgetLines = budgets.length > 0
-    ? budgets
-        .map((b: { category: string; amount: number; spent: number }) =>
-          `${b.category}: presupuesto $${b.amount.toLocaleString("es-CO")}, gastado $${b.spent.toLocaleString("es-CO")} (${Math.round((b.spent / b.amount) * 100)}%)`
-        )
-        .join("\n")
-    : "Sin presupuesto definido";
+  // Build budget vs real section
+  const budgetSection = Object.keys(budgetsByMonth).length > 0
+    ? Object.entries(budgetsByMonth)
+        .sort(([a], [b]) => a.localeCompare(b))
+        .map(([key, rows]) => {
+          const [y, m] = key.split("-").map(Number);
+          const label = `${["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"][m - 1]} ${y}`;
+          const lines = rows
+            .map((b) => `  ${b.category}: presupuesto $${b.amount.toLocaleString("es-CO")}, gastado $${b.spent.toLocaleString("es-CO")} (${Math.round((b.spent / b.amount) * 100)}%)`)
+            .join("\n");
+          return `[${label}]\n${lines}`;
+        }).join("\n\n")
+    : "Sin presupuestos definidos";
 
-  // Build account lines
-  const accountLines = accounts
-    .map((a: { name: string; balance: number }) => `${a.name}: $${a.balance.toLocaleString("es-CO")}`)
-    .join("\n");
-
-  // Build goal lines
-  const goalLines = goals.length > 0
-    ? goals
-        .map((g: { name: string; target: number; current: number; deadline?: string }) => {
-          const pct = g.target > 0 ? Math.round((g.current / g.target) * 100) : 0;
-          return `${g.name}: $${g.current.toLocaleString("es-CO")} de $${g.target.toLocaleString("es-CO")} (${pct}%)${g.deadline ? `, fecha límite ${g.deadline}` : ""}`;
-        })
-        .join("\n")
-    : "Sin metas activas";
-
-  // Build debt lines
-  const debtLines = debts.length > 0
-    ? debts
-        .map((d: { name: string; entity: string; total: number; paid: number }) => {
-          const remaining = d.total - d.paid;
-          const pct = d.total > 0 ? Math.round((d.paid / d.total) * 100) : 0;
-          return `${d.name} (${d.entity}): total $${d.total.toLocaleString("es-CO")}, pagado $${d.paid.toLocaleString("es-CO")}, pendiente $${remaining.toLocaleString("es-CO")} (${pct}% pagado)`;
-        })
-        .join("\n")
-    : "Sin deudas registradas";
-
-  // Build income lines
+  const accountLines = accounts.map((a) => `  ${a.name}: $${a.balance.toLocaleString("es-CO")}`).join("\n");
   const incomeLines = recurringIncome.length > 0
-    ? recurringIncome
-        .map((r: { name: string; amount: number; frequency: string }) =>
-          `${r.name}: $${r.amount.toLocaleString("es-CO")} (${r.frequency})`
-        )
-        .join("\n")
-    : "Sin ingresos recurrentes configurados";
+    ? recurringIncome.map((r) => `  ${r.name}: $${r.amount.toLocaleString("es-CO")} (${r.frequency})`).join("\n")
+    : "  Sin ingresos recurrentes";
 
-  const prompt = `Eres el compañero financiero personal del usuario — cercano, honesto y alentador, como un amigo que sabe de finanzas. Hablas en español colombiano informal (tuteo). Analizas ${month} con los datos reales.
+  const goalLines = goals.length > 0
+    ? goals.map((g) => {
+        const pct = g.target > 0 ? Math.round((g.current / g.target) * 100) : 0;
+        const status = g.completed ? "✅ Completada" : `${pct}% — faltan $${(g.target - g.current).toLocaleString("es-CO")}`;
+        return `  ${g.name}: $${g.current.toLocaleString("es-CO")} de $${g.target.toLocaleString("es-CO")} (${status})${g.deadline ? `, límite ${g.deadline}` : ""}`;
+      }).join("\n")
+    : "  Sin metas";
 
-CONTEXTO IMPORTANTE: Todos los montos están en pesos colombianos (COP). En Colombia, $23.000 COP es muy poco (equivale a ~$5 USD). Un gasto "alto" en Colombia parte desde $200.000 COP en adelante para gastos cotidianos, y desde $1.000.000 COP para gastos significativos. Calibra tus comentarios con esta escala real.
+  const debtLines = debts.length > 0
+    ? debts.map((d) => {
+        const remaining = d.total - d.paid;
+        const pct = d.total > 0 ? Math.round((d.paid / d.total) * 100) : 0;
+        return `  ${d.name} (${d.entity}): total $${d.total.toLocaleString("es-CO")}, pagado $${d.paid.toLocaleString("es-CO")}, pendiente $${remaining.toLocaleString("es-CO")} (${pct}% pagado)`;
+      }).join("\n")
+    : "  Sin deudas";
 
-═══ GASTOS DEL MES ═══
-${expenseLines}
+  const prompt = `Eres el compañero financiero personal del usuario — cercano, honesto y alentador como un amigo que sabe de finanzas. Hablas en español colombiano informal (tuteo).
 
-═══ PRESUPUESTO VS REAL ═══
-${budgetLines}
+CONTEXTO CLAVE:
+- Moneda: pesos colombianos (COP). $23.000 COP ≈ $5 USD — es muy poco. Un gasto cotidiano "alto" parte desde $200.000 COP; uno significativo desde $1.000.000 COP.
+- Mes actual bajo análisis: ${currentMonth}
+- Tienes acceso al historial completo: úsalo para identificar tendencias, comparar meses y detectar patrones.
 
-═══ CUENTAS ═══
+═══ HISTORIAL DE GASTOS (todos los meses) ═══
+${expenseSection}
+
+═══ PRESUPUESTO VS GASTO REAL (por mes) ═══
+${budgetSection}
+
+═══ SALDOS ACTUALES EN CUENTAS ═══
 ${accountLines}
 
 ═══ INGRESOS RECURRENTES ═══
 ${incomeLines}
 
-═══ METAS ═══
+═══ METAS DE AHORRO ═══
 ${goalLines}
 
 ═══ DEUDAS ═══
 ${debtLines}
 
 Responde ÚNICAMENTE con un objeto JSON válido, sin texto adicional, sin markdown, sin bloques de código:
-{"status":"good|warning|critical","verdict":"máx 6 palabras, tono amigo, sin emoji","insight":"1 frase con la observación más importante del mes, cifras concretas en COP","action":"1 consejo específico y fácil de aplicar esta semana"}
+{"status":"good|warning|critical","verdict":"máx 6 palabras, tono de amigo, sin emoji","insight":"1 frase con la observación más importante considerando el historial completo, con cifras COP concretas","action":"1 consejo específico y fácil de aplicar esta semana, basado en patrones reales del historial"}
 
-Elige status: "good" si todo va bien, "warning" si hay algo que cuidar, "critical" si hay un problema real.`;
+status: "good" = todo bien, "warning" = algo que cuidar, "critical" = problema real.`;
 
   const groq = createGroq({ apiKey });
   const { text } = await generateText({
@@ -106,7 +124,6 @@ Elige status: "good" si todo va bien, "warning" si hay algo que cuidar, "critica
     maxOutputTokens: 200,
   });
 
-  // Extract JSON robustly — strip markdown fences and surrounding prose
   const clean = text.replace(/```json|```/g, "").trim();
   const jsonMatch = clean.match(/\{[\s\S]*\}/);
   if (!jsonMatch) {
@@ -120,12 +137,10 @@ Elige status: "good" si todo va bien, "warning" si hay algo que cuidar, "critica
     return Response.json({ error: "JSON inválido en la respuesta del modelo" }, { status: 500 });
   }
 
-  // Normalize status to known values
   const rawStatus = String(parsed.status ?? "").toLowerCase();
   const status: "good" | "warning" | "critical" =
     rawStatus === "critical" ? "critical" : rawStatus === "warning" ? "warning" : "good";
 
-  // Strip asterisks, backticks and trim each text field
   const sanitize = (s: unknown) =>
     String(s ?? "").replace(/[*`_]/g, "").replace(/\n/g, " ").trim();
 
