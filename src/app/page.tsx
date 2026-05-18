@@ -334,8 +334,7 @@ export default function Dashboard() {
 
       {/* Contenido por pestaña */}
       <div className="px-4 mt-4 space-y-4">
-        {activeTab === "dashboard" && (
-          <>
+        <div className={activeTab !== "dashboard" ? "hidden" : ""}>
             {showClosure && (
               <MonthClosureCard
                 prevYear={prevY}
@@ -471,8 +470,7 @@ export default function Dashboard() {
               currentMonth={currentMonth}
               currentYear={currentYear}
             />
-          </>
-        )}
+        </div>
 
         {activeTab === "expenses" && (
           <Card>
