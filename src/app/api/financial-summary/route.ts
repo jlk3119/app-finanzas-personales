@@ -108,12 +108,28 @@ export async function POST(req: Request) {
 FECHA DE HOY: ${today}
 MES ACTUAL: ${currentMonth}
 
-REGLAS PARA INTERPRETAR LOS DATOS:
-- Moneda: pesos colombianos (COP). $23.000 COP ≈ $5 USD. "Alto" parte desde $200.000 COP cotidiano, $1.000.000 COP para gasto significativo.
-- Si un mes tiene pocos gastos, puede ser porque la app es nueva o el mes acaba de empezar. NO asumas que no hay actividad financiera.
-- Los presupuestos marcados como "MES FUTURO" son planificación real del usuario — reconócela como algo positivo.
-- Si hay presupuesto definido para el mes actual con bajo % de ejecución, puede significar que el mes está en curso y no que el usuario no presupuesta.
+═══ CONTEXTO DE MONEDA (COP — MUY IMPORTANTE) ═══
+- Toda cifra está en pesos colombianos (COP). $1 USD ≈ $4.300 COP.
+- $17.000 COP = menos de $4 USD → INSIGNIFICANTE, nunca lo menciones como problema.
+- $50.000 COP = ~$12 USD → bajo.
+- $200.000 COP = ~$47 USD → moderado para gasto cotidiano.
+- $1.000.000 COP = ~$233 USD → significativo.
+- $5.000.000 COP = ~$1.160 USD → alto.
+- Nunca llames "notable", "alto" o "considerable" a montos menores de $100.000 COP.
+
+═══ REGLAS PARA EL CAMPO "status" ═══
+Elige según la situación REAL del usuario:
+- "good": el gasto total del mes es menor al 60% del ingreso mensual Y no hay presupuesto excedido en más del 20%.
+- "warning": el gasto supera el 60% del ingreso, O hay algún presupuesto excedido entre 1-30%.
+- "critical": el gasto supera el 90% del ingreso, O hay presupuesto excedido en más del 30%, O hay deudas vencidas graves.
+- Si el mes está en curso (hoy no es fin de mes), ajusta el análisis al % del mes transcurrido.
+- Si hay pocos gastos porque la app es nueva o el mes acaba de empezar → status "good" por defecto.
+
+═══ REGLAS GENERALES ═══
+- Los presupuestos marcados "MES FUTURO" son planificación real — es positivo tenerlos.
+- Bajo % de ejecución en mes en curso NO significa falta de presupuesto, el mes sigue.
 - Usa el historial completo para detectar tendencias reales.
+- Menciona cifras COP reales en insight, no porcentajes sin contexto.
 
 ═══ GASTOS POR MES ═══
 ${expenseSection}
@@ -133,10 +149,10 @@ ${goalLines}
 ═══ DEUDAS ═══
 ${debtLines}
 
-INSTRUCCIÓN DE RESPUESTA:
-Responde ÚNICAMENTE con un objeto JSON válido, sin texto antes ni después, sin bloques de código markdown. Usa exactamente esta estructura:
-{"status":"good","verdict":"texto máx 6 palabras sin emojis","insight":"1 frase con observación importante y cifras COP reales","action":"1 consejo concreto aplicable esta semana"}
-Valores válidos para status: "good" (finanzas saludables), "warning" (atención necesaria), "critical" (situación urgente).`;
+═══ INSTRUCCIÓN DE RESPUESTA ═══
+Responde ÚNICAMENTE con un objeto JSON válido. Sin texto antes ni después. Sin bloques de código. Sin markdown.
+Estructura exacta (sin espacios extra en las claves):
+{"status":"good","verdict":"frase corta máx 6 palabras sin emojis","insight":"1 frase con la observación más útil y cifras COP reales","action":"1 consejo concreto y fácil de aplicar esta semana"}`;
 
   const groq = createGroq({ apiKey });
 
