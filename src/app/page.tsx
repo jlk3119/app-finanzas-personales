@@ -479,7 +479,6 @@ export default function Dashboard() {
             onManageCategories={() => setShowCategories(true)}
             currentMonth={currentMonth}
             currentYear={currentYear}
-            currentWeek={currentWeek}
           />
         )}
 

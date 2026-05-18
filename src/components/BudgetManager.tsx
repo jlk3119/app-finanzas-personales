@@ -9,7 +9,6 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Pencil, Trash2, Plus, Settings2, ChevronLeft, ChevronRight, Copy, Info, Check, X } from "lucide-react";
 
 type Props = {
@@ -21,7 +20,6 @@ type Props = {
   onManageCategories: () => void;
   currentMonth: number;
   currentYear: number;
-  currentWeek: number;
 };
 
 const fmt = (n: number) =>
@@ -39,12 +37,11 @@ function nextMonthOf(month: number, year: number) {
 const FREQ_MULTIPLIER: Record<string, number> = { monthly: 1, biweekly: 2, weekly: 4 };
 const FREQ_LABEL: Record<string, string> = { monthly: "mensual", biweekly: "quincenal ×2", weekly: "semanal ×4" };
 
-export default function BudgetManager({ budgets, categories, accounts, recurringIncome, onRefresh, onManageCategories, currentMonth, currentYear, currentWeek }: Props) {
+export default function BudgetManager({ budgets, categories, accounts, recurringIncome, onRefresh, onManageCategories, currentMonth, currentYear }: Props) {
   const supabase = createClient();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [showForm, setShowForm] = useState(false);
-  const [period, setPeriod] = useState<"monthly" | "weekly">("monthly");
   const [categoryId, setCategoryId] = useState("global");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
@@ -75,14 +72,9 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const subsOfSelected = categoryId !== "global" ? subsOf(categoryId) : [];
   const allSubsInForm = [...subsOfSelected, ...extraSubs];
 
-  const budgetsForPeriod = (p: "monthly" | "weekly") =>
-    p === "monthly"
-      ? budgets.filter((b) => b.period === "monthly" && b.year === selectedYear && b.month === selectedMonth)
-      : budgets.filter((b) => b.period === "weekly" && b.year === currentYear && b.week === currentWeek);
-
-  const preloadSubAmounts = (parentCatId: string, p: "monthly" | "weekly") => {
+  const preloadSubAmounts = (parentCatId: string) => {
     const subs = parentCatId !== "global" ? subsOf(parentCatId) : [];
-    const pool = budgetsForPeriod(p);
+    const pool = monthlyBudgets;
     const next: Record<string, string> = {};
     let subTotal = 0;
     subs.forEach((sub) => {
@@ -102,7 +94,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const handleCategoryChange = (newCatId: string) => {
     setCategoryId(newCatId);
     setExtraSubs([]); setShowAddSub(false); setNewSubName(""); setNewSubAmount(""); setOthersAmount("");
-    preloadSubAmounts(newCatId, period);
+    preloadSubAmounts(newCatId);
   };
 
   // Excluir subcategorías del total para evitar doble conteo (el padre ya incluye su monto)
@@ -119,9 +111,6 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
   const monthlyBudgets = budgets.filter((b) =>
     b.period === "monthly" && b.year === selectedYear && b.month === selectedMonth
-  );
-  const weeklyBudgets = budgets.filter((b) =>
-    b.period === "weekly" && b.year === currentYear && b.week === currentWeek
   );
 
   const prev = prevMonthOf(selectedMonth, selectedYear);
@@ -164,12 +153,12 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
     const baseRow = {
       user_id: user.id,
-      period,
+      period: "monthly" as const,
       category_id: categoryId === "global" ? null : categoryId,
       amount: finalAmount,
-      year: period === "monthly" ? selectedYear : currentYear,
-      month: period === "monthly" ? selectedMonth : null,
-      week: period === "weekly" ? currentWeek : null,
+      year: selectedYear,
+      month: selectedMonth,
+      week: null,
     };
 
     if (editingId) {
@@ -178,12 +167,12 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
       // Delete any existing record first (upsert with NULL keys is unreliable in PostgreSQL)
       let delParent = supabase.from("budgets").delete()
         .eq("user_id", user.id)
-        .eq("period", period)
-        .eq("year", baseRow.year);
+        .eq("period", "monthly")
+        .eq("year", selectedYear)
+        .eq("month", selectedMonth)
+        .is("week", null);
       if (baseRow.category_id) delParent = delParent.eq("category_id", baseRow.category_id);
       else delParent = delParent.is("category_id", null);
-      if (period === "monthly") delParent = delParent.eq("month", selectedMonth).is("week", null);
-      else delParent = delParent.eq("week", currentWeek).is("month", null);
       await delParent;
       await supabase.from("budgets").insert(baseRow);
     }
@@ -191,29 +180,24 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     // Save sub-budgets: delete existing then insert fresh to avoid NULL-key upsert duplicates
     const subEntries = Object.entries(subAmounts).filter(([, v]) => Number(v) > 0);
     if (subEntries.length > 0) {
-      const subYear = period === "monthly" ? selectedYear : currentYear;
       const subCatIds = subEntries.map(([id]) => id);
-      let delQ = supabase.from("budgets").delete()
+      await supabase.from("budgets").delete()
         .in("category_id", subCatIds)
         .eq("user_id", user.id)
-        .eq("period", period)
-        .eq("year", subYear);
-      if (period === "monthly") {
-        delQ = delQ.eq("month", selectedMonth).is("week", null);
-      } else {
-        delQ = delQ.eq("week", currentWeek).is("month", null);
-      }
-      await delQ;
+        .eq("period", "monthly")
+        .eq("year", selectedYear)
+        .eq("month", selectedMonth)
+        .is("week", null);
 
       await supabase.from("budgets").insert(
         subEntries.map(([subCatId, subAmt]) => ({
           user_id: user.id,
-          period,
+          period: "monthly" as const,
           category_id: subCatId,
           amount: Number(subAmt),
-          year: subYear,
-          month: period === "monthly" ? selectedMonth : null,
-          week: period === "weekly" ? currentWeek : null,
+          year: selectedYear,
+          month: selectedMonth,
+          week: null,
         }))
       );
     }
@@ -235,8 +219,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
     // Subcategory → redirect to editing the parent budget
     if (cat?.parent_id) {
-      const pool = budgetsForPeriod(b.period);
-      const parentBudget = pool.find((pb) => pb.category_id === cat.parent_id);
+      const parentBudget = monthlyBudgets.find((pb) => pb.category_id === cat.parent_id);
       if (parentBudget) {
         startEdit(parentBudget);
         return;
@@ -245,8 +228,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
       setEditingId(null); setAmount(""); setExtraSubs([]); setShowAddSub(false);
       setNewSubName(""); setNewSubAmount(""); setOthersAmount("");
       setCategoryId(cat.parent_id);
-      setPeriod(b.period);
-      preloadSubAmounts(cat.parent_id, b.period);
+      preloadSubAmounts(cat.parent_id);
       setShowForm(true);
       return;
     }
@@ -255,8 +237,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     setAmount(String(b.amount));
     const catId = b.category_id ?? "global";
     setCategoryId(catId);
-    setPeriod(b.period);
-    preloadSubAmounts(catId, b.period);
+    preloadSubAmounts(catId);
     setShowForm(true);
   };
 
@@ -380,13 +361,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
   return (
     <div className="space-y-4">
-      <Tabs defaultValue="monthly">
-        <TabsList className="w-full bg-white shadow-sm">
-          <TabsTrigger value="monthly" className="flex-1">Mensual</TabsTrigger>
-          <TabsTrigger value="weekly" className="flex-1">Esta semana</TabsTrigger>
-        </TabsList>
-
-        <TabsContent value="monthly" className="mt-3 space-y-2">
+      <div className="space-y-2">
           {/* Navegación de mes */}
           <div className="flex items-center justify-between bg-white border rounded-xl px-3 py-2">
             <Button variant="ghost" size="icon" className="w-8 h-8" onClick={goToPrev}>
@@ -505,29 +480,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           )}
 
           {renderBudgetList(monthlyBudgets)}
-        </TabsContent>
-
-        <TabsContent value="weekly" className="mt-3 space-y-2">
-          {weeklyBudgets.length > 0 && (
-            <div className="bg-violet-50 border border-violet-100 rounded-xl px-4 py-3 flex items-center justify-between">
-              <span className="text-sm text-violet-700 font-medium">Total presupuestado</span>
-              <span className="text-base font-bold text-violet-800">
-                {fmt(weeklyBudgets.filter(isRootBudget).reduce((s, b) => s + Number(b.amount), 0))}
-              </span>
-            </div>
-          )}
-          {weeklyBudgets.length === 0 && (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 space-y-2 text-center">
-              <p className="text-3xl">📅</p>
-              <p className="text-sm font-semibold text-gray-700">Sin presupuesto para esta semana</p>
-              <p className="text-xs text-muted-foreground">
-                Ideal para controlar gastos de ocio, salidas o compras puntuales de la semana.
-              </p>
-            </div>
-          )}
-          {renderBudgetList(weeklyBudgets)}
-        </TabsContent>
-      </Tabs>
+      </div>
 
       {showForm && (
         <Card>
@@ -535,24 +488,6 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
             <CardTitle className="text-sm">{editingId ? "Editar" : "Nuevo"} presupuesto</CardTitle>
           </CardHeader>
           <CardContent className="space-y-3">
-            <div className="space-y-1">
-              <Label>Período</Label>
-              <Select
-                value={period}
-                onValueChange={(v) => {
-                  const p = v as "monthly" | "weekly";
-                  setPeriod(p);
-                  preloadSubAmounts(categoryId, p);
-                }}
-                items={{ monthly: "Mensual", weekly: "Semanal" }}
-              >
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="monthly">Mensual — {MONTHS[selectedMonth - 1]} {selectedYear}</SelectItem>
-                  <SelectItem value="weekly">Semanal — Semana {currentWeek}</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <Label>Categoría</Label>
@@ -689,7 +624,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
       {!showForm && (
         <div className="flex gap-2">
-          <Button className="flex-1" variant="outline" onClick={() => { setShowForm(true); setPeriod("monthly"); }}>
+          <Button className="flex-1" variant="outline" onClick={() => setShowForm(true)}>
             <Plus className="w-4 h-4 mr-1" /> Agregar presupuesto
           </Button>
           <Button variant="outline" onClick={onManageCategories} className="text-violet-600 border-violet-200 hover:bg-violet-50">
