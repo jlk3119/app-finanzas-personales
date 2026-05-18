@@ -131,6 +131,19 @@ month_closures (
   closed_at timestamptz,
   UNIQUE (user_id, year, month)
 )
+
+debts (
+  id uuid PK,
+  user_id uuid,
+  name text,
+  entity text,
+  total_amount numeric(14,2),
+  paid_amount numeric(14,2) DEFAULT 0,
+  icon text DEFAULT '💳',
+  color text DEFAULT '#ef4444',
+  notes text,
+  created_at timestamptz
+)
 ```
 
 ---
@@ -146,6 +159,7 @@ type Account  = { id, user_id, name, balance, icon, color }
 type RecurringIncome = { id, user_id, account_id, name, amount, frequency, day_of_month, is_salary, auto_assign, start_date }
 type Income   = { id, user_id, account_id, amount, description, date, recurring_income_id, period_key }
 type MonthClosure = { id, user_id, year, month, closed_at }
+type Debt         = { id, user_id, name, entity, total_amount, paid_amount, icon, color, notes }
 ```
 
 ---

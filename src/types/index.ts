@@ -87,6 +87,19 @@ export type Goal = {
   categories?: Category;
 };
 
+export type Debt = {
+  id: string;
+  user_id: string;
+  name: string;
+  entity: string;
+  total_amount: number;
+  paid_amount: number;
+  icon: string;
+  color: string;
+  notes: string | null;
+  created_at: string;
+};
+
 export type MonthClosure = {
   id: string;
   user_id: string;

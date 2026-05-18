@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
-import type { Expense, Budget, Category, Goal, Account, Income, RecurringIncome, MonthClosure } from "@/types";
+import type { Expense, Budget, Category, Goal, Account, Income, RecurringIncome, MonthClosure, Debt } from "@/types";
 import { getCurrentPayPeriod, getCustomPayPeriod } from "@/utils/colombian-holidays";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import BudgetManager from "@/components/BudgetManager";
 import GoalsList from "@/components/GoalsList";
+import DebtManager from "@/components/DebtManager";
 import CategoryManager from "@/components/CategoryManager";
 import AccountsManager from "@/components/AccountsManager";
 import MonthClosureCard from "@/components/MonthClosureCard";
@@ -47,6 +48,7 @@ export default function Dashboard() {
   const [income, setIncome] = useState<Income[]>([]);
   const [recurringIncome, setRecurringIncome] = useState<RecurringIncome[]>([]);
   const [monthClosures, setMonthClosures] = useState<MonthClosure[]>([]);
+  const [debts, setDebts] = useState<Debt[]>([]);
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [showCategories, setShowCategories] = useState(false);
@@ -121,7 +123,7 @@ export default function Dashboard() {
   }, [supabase]);
 
   const fetchData = useCallback(async () => {
-    const [expRes, budRes, catRes, goalRes, accRes, incRes, recurRes, closuresRes] = await Promise.all([
+    const [expRes, budRes, catRes, goalRes, accRes, incRes, recurRes, closuresRes, debtRes] = await Promise.all([
       supabase.from("expenses").select("*, categories(*), accounts(*)").order("date", { ascending: false }),
       supabase.from("budgets").select("*, categories(*)"),
       supabase.from("categories").select("*").order("name"),
@@ -130,6 +132,7 @@ export default function Dashboard() {
       supabase.from("income").select("*, accounts(*)").order("date", { ascending: false }),
       supabase.from("recurring_income").select("*, accounts(*)").order("created_at"),
       supabase.from("month_closures").select("*"),
+      supabase.from("debts").select("*").order("created_at", { ascending: false }),
     ]);
 
     if (expRes.data) setExpenses(expRes.data as Expense[]);
@@ -157,6 +160,7 @@ export default function Dashboard() {
 
     if (goalRes.data) setGoals(goalRes.data as Goal[]);
     if (closuresRes.data) setMonthClosures(closuresRes.data as MonthClosure[]);
+    if (debtRes.data) setDebts(debtRes.data as Debt[]);
     setAccounts(accData);
     setIncome(incData);
     setRecurringIncome(recurData);
@@ -480,7 +484,13 @@ export default function Dashboard() {
         )}
 
         {activeTab === "goals" && (
-          <GoalsList goals={goals} categories={categories} onRefresh={fetchData} />
+          <div className="space-y-6">
+            <GoalsList goals={goals} categories={categories} onRefresh={fetchData} />
+            <div>
+              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Deudas</h2>
+              <DebtManager debts={debts} onRefresh={fetchData} />
+            </div>
+          </div>
         )}
 
         {activeTab === "accounts" && (
