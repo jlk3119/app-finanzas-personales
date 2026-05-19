@@ -1,6 +1,8 @@
 import { createGroq } from "@ai-sdk/groq";
 import { generateText } from "ai";
 import { z } from "zod";
+import { cookies } from "next/headers";
+import { createClient } from "@/utils/supabase/server";
 
 export const runtime = "nodejs";
 
@@ -25,6 +27,13 @@ const SummarySchema = z.object({
 });
 
 export async function POST(req: Request) {
+  const cookieStore = await cookies();
+  const supabase = createClient(cookieStore);
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return Response.json({ error: "No autorizado" }, { status: 401 });
+  }
+
   const apiKey = process.env.GROQ_API_KEY;
   if (!apiKey) {
     return Response.json({ error: "GROQ_API_KEY no configurada" }, { status: 500 });
