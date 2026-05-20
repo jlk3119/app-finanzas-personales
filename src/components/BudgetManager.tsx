@@ -401,10 +401,8 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
             const sporadicTotal = sporadicForMonth.reduce((s, i) => s + Number(i.amount), 0);
             const expectedIncome = recurringTotal + sporadicTotal;
             const hasIncome = activeRecurring.length > 0 || sporadicForMonth.length > 0;
-            const cajaMenor = hasIncome
-              ? expectedIncome - totalBudget
-              : accounts.reduce((s, a) => s + Number(a.balance), 0) - totalBudget;
-            const cajaLabel = hasIncome ? "Ingresos esperados − presupuesto" : "Saldo en cuentas − presupuesto";
+            const cajaMenor = expectedIncome - totalBudget;
+            const cajaLabel = "Ingresos esperados − presupuesto";
             return (
               <div className="rounded-xl border overflow-hidden">
                 {/* Ingresos esperados — si hay recurrentes o esporádicos asignados al mes */}
@@ -437,7 +435,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                   <span className="text-sm text-violet-700 font-medium">Total presupuestado</span>
                   <span className="text-base font-bold text-violet-800">{fmt(totalBudget)}</span>
                 </div>
-                {(hasIncome || accounts.length > 0) && (
+                {hasIncome && (
                   <div className={`px-4 py-3 ${cajaMenor >= 0 ? "bg-emerald-50" : "bg-red-50"}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
