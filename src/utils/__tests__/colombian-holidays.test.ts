@@ -90,12 +90,19 @@ describe('lastBusinessDay', () => {
 })
 
 describe('getCurrentPayPeriod', () => {
-  it('retorna período mensual cuando ya pasó la fecha de pago', () => {
-    // Último día hábil de mayo 2026: verificar que hay un resultado
+  it('retorna período del mes siguiente cuando ya pasó la fecha de pago mensual', () => {
+    // Salario pagado a fin de mayo → period_key apunta a junio (mes en que se usa)
     const hoy = new Date(2026, 4, 31) // 31 mayo
     const result = getCurrentPayPeriod('monthly', hoy)
     expect(result).not.toBeNull()
-    expect(result?.periodKey).toMatch(/^2026-05/)
+    expect(result?.periodKey).toBe('2026-06')
+  })
+
+  it('retorna period_key de diciembre hacia enero del año siguiente', () => {
+    const hoy = new Date(2026, 11, 31) // 31 dic
+    const result = getCurrentPayPeriod('monthly', hoy)
+    expect(result).not.toBeNull()
+    expect(result?.periodKey).toBe('2027-01')
   })
 
   it('retorna null si aún no llegó la fecha de pago mensual', () => {

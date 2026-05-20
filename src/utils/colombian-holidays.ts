@@ -100,8 +100,11 @@ export function getCurrentPayPeriod(
 
   if (frequency === "monthly") {
     const payDate = lastBusinessDay(new Date(year, month, 0), holidays);
+    // El salario se paga a fin del mes pero se usa el mes siguiente → periodKey apunta al mes siguiente
+    const nextMonth = month === 12 ? 1 : month + 1;
+    const nextYear = month === 12 ? year + 1 : year;
     return todayStr >= dateKey(payDate)
-      ? { payDate: dateKey(payDate), periodKey: `${year}-${pad(month)}` }
+      ? { payDate: dateKey(payDate), periodKey: `${nextYear}-${pad(nextMonth)}` }
       : null;
   }
 
