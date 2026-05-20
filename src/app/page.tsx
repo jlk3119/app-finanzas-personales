@@ -229,7 +229,13 @@ export default function Dashboard() {
   const unlinkedMonthTotal = thisMonthExpenses
     .filter((e) => !e.account_id)
     .reduce((s, e) => s + Number(e.amount), 0);
-  const disponible = totalBalance - unlinkedMonthTotal;
+  // Ingresos esporádicos asignados a meses futuros ya están en el saldo de la cuenta,
+  // pero aún no deben contarse como dinero disponible para el mes en curso
+  const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
+  const futureSporadicLinked = income
+    .filter((i) => !i.recurring_income_id && !!i.period_key && i.period_key > currentMonthKey && !!i.account_id)
+    .reduce((s, i) => s + Number(i.amount), 0);
+  const disponible = totalBalance - unlinkedMonthTotal - futureSporadicLinked;
 
   const prevM = currentMonth === 1 ? 12 : currentMonth - 1;
   const prevY = currentMonth === 1 ? currentYear - 1 : currentYear;

@@ -146,9 +146,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
       description: incomeForm.description || null, date: incomeForm.date,
       period_key: incomeForm.budget_month || null,
     });
-    // Solo actualizar saldo si el ingreso corresponde al mes actual o anterior
-    const isFuture = incomeForm.budget_month > currentMonthStr();
-    if (account_id && !isFuture) {
+    if (account_id) {
       const acc = accounts.find((a) => a.id === account_id);
       if (acc) await supabase.from("accounts").update({ balance: Number(acc.balance) + amount }).eq("id", account_id);
     }
@@ -158,9 +156,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
   const deleteIncome = async (entry: Income) => {
     setDeletingId(entry.id);
     await supabase.from("income").delete().eq("id", entry.id);
-    // Revertir saldo solo si el ingreso había afectado el balance (no es esporádico futuro)
-    const isFutureSporadic = !entry.recurring_income_id && !!entry.period_key && entry.period_key > currentMonthStr();
-    if (entry.account_id && !isFutureSporadic) {
+    if (entry.account_id) {
       const acc = accounts.find((a) => a.id === entry.account_id);
       if (acc) await supabase.from("accounts").update({ balance: Math.max(0, Number(acc.balance) - Number(entry.amount)) }).eq("id", entry.account_id);
     }
