@@ -4,7 +4,7 @@ import { render, screen, waitFor } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BudgetManager from '../BudgetManager'
 import { createClient } from '@/utils/supabase/client'
-import type { Budget, Category, Account, RecurringIncome } from '@/types'
+import type { Budget, Category, Account, RecurringIncome, Income } from '@/types'
 
 jest.mock('@/utils/supabase/client', () => ({ createClient: jest.fn() }))
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>
@@ -26,6 +26,7 @@ const defaultProps = {
   categories: cats,
   accounts: [] as Account[],
   recurringIncome: [] as RecurringIncome[],
+  income: [] as Income[],
   onRefresh: jest.fn(),
   onManageCategories: jest.fn(),
   currentMonth: 5,

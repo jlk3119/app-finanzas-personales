@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
-import type { Budget, Category, Account, RecurringIncome } from "@/types";
+import type { Budget, Category, Account, RecurringIncome, Income } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ type Props = {
   categories: Category[];
   accounts: Account[];
   recurringIncome: RecurringIncome[];
+  income: Income[];
   onRefresh: () => void;
   onManageCategories: () => void;
   currentMonth: number;
@@ -37,7 +38,7 @@ function nextMonthOf(month: number, year: number) {
 const FREQ_MULTIPLIER: Record<string, number> = { monthly: 1, biweekly: 2, weekly: 4 };
 const FREQ_LABEL: Record<string, string> = { monthly: "mensual", biweekly: "quincenal ×2", weekly: "semanal ×4" };
 
-export default function BudgetManager({ budgets, categories, accounts, recurringIncome, onRefresh, onManageCategories, currentMonth, currentYear }: Props) {
+export default function BudgetManager({ budgets, categories, accounts, recurringIncome, income, onRefresh, onManageCategories, currentMonth, currentYear }: Props) {
   const supabase = createClient();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -392,17 +393,21 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
               const [sy, sm] = r.start_date.split("-").map(Number);
               return selectedYear > sy || (selectedYear === sy && selectedMonth >= sm);
             });
-            const expectedIncome = activeRecurring.reduce(
+            const monthKey = `${selectedYear}-${String(selectedMonth).padStart(2, "0")}`;
+            const sporadicForMonth = income.filter((i) => !i.recurring_income_id && i.period_key === monthKey);
+            const recurringTotal = activeRecurring.reduce(
               (s, r) => s + Number(r.amount) * (FREQ_MULTIPLIER[r.frequency] ?? 1), 0
             );
-            const hasIncome = activeRecurring.length > 0;
+            const sporadicTotal = sporadicForMonth.reduce((s, i) => s + Number(i.amount), 0);
+            const expectedIncome = recurringTotal + sporadicTotal;
+            const hasIncome = activeRecurring.length > 0 || sporadicForMonth.length > 0;
             const cajaMenor = hasIncome
               ? expectedIncome - totalBudget
               : accounts.reduce((s, a) => s + Number(a.balance), 0) - totalBudget;
             const cajaLabel = hasIncome ? "Ingresos esperados − presupuesto" : "Saldo en cuentas − presupuesto";
             return (
               <div className="rounded-xl border overflow-hidden">
-                {/* Ingresos esperados — solo si hay recurrentes */}
+                {/* Ingresos esperados — si hay recurrentes o esporádicos asignados al mes */}
                 {hasIncome && (
                   <>
                     <div className="bg-emerald-50 px-4 py-2.5 border-b border-emerald-100">
@@ -419,6 +424,12 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                           </div>
                         );
                       })}
+                      {sporadicForMonth.map((i) => (
+                        <div key={i.id} className="flex items-center justify-between text-xs text-emerald-600 py-0.5">
+                          <span>{i.description || "Ingreso esporádico"} <span className="text-emerald-400">(esporádico)</span></span>
+                          <span>+{fmt(Number(i.amount))}</span>
+                        </div>
+                      ))}
                     </div>
                   </>
                 )}

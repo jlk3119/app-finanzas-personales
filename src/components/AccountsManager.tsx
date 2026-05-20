@@ -41,10 +41,15 @@ const ACCOUNT_COLORS = ["#6366f1","#3b82f6","#10b981","#f59e0b","#ef4444","#8b5c
 type AccountForm = { name: string; icon: string; color: string; balance: string };
 const EMPTY_ACCOUNT: AccountForm = { name: "", icon: "🏦", color: "#6366f1", balance: "0" };
 
-type IncomeForm = { amount: string; description: string; date: string; account_id: string };
+type IncomeForm = { amount: string; description: string; date: string; account_id: string; budget_month: string };
 const emptyIncome = (): IncomeForm => {
   const d = new Date();
-  return { amount: "", description: "", date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`, account_id: "" };
+  return {
+    amount: "", description: "",
+    date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
+    account_id: "",
+    budget_month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+  };
 };
 
 type RecurringForm = {
@@ -139,6 +144,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
     await supabase.from("income").insert({
       user_id: user.id, account_id, amount,
       description: incomeForm.description || null, date: incomeForm.date,
+      period_key: incomeForm.budget_month || null,
     });
     if (account_id) {
       const acc = accounts.find((a) => a.id === account_id);
@@ -309,8 +315,14 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
             onChange={(e) => setIncomeForm({ ...incomeForm, description: e.target.value })} />
         </div>
         <div className="space-y-1">
-          <Label>Fecha</Label>
+          <Label>Fecha de recibo</Label>
           <Input type="date" value={incomeForm.date} onChange={(e) => setIncomeForm({ ...incomeForm, date: e.target.value })} />
+        </div>
+        <div className="space-y-1">
+          <Label>Mes de presupuesto</Label>
+          <Input type="month" value={incomeForm.budget_month}
+            onChange={(e) => setIncomeForm({ ...incomeForm, budget_month: e.target.value })} />
+          <p className="text-xs text-muted-foreground">¿En qué mes debe contar este ingreso para el presupuesto?</p>
         </div>
         <div className="space-y-1">
           <Label>Cuenta (opcional)</Label>

@@ -487,6 +487,7 @@ export default function Dashboard() {
             categories={categories}
             accounts={accounts}
             recurringIncome={recurringIncome}
+            income={income}
             onRefresh={fetchData}
             onManageCategories={() => setShowCategories(true)}
             currentMonth={currentMonth}
