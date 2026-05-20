@@ -84,7 +84,16 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
 
   useBackButtonClose(view !== "main", () => setView("main"));
 
-  const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
+  const now = new Date();
+  const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
+
+  // Ingresos esporádicos futuros (aún no recibidos) agrupados por cuenta
+  const futureSporadicByAccount = (accId: string) =>
+    income
+      .filter((i) => !i.recurring_income_id && !!i.period_key && i.period_key > currentMonthKey && i.account_id === accId)
+      .reduce((s, i) => s + Number(i.amount), 0);
+
+  const totalBalance = accounts.reduce((s, a) => s + Number(a.balance) - futureSporadicByAccount(a.id), 0);
 
   /* ── Helpers ── */
   const getActivePeriod = (r: RecurringIncome) => {
@@ -599,7 +608,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-800">{acc.name}</p>
-                    <p className="text-lg font-bold leading-tight" style={{ color: acc.color }}>{fmt(Number(acc.balance))}</p>
+                    <p className="text-lg font-bold leading-tight" style={{ color: acc.color }}>{fmt(Number(acc.balance) - futureSporadicByAccount(acc.id))}</p>
                   </div>
                 </div>
                 <div className="flex gap-1">
