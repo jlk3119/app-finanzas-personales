@@ -146,7 +146,9 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
       description: incomeForm.description || null, date: incomeForm.date,
       period_key: incomeForm.budget_month || null,
     });
-    if (account_id) {
+    // Solo actualizar saldo si el ingreso corresponde al mes actual o anterior
+    const isFuture = incomeForm.budget_month > currentMonthStr();
+    if (account_id && !isFuture) {
       const acc = accounts.find((a) => a.id === account_id);
       if (acc) await supabase.from("accounts").update({ balance: Number(acc.balance) + amount }).eq("id", account_id);
     }
@@ -156,7 +158,9 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
   const deleteIncome = async (entry: Income) => {
     setDeletingId(entry.id);
     await supabase.from("income").delete().eq("id", entry.id);
-    if (entry.account_id) {
+    // Revertir saldo solo si el ingreso había afectado el balance (no es esporádico futuro)
+    const isFutureSporadic = !entry.recurring_income_id && !!entry.period_key && entry.period_key > currentMonthStr();
+    if (entry.account_id && !isFutureSporadic) {
       const acc = accounts.find((a) => a.id === entry.account_id);
       if (acc) await supabase.from("accounts").update({ balance: Math.max(0, Number(acc.balance) - Number(entry.amount)) }).eq("id", entry.account_id);
     }
@@ -527,12 +531,16 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
         {income.length === 0 && <p className="text-sm text-muted-foreground text-center py-8">Sin ingresos registrados.</p>}
         {income.map((entry) => {
           const acc = accounts.find((a) => a.id === entry.account_id);
+          const isPending = !entry.recurring_income_id && !!entry.period_key && entry.period_key > currentMonthStr();
           return (
             <div key={entry.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
               <div className="flex items-center gap-2">
                 <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-lg">{acc ? acc.icon : "💵"}</div>
                 <div>
-                  <p className="text-sm font-medium">{entry.description || "Ingreso"}</p>
+                  <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium">{entry.description || "Ingreso"}</p>
+                    {isPending && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">Pendiente</span>}
+                  </div>
                   <p className="text-xs text-muted-foreground">
                     {fmtDate(entry.date)}{acc && <span> · {acc.name}</span>}
                   </p>
@@ -734,6 +742,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
           <div className="space-y-2">
             {recentIncome.map((entry) => {
               const acc = accounts.find((a) => a.id === entry.account_id);
+              const isPending = !entry.recurring_income_id && !!entry.period_key && entry.period_key > currentMonthStr();
               return (
                 <div key={entry.id} className="flex items-center justify-between bg-white border rounded-xl px-3 py-2.5 shadow-sm">
                   <div className="flex items-center gap-2.5">
@@ -741,7 +750,10 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                       {acc ? acc.icon : "💵"}
                     </div>
                     <div>
-                      <p className="text-sm font-medium text-gray-800">{entry.description || "Ingreso"}</p>
+                      <div className="flex items-center gap-1.5">
+                        <p className="text-sm font-medium text-gray-800">{entry.description || "Ingreso"}</p>
+                        {isPending && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">Pendiente</span>}
+                      </div>
                       <p className="text-xs text-muted-foreground">
                         {fmtDate(entry.date)}{acc && <span> · {acc.name}</span>}
                       </p>
