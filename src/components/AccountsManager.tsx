@@ -96,6 +96,9 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
   const totalBalance = accounts.reduce((s, a) => s + Number(a.balance) - futureSporadicByAccount(a.id), 0);
 
   /* ── Helpers ── */
+  const isStarted = (r: RecurringIncome): boolean =>
+    !r.start_date || r.start_date.slice(0, 7) <= currentMonthKey;
+
   const getActivePeriod = (r: RecurringIncome) => {
     const today = new Date();
     if (r.is_salary) return getCurrentPayPeriod(r.frequency, today);
@@ -648,7 +651,8 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
           <div className="space-y-3">
             {recurringIncome.map((r) => {
               const acc = accounts.find((a) => a.id === r.account_id);
-              const received = isReceivedThisPeriod(r);
+              const started = isStarted(r);
+              const received = started && isReceivedThisPeriod(r);
               const nextDate = r.is_salary
                 ? getNextPayDate(r.frequency, new Date())
                 : r.day_of_month
@@ -701,15 +705,17 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                   {/* Próximo pago */}
                   {nextDate && (
                     <div className="px-4 pb-3 text-xs text-muted-foreground">
-                      {received
-                        ? <span>Próxima fecha: {fmtDate(nextDate)}</span>
-                        : <span>Pago esperado: <span className="font-medium text-gray-700">{fmtDate(nextDate)}</span></span>
+                      {!started
+                        ? <span>Inicia: <span className="font-medium text-gray-700">{fmtDate(nextDate)}</span></span>
+                        : received
+                          ? <span>Próxima fecha: {fmtDate(nextDate)}</span>
+                          : <span>Pago esperado: <span className="font-medium text-gray-700">{fmtDate(nextDate)}</span></span>
                       }
                     </div>
                   )}
 
-                  {/* Botón recibir — solo si no ha sido recibido este período */}
-                  {!received && (
+                  {/* Botón recibir — solo si el ingreso ya inició y no se ha recibido este período */}
+                  {started && !received && (
                     <div className="border-t bg-gray-50 px-4 py-2.5">
                       <Button
                         size="sm"
