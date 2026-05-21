@@ -9,7 +9,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, LogOut, Target, TrendingDown, Wallet, Settings, Landmark, Trophy, CheckCircle2 } from "lucide-react";
+import { PlusCircle, LogOut, Target, TrendingDown, Wallet, Settings, Landmark, Trophy, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import BudgetManager from "@/components/BudgetManager";
@@ -20,6 +20,8 @@ import CategoryManager from "@/components/CategoryManager";
 import AccountsManager from "@/components/AccountsManager";
 import MonthClosureCard from "@/components/MonthClosureCard";
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
+
+const MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
 function getWeekNumber(date: Date) {
   const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
@@ -42,6 +44,7 @@ type TabValue = typeof TABS[number]["value"];
 export default function Dashboard() {
   const supabase = createClient();
   const [expenses, setExpenses] = useState<Expense[]>([]);
+  const [dashboardExpenses, setDashboardExpenses] = useState<Expense[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
   const [categories, setCategories] = useState<Category[]>([]);
   const [goals, setGoals] = useState<Goal[]>([]);
@@ -55,6 +58,8 @@ export default function Dashboard() {
   const [showCategories, setShowCategories] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
+  const [expenseMonth, setExpenseMonth] = useState(() => new Date().getMonth() + 1);
+  const [expenseYear, setExpenseYear] = useState(() => new Date().getFullYear());
 
   useBackButtonClose(showForm, () => setShowForm(false));
   useBackButtonClose(editingExpense !== null, () => setEditingExpense(null));
@@ -124,60 +129,140 @@ export default function Dashboard() {
   }, [supabase]);
 
   const fetchData = useCallback(async () => {
-    const [expRes, budRes, catRes, goalRes, accRes, incRes, recurRes, closuresRes, debtRes] = await Promise.all([
-      supabase.from("expenses").select("*, categories(*), accounts(*)").order("date", { ascending: false }),
+    const nowObj = new Date();
+    const curM = nowObj.getMonth() + 1;
+    const curY = nowObj.getFullYear();
+    const pM = curM === 1 ? 12 : curM - 1;
+    const pY = curM === 1 ? curY - 1 : curY;
+    const startOfPrevMonthStr = `${pY}-${String(pM).padStart(2, "0")}-01`;
+
+    const startOfMonthStr = `${expenseYear}-${String(expenseMonth).padStart(2, "0")}-01`;
+    const endOfMonthStr = `${expenseYear}-${String(expenseMonth).padStart(2, "0")}-${new Date(expenseYear, expenseMonth, 0).getDate()}`;
+
+    const [expRes, dashExpRes, budRes, catRes, goalRes, accRes, incRes, recurRes, closuresRes, debtRes] = await Promise.all([
+      supabase.from("expenses").select("*, categories(*), accounts(*)").gte("date", startOfMonthStr).lte("date", endOfMonthStr).order("date", { ascending: false }),
+      supabase.from("expenses").select("*, categories(*), accounts(*)").gte("date", startOfPrevMonthStr).order("date", { ascending: false }),
       supabase.from("budgets").select("*, categories(*)"),
       supabase.from("categories").select("*").order("name"),
       supabase.from("goals").select("*, categories(*)").order("created_at", { ascending: false }),
       supabase.from("accounts").select("*").order("created_at"),
-      supabase.from("income").select("*, accounts(*)").order("date", { ascending: false }),
+      supabase.from("income").select("*, accounts(*)").gte("date", startOfPrevMonthStr).order("date", { ascending: false }),
       supabase.from("recurring_income").select("*, accounts(*)").order("created_at"),
       supabase.from("month_closures").select("*"),
       supabase.from("debts").select("*").order("created_at", { ascending: false }),
     ]);
 
-    if (expRes.data) setExpenses(expRes.data as Expense[]);
-    if (budRes.data) setBudgets(budRes.data as Budget[]);
-
+    const expData = (expRes.data ?? []) as Expense[];
+    const dashExpData = (dashExpRes.data ?? []) as Expense[];
+    const budData = (budRes.data ?? []) as Budget[];
     const accData = (accRes.data ?? []) as Account[];
     const incData = (incRes.data ?? []) as Income[];
     const recurData = (recurRes.data ?? []) as RecurringIncome[];
+    const goalData = (goalRes.data ?? []) as Goal[];
+    const closuresData = (closuresRes.data ?? []) as MonthClosure[];
+    const debtData = (debtRes.data ?? []) as Debt[];
 
+    setExpenses(expData);
+    setDashboardExpenses(dashExpData);
+    setBudgets(budData);
+
+    let finalCategories = (catRes.data ?? []) as Category[];
     if (catRes.data) {
-      const cats = catRes.data as Category[];
-      if (!cats.some((c) => c.is_system)) {
+      if (!finalCategories.some((c) => c.is_system)) {
         const { data: { user } } = await supabase.auth.getUser();
         if (user) {
           await supabase.from("categories").insert({
             user_id: user.id, name: "Caja menor", icon: "💵", color: "#10b981", is_system: true,
           });
           const { data: updated } = await supabase.from("categories").select("*").order("name");
-          if (updated) setCategories(updated as Category[]);
+          if (updated) {
+            finalCategories = updated as Category[];
+            setCategories(finalCategories);
+          }
         }
       } else {
-        setCategories(cats);
+        setCategories(finalCategories);
       }
     }
 
-    if (goalRes.data) setGoals(goalRes.data as Goal[]);
-    if (closuresRes.data) setMonthClosures(closuresRes.data as MonthClosure[]);
-    if (debtRes.data) setDebts(debtRes.data as Debt[]);
+    setGoals(goalData);
+    setMonthClosures(closuresData);
+    setDebts(debtData);
     setAccounts(accData);
     setIncome(incData);
     setRecurringIncome(recurData);
+
+    let finalAccData = accData;
+    let finalIncData = incData;
 
     const assigned = await checkAutoAssign(recurData, incData, accData);
     if (assigned) {
       const [accRefresh, incRefresh] = await Promise.all([
         supabase.from("accounts").select("*").order("created_at"),
-        supabase.from("income").select("*, accounts(*)").order("date", { ascending: false }),
+        supabase.from("income").select("*, accounts(*)").gte("date", startOfPrevMonthStr).order("date", { ascending: false }),
       ]);
-      if (accRefresh.data) setAccounts(accRefresh.data as Account[]);
-      if (incRefresh.data) setIncome(incRefresh.data as Income[]);
+      if (accRefresh.data) {
+        finalAccData = accRefresh.data as Account[];
+        setAccounts(finalAccData);
+      }
+      if (incRefresh.data) {
+        finalIncData = incRefresh.data as Income[];
+        setIncome(finalIncData);
+      }
+    }
+
+    // Save to cache
+    if (typeof window !== "undefined") {
+      try {
+        localStorage.setItem(
+          "misfinanzas_cache",
+          JSON.stringify({
+            expenses: expData,
+            dashboardExpenses: dashExpData,
+            budgets: budData,
+            categories: finalCategories,
+            goals: goalData,
+            accounts: finalAccData,
+            income: finalIncData,
+            recurringIncome: recurData,
+            monthClosures: closuresData,
+            debts: debtData,
+          })
+        );
+      } catch (e) {
+        console.error("Failed to save offline cache:", e);
+      }
     }
 
     setLoading(false);
-  }, [supabase, checkAutoAssign]);
+  }, [supabase, checkAutoAssign, expenseMonth, expenseYear]);
+
+  /* eslint-disable react-hooks/set-state-in-effect */
+  // Restore cache on mount to support offline rendering
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      try {
+        const cached = localStorage.getItem("misfinanzas_cache");
+        if (cached) {
+          const data = JSON.parse(cached);
+          if (data.expenses) setExpenses(data.expenses);
+          if (data.dashboardExpenses) setDashboardExpenses(data.dashboardExpenses);
+          if (data.budgets) setBudgets(data.budgets);
+          if (data.categories) setCategories(data.categories);
+          if (data.goals) setGoals(data.goals);
+          if (data.accounts) setAccounts(data.accounts);
+          if (data.income) setIncome(data.income);
+          if (data.recurringIncome) setRecurringIncome(data.recurringIncome);
+          if (data.monthClosures) setMonthClosures(data.monthClosures);
+          if (data.debts) setDebts(data.debts);
+          setLoading(false);
+        }
+      } catch (e) {
+        console.error("Failed to load offline cache:", e);
+      }
+    }
+  }, []);
+  /* eslint-enable react-hooks/set-state-in-effect */
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData(); }, [fetchData]);
@@ -196,6 +281,26 @@ export default function Dashboard() {
     return () => window.removeEventListener("popstate", handlePop);
   }, []);
 
+  const goToPrevExpenseMonth = () => {
+    if (expenseMonth === 1) {
+      setExpenseMonth(12);
+      setExpenseYear((y) => y - 1);
+    } else {
+      setExpenseMonth((m) => m - 1);
+    }
+  };
+
+  const goToNextExpenseMonth = () => {
+    const isCurrentMonth = expenseMonth === currentMonth && expenseYear === currentYear;
+    if (isCurrentMonth) return;
+    if (expenseMonth === 12) {
+      setExpenseMonth(1);
+      setExpenseYear((y) => y + 1);
+    } else {
+      setExpenseMonth((m) => m + 1);
+    }
+  };
+
   const handleTabChange = (value: TabValue) => {
     setActiveTab(value);
     window.history.pushState({}, "", `?tab=${value}`);
@@ -206,18 +311,18 @@ export default function Dashboard() {
     location.href = "/login";
   };
 
-  const thisMonthExpenses = expenses.filter((e) => {
+  const thisMonthExpenses = dashboardExpenses.filter((e) => {
     const d = new Date(e.date + "T12:00:00");
     return d.getMonth() + 1 === currentMonth && d.getFullYear() === currentYear;
   });
 
-  const thisWeekExpenses = expenses.filter((e) => {
+  const thisWeekExpenses = dashboardExpenses.filter((e) => {
     const d = new Date(e.date + "T12:00:00");
     return getWeekNumber(d) === currentWeek && d.getFullYear() === currentYear;
   });
 
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-  const totalToday = expenses.filter((e) => e.date === todayStr).reduce((s, e) => s + Number(e.amount), 0);
+  const totalToday = dashboardExpenses.filter((e) => e.date === todayStr).reduce((s, e) => s + Number(e.amount), 0);
   const totalWeek = thisWeekExpenses.reduce((s, e) => s + Number(e.amount), 0);
   const totalMonth = thisMonthExpenses.reduce((s, e) => s + Number(e.amount), 0);
 
@@ -226,8 +331,11 @@ export default function Dashboard() {
 
   const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
   // Gastos sin cuenta asignada no descuentan de ningún balance → restarlos explícitamente
-  const unlinkedMonthTotal = thisMonthExpenses
-    .filter((e) => !e.account_id)
+  const unlinkedMonthTotal = dashboardExpenses
+    .filter((e) => {
+      const d = new Date(e.date + "T12:00:00");
+      return d.getMonth() + 1 === currentMonth && d.getFullYear() === currentYear && !e.account_id;
+    })
     .reduce((s, e) => s + Number(e.amount), 0);
   // Ingresos esporádicos asignados a meses futuros ya están en el saldo de la cuenta,
   // pero aún no deben contarse como dinero disponible para el mes en curso
@@ -241,7 +349,7 @@ export default function Dashboard() {
   const prevY = currentMonth === 1 ? currentYear - 1 : currentYear;
   const prevMonthClosed = monthClosures.some((c) => c.year === prevY && c.month === prevM);
   const prevMonthHasData =
-    expenses.some((e) => {
+    dashboardExpenses.some((e) => {
       const d = new Date(e.date + "T12:00:00");
       return d.getMonth() + 1 === prevM && d.getFullYear() === prevY;
     }) ||
@@ -345,7 +453,7 @@ export default function Dashboard() {
               <MonthClosureCard
                 prevYear={prevY}
                 prevMonth={prevM}
-                expenses={expenses}
+                expenses={dashboardExpenses}
                 categories={categories}
                 budgets={budgets}
                 goals={goals}
@@ -461,12 +569,12 @@ export default function Dashboard() {
                 <CardTitle className="text-sm">Últimos gastos</CardTitle>
               </CardHeader>
               <CardContent>
-                <ExpenseList expenses={expenses.slice(0, 5)} categories={categories} accounts={accounts} onRefresh={fetchData} compact />
+                <ExpenseList expenses={dashboardExpenses.slice(0, 5)} categories={categories} accounts={accounts} onRefresh={fetchData} compact />
               </CardContent>
             </Card>
 
             <FinancialSummaryCard
-              expenses={expenses}
+              expenses={dashboardExpenses}
               budgets={budgets}
               goals={goals}
               debts={debts}
@@ -482,6 +590,21 @@ export default function Dashboard() {
         {activeTab === "expenses" && (
           <Card>
             <CardContent className="pt-4">
+              <div className="flex items-center justify-between mb-3">
+                <Button variant="ghost" size="icon" onClick={goToPrevExpenseMonth} className="h-8 w-8">
+                  <ChevronLeft className="w-4 h-4" />
+                </Button>
+                <span className="text-sm font-semibold">{MONTHS[expenseMonth - 1]} {expenseYear}</span>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={goToNextExpenseMonth}
+                  disabled={expenseMonth === currentMonth && expenseYear === currentYear}
+                  className="h-8 w-8"
+                >
+                  <ChevronRight className="w-4 h-4" />
+                </Button>
+              </div>
               <ExpenseList expenses={expenses} categories={categories} accounts={accounts} onRefresh={fetchData} onEdit={setEditingExpense} />
             </CardContent>
           </Card>
