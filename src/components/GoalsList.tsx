@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Plus, Trash2, PlusCircle, CheckCircle2, Pencil, X } from "lucide-react";
 
 type Props = { goals: Goal[]; categories: Category[]; onRefresh: () => void };
@@ -45,6 +46,9 @@ export default function GoalsList({ goals, categories, onRefresh }: Props) {
   const [icon, setIcon] = useState("🎯");
   const [formCategoryId, setFormCategoryId] = useState<string>("");
   const [loading, setLoading] = useState(false);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [deletingGoal, setDeletingGoal] = useState(false);
+  const confirmGoal = confirmId ? goals.find((g) => g.id === confirmId) : null;
 
   const [addingToGoal, setAddingToGoal] = useState<Goal | null>(null);
   const [addAmount, setAddAmount] = useState("");
@@ -156,7 +160,9 @@ export default function GoalsList({ goals, categories, onRefresh }: Props) {
   };
 
   const handleDelete = async (id: string) => {
+    setDeletingGoal(true);
     await supabase.from("goals").delete().eq("id", id);
+    setDeletingGoal(false);
     onRefresh();
   };
 
@@ -206,7 +212,7 @@ export default function GoalsList({ goals, categories, onRefresh }: Props) {
                   <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" aria-label="Editar" onClick={() => openEdit(goal)}>
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar" onClick={() => handleDelete(goal.id)}>
+                  <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar" onClick={() => setConfirmId(goal.id)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
@@ -336,6 +342,14 @@ export default function GoalsList({ goals, categories, onRefresh }: Props) {
           <Plus className="w-4 h-4 mr-1" /> Nueva meta
         </Button>
       )}
+      <ConfirmDialog
+        open={confirmId !== null}
+        onOpenChange={(open) => !open && setConfirmId(null)}
+        title="¿Eliminar esta meta?"
+        description={confirmGoal ? `${confirmGoal.icon} ${confirmGoal.name} · ${fmt(Number(confirmGoal.current_amount))} ahorrados. Esta acción no se puede deshacer.` : "Esta acción no se puede deshacer."}
+        loading={deletingGoal}
+        onConfirm={async () => { if (confirmId) await handleDelete(confirmId); }}
+      />
     </div>
   );
 }

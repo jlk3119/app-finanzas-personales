@@ -8,6 +8,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sh
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pencil, Trash2, Plus, Check, X, ChevronLeft, Lock } from "lucide-react";
 
 type Props = {
@@ -42,6 +43,9 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
   const [form, setForm] = useState<FormState>(EMPTY);
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const confirmCat = confirmId ? categories.find((c) => c.id === confirmId) : null;
+  const confirmChildrenCount = confirmCat ? categories.filter((c) => c.parent_id === confirmCat.id).length : 0;
 
   const parents = categories.filter((c) => !c.parent_id);
   const childrenOf = (pid: string) => categories.filter((c) => c.parent_id === pid);
@@ -153,7 +157,7 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
                           <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400" aria-label="Eliminar"
-                            onClick={() => handleDelete(cat.id)} disabled={deletingId === cat.id}>
+                            onClick={() => setConfirmId(cat.id)} disabled={deletingId === cat.id}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
                         </div>
@@ -175,7 +179,7 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                             <Pencil className="w-3 h-3" />
                           </Button>
                           <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar"
-                            onClick={() => handleDelete(child.id)} disabled={deletingId === child.id}>
+                            onClick={() => setConfirmId(child.id)} disabled={deletingId === child.id}>
                             <Trash2 className="w-3 h-3" />
                           </Button>
                         </div>
@@ -273,6 +277,14 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
           )}
         </div>
       </SheetContent>
+      <ConfirmDialog
+        open={confirmId !== null}
+        onOpenChange={(open) => !open && setConfirmId(null)}
+        title="¿Eliminar esta categoría?"
+        description={confirmCat ? `${confirmCat.icon} ${confirmCat.name}${confirmChildrenCount > 0 ? ` y sus ${confirmChildrenCount} subcategoría${confirmChildrenCount > 1 ? "s" : ""}` : ""}. Los gastos asociados quedarán sin categoría. Esta acción no se puede deshacer.` : "Esta acción no se puede deshacer."}
+        loading={deletingId === confirmId}
+        onConfirm={async () => { if (confirmId) await handleDelete(confirmId); }}
+      />
     </Sheet>
   );
 }

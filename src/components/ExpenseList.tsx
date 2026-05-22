@@ -4,6 +4,7 @@ import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import type { Account, Expense, Category } from "@/types";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pencil, Trash2 } from "lucide-react";
 
 type Props = {
@@ -41,6 +42,8 @@ function formatDate(dateStr: string) {
 export default function ExpenseList({ expenses, categories, accounts, onRefresh, onEdit, compact }: Props) {
   const supabase = createClient();
   const [deleting, setDeleting] = useState<string | null>(null);
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const confirmExpense = confirmId ? expenses.find((e) => e.id === confirmId) : null;
 
   const handleDelete = async (id: string) => {
     setDeleting(id);
@@ -128,7 +131,7 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
                       size="icon"
                       className="w-7 h-7 text-muted-foreground hover:text-red-500"
                       aria-label="Eliminar"
-                      onClick={() => handleDelete(e.id)}
+                      onClick={() => setConfirmId(e.id)}
                       disabled={deleting === e.id}
                     >
                       <Trash2 className="w-3.5 h-3.5" />
@@ -140,6 +143,14 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
           </div>
         </div>
       ))}
+      <ConfirmDialog
+        open={confirmId !== null}
+        onOpenChange={(open) => !open && setConfirmId(null)}
+        title="¿Eliminar este gasto?"
+        description={confirmExpense ? `${confirmExpense.description || "Gasto"} · ${fmt(Number(confirmExpense.amount))}. Esta acción no se puede deshacer.` : "Esta acción no se puede deshacer."}
+        loading={deleting === confirmId}
+        onConfirm={async () => { if (confirmId) await handleDelete(confirmId); }}
+      />
     </div>
   );
 }

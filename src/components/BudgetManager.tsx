@@ -6,6 +6,7 @@ import { createClient } from "@/utils/supabase/client";
 import type { Budget, Category, Account, RecurringIncome, Income } from "@/types";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -57,6 +58,10 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const [addingSubLoading, setAddingSubLoading] = useState(false);
   const [othersAmount, setOthersAmount] = useState("");
   const [collapsedBudgets, setCollapsedBudgets] = useState<Set<string>>(new Set());
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
+  const [deletingBudget, setDeletingBudget] = useState(false);
+  const confirmBudget = confirmDeleteId ? budgets.find((b) => b.id === confirmDeleteId) : null;
+  const confirmBudgetCat = confirmBudget?.category_id ? categories.find((c) => c.id === confirmBudget.category_id) : null;
   const toggleCollapse = (id: string) => setCollapsedBudgets((prev) => {
     const next = new Set(prev);
     next.has(id) ? next.delete(id) : next.add(id);
@@ -217,7 +222,9 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   };
 
   const handleDelete = async (id: string) => {
+    setDeletingBudget(true);
     await supabase.from("budgets").delete().eq("id", id);
+    setDeletingBudget(false);
     onRefresh();
   };
 
@@ -309,7 +316,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           <Button variant="ghost" size="icon" className="w-7 h-7" aria-label="Editar" onClick={() => startEdit(b)}>
             <Pencil className="w-3.5 h-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar" onClick={() => handleDelete(b.id)}>
+          <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar" onClick={() => setConfirmDeleteId(b.id)}>
             <Trash2 className="w-3.5 h-3.5" />
           </Button>
           {hasChildren && (
@@ -656,6 +663,14 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           </Button>
         </div>
       )}
+      <ConfirmDialog
+        open={confirmDeleteId !== null}
+        onOpenChange={(open) => !open && setConfirmDeleteId(null)}
+        title="¿Eliminar este presupuesto?"
+        description={confirmBudget ? `${confirmBudgetCat ? `${confirmBudgetCat.icon} ${confirmBudgetCat.name}` : "Total general"} · ${fmt(Number(confirmBudget.amount))}. Esta acción no se puede deshacer.` : "Esta acción no se puede deshacer."}
+        loading={deletingBudget}
+        onConfirm={async () => { if (confirmDeleteId) await handleDelete(confirmDeleteId); }}
+      />
     </div>
   );
 }

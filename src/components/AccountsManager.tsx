@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pencil, Trash2, Plus, Check, X, ChevronRight, Download, RefreshCw } from "lucide-react";
 import {
   getCurrentPayPeriod, getNextPayDate,
@@ -81,6 +82,32 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
   const [loading, setLoading] = useState(false);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [receivingId, setReceivingId] = useState<string | null>(null);
+  const [confirmDelete, setConfirmDelete] = useState<
+    | { type: "account"; id: string }
+    | { type: "income"; entry: Income }
+    | { type: "recurring"; id: string }
+    | null
+  >(null);
+  const confirmDeleteAccount = confirmDelete?.type === "account" ? accounts.find((a) => a.id === confirmDelete.id) : null;
+  const confirmDeleteRecurring = confirmDelete?.type === "recurring" ? recurringIncome.find((r) => r.id === confirmDelete.id) : null;
+  const confirmDeleteIncome = confirmDelete?.type === "income" ? confirmDelete.entry : null;
+  const confirmTitle = confirmDelete?.type === "account" ? "¿Eliminar esta cuenta?"
+    : confirmDelete?.type === "income" ? "¿Eliminar este ingreso?"
+    : confirmDelete?.type === "recurring" ? "¿Eliminar este ingreso recurrente?"
+    : "";
+  const confirmDescription = confirmDeleteAccount
+    ? `${confirmDeleteAccount.icon} ${confirmDeleteAccount.name} · saldo ${fmt(Number(confirmDeleteAccount.balance))}. Esta acción no se puede deshacer.`
+    : confirmDeleteIncome
+    ? `${confirmDeleteIncome.description || "Ingreso"} · ${fmt(Number(confirmDeleteIncome.amount))}. El saldo de la cuenta se ajustará. Esta acción no se puede deshacer.`
+    : confirmDeleteRecurring
+    ? `${confirmDeleteRecurring.name} · ${fmt(Number(confirmDeleteRecurring.amount))}. Esta acción no se puede deshacer.`
+    : "Esta acción no se puede deshacer.";
+  const handleConfirmDelete = async () => {
+    if (!confirmDelete) return;
+    if (confirmDelete.type === "account") await deleteAccount(confirmDelete.id);
+    else if (confirmDelete.type === "income") await deleteIncome(confirmDelete.entry);
+    else await deleteRecurring(confirmDelete.id);
+  };
 
   useBackButtonClose(view !== "main", () => setView("main"));
 
@@ -556,7 +583,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-sm font-semibold text-emerald-600">+{fmt(entry.amount)}</span>
-                <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => deleteIncome(entry)} disabled={deletingId === entry.id}>
+                <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => setConfirmDelete({ type: "income", entry })} disabled={deletingId === entry.id}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -618,7 +645,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                   <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground" aria-label="Editar cuenta" onClick={() => openEditAccount(acc)}>
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400" aria-label="Eliminar cuenta" onClick={() => deleteAccount(acc.id)} disabled={deletingId === acc.id}>
+                  <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400" aria-label="Eliminar cuenta" onClick={() => setConfirmDelete({ type: "account", id: acc.id })} disabled={deletingId === acc.id}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
@@ -682,7 +709,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                       <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" onClick={() => openEditRecurring(r)}>
                         <Pencil className="w-3 h-3" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => deleteRecurring(r.id)} disabled={deletingId === r.id}>
+                      <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => setConfirmDelete({ type: "recurring", id: r.id })} disabled={deletingId === r.id}>
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
@@ -772,7 +799,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-semibold text-emerald-600">+{fmt(entry.amount)}</span>
-                    <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => deleteIncome(entry)} disabled={deletingId === entry.id}>
+                    <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => setConfirmDelete({ type: "income", entry })} disabled={deletingId === entry.id}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
@@ -788,6 +815,18 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
           </Button>
         )}
       </section>
+      <ConfirmDialog
+        open={confirmDelete !== null}
+        onOpenChange={(open) => !open && setConfirmDelete(null)}
+        title={confirmTitle}
+        description={confirmDescription}
+        loading={deletingId !== null && (
+          (confirmDelete?.type === "account" && deletingId === confirmDelete.id) ||
+          (confirmDelete?.type === "income" && deletingId === confirmDelete.entry.id) ||
+          (confirmDelete?.type === "recurring" && deletingId === confirmDelete.id)
+        )}
+        onConfirm={handleConfirmDelete}
+      />
     </div>
   );
 }

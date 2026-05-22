@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Plus, Trash2, Pencil, X, CreditCard, CheckCircle2 } from "lucide-react";
 
 type Props = { debts: Debt[]; onRefresh: () => void };
@@ -49,6 +50,9 @@ export default function DebtManager({ debts, onRefresh }: Props) {
   const [loading, setLoading] = useState(false);
   const [payAmount, setPayAmount] = useState("");
   const [sortBy, setSortBy] = useState<SortBy>("created");
+  const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [deletingDebt, setDeletingDebt] = useState(false);
+  const confirmDebt = confirmId ? debts.find((d) => d.id === confirmId) : null;
 
   const totalDebt = debts.reduce((s, d) => s + Number(d.total_amount), 0);
   const totalPaid = debts.reduce((s, d) => s + Number(d.paid_amount), 0);
@@ -139,7 +143,9 @@ export default function DebtManager({ debts, onRefresh }: Props) {
   };
 
   const handleDelete = async (id: string) => {
+    setDeletingDebt(true);
     await supabase.from("debts").delete().eq("id", id);
+    setDeletingDebt(false);
     onRefresh();
   };
 
@@ -333,7 +339,7 @@ export default function DebtManager({ debts, onRefresh }: Props) {
                   <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" aria-label="Editar" onClick={() => openEdit(debt)}>
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar" onClick={() => handleDelete(debt.id)}>
+                  <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar" onClick={() => setConfirmId(debt.id)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
@@ -363,6 +369,14 @@ export default function DebtManager({ debts, onRefresh }: Props) {
           <Plus className="w-4 h-4 mr-1" /> Nueva deuda
         </Button>
       )}
+      <ConfirmDialog
+        open={confirmId !== null}
+        onOpenChange={(open) => !open && setConfirmId(null)}
+        title="¿Eliminar esta deuda?"
+        description={confirmDebt ? `${confirmDebt.icon} ${confirmDebt.name} · ${fmt(Number(confirmDebt.total_amount))}. Esta acción no se puede deshacer.` : "Esta acción no se puede deshacer."}
+        loading={deletingDebt}
+        onConfirm={async () => { if (confirmId) await handleDelete(confirmId); }}
+      />
     </div>
   );
 }
