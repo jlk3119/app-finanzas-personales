@@ -19,7 +19,6 @@ import DebtManager from "@/components/DebtManager";
 import CategoryManager from "@/components/CategoryManager";
 import AccountsManager from "@/components/AccountsManager";
 import MonthClosureCard from "@/components/MonthClosureCard";
-import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, Cell } from "recharts";
 
 const MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -515,52 +514,54 @@ export default function Dashboard() {
                 </Card>
               );
             })()}
-            {categorySpend.length > 0 && (
-              <Card>
-                <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Gastos por categoría este mes</CardTitle>
-                </CardHeader>
-                <CardContent>
-                  <ResponsiveContainer width="100%" height={180}>
-                    <BarChart data={categorySpend} margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
-                      <XAxis dataKey="icon" tick={{ fontSize: 16 }} />
-                      <YAxis tick={{ fontSize: 10 }} />
-                      <Tooltip formatter={(v) => fmt(Number(v))} labelFormatter={(l) => categorySpend.find(c => c.icon === l)?.name || l} />
-                      <Bar dataKey="total" radius={[4, 4, 0, 0]}>
-                        {categorySpend.map((entry, i) => <Cell key={i} fill={entry.color} />)}
-                      </Bar>
-                    </BarChart>
-                  </ResponsiveContainer>
-                </CardContent>
-              </Card>
-            )}
-
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Categorías este mes</CardTitle>
+                <CardTitle className="text-sm">Presupuesto del mes</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {categorySpend.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">Sin gastos este mes aún. ¡Agrega tu primer gasto!</p>
                 )}
-                {categorySpend.map((cat) => (
-                  <div key={cat.name}>
-                    <div className="flex justify-between items-center mb-1">
-                      <span className="text-sm flex items-center gap-1">
-                        <span>{cat.icon}</span> {cat.name}
-                      </span>
-                      <div className="text-right">
-                        <span className="text-sm font-medium">{fmt(cat.total)}</span>
+                {[...categorySpend]
+                  .sort((a, b) => {
+                    const pctA = a.budget ? a.total / a.budget : -1;
+                    const pctB = b.budget ? b.total / b.budget : -1;
+                    return pctB - pctA;
+                  })
+                  .map((cat) => {
+                    const pct = cat.budget ? (cat.total / cat.budget) * 100 : 0;
+                    return (
+                      <div key={cat.name}>
+                        <div className="flex justify-between items-center mb-1">
+                          <span className="text-sm flex items-center gap-1">
+                            <span>{cat.icon}</span> {cat.name}
+                          </span>
+                          <div className="text-right">
+                            <span className="text-sm font-medium">{fmt(cat.total)}</span>
+                            {cat.budget && (
+                              <span className="text-xs text-muted-foreground ml-1">/ {fmt(cat.budget)}</span>
+                            )}
+                            {cat.budget && (
+                              <Badge variant={pct > 100 ? "destructive" : "secondary"} className="ml-1 text-xs">
+                                {Math.round(pct)}%
+                              </Badge>
+                            )}
+                          </div>
+                        </div>
                         {cat.budget && (
-                          <Badge variant={cat.total > cat.budget ? "destructive" : "secondary"} className="ml-1 text-xs">
-                            {Math.round((cat.total / cat.budget) * 100)}%
-                          </Badge>
+                          <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-secondary">
+                            <div
+                              className="h-full transition-all"
+                              style={{
+                                width: `${Math.min(pct, 100)}%`,
+                                backgroundColor: pct > 100 ? "#ef4444" : cat.color,
+                              }}
+                            />
+                          </div>
                         )}
                       </div>
-                    </div>
-                    {cat.budget && <Progress value={Math.min((cat.total / cat.budget) * 100, 100)} className="h-1.5" />}
-                  </div>
-                ))}
+                    );
+                  })}
               </CardContent>
             </Card>
 
