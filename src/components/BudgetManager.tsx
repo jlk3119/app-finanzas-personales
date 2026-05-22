@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
-import { Pencil, Trash2, Plus, Settings2, ChevronLeft, ChevronRight, Copy, Info, Check, X } from "lucide-react";
+import { Pencil, Trash2, Plus, Settings2, ChevronLeft, ChevronRight, ChevronDown, Copy, Info, Check, X } from "lucide-react";
 
 type Props = {
   budgets: Budget[];
@@ -56,6 +56,12 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const [newSubAmount, setNewSubAmount] = useState("");
   const [addingSubLoading, setAddingSubLoading] = useState(false);
   const [othersAmount, setOthersAmount] = useState("");
+  const [collapsedBudgets, setCollapsedBudgets] = useState<Set<string>>(new Set());
+  const toggleCollapse = (id: string) => setCollapsedBudgets((prev) => {
+    const next = new Set(prev);
+    next.has(id) ? next.delete(id) : next.add(id);
+    return next;
+  });
 
   const closeForm = () => {
     setShowForm(false); setEditingId(null); setAmount(""); setSubAmounts({});
@@ -286,7 +292,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     onRefresh();
   };
 
-  const BudgetRow = ({ b, isChild = false, displayAmount }: { b: Budget; isChild?: boolean; displayAmount?: number }) => {
+  const BudgetRow = ({ b, isChild = false, displayAmount, hasChildren = false, isCollapsed = false, onToggle }: { b: Budget; isChild?: boolean; displayAmount?: number; hasChildren?: boolean; isCollapsed?: boolean; onToggle?: () => void }) => {
     const cat = categories.find((c) => c.id === b.category_id);
     const shownAmount = displayAmount ?? Number(b.amount);
     return (
@@ -306,6 +312,11 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar" onClick={() => handleDelete(b.id)}>
             <Trash2 className="w-3.5 h-3.5" />
           </Button>
+          {hasChildren && (
+            <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" aria-label={isCollapsed ? "Expandir" : "Colapsar"} onClick={onToggle}>
+              {isCollapsed ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+            </Button>
+          )}
         </div>
       </div>
     );
@@ -335,20 +346,24 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
       children.forEach((c) => renderedChildIds.add(c.id));
       const childrenTotal = children.reduce((s, c) => s + Number(c.amount), 0);
       const othersAmt = children.length > 0 ? Number(parent.amount) - childrenTotal : 0;
+      const hasChildren = children.length > 0 || othersAmt > 0;
+      const isCollapsed = collapsedBudgets.has(parent.id);
       return [
-        <BudgetRow key={parent.id} b={parent} displayAmount={Number(parent.amount)} />,
-        ...children.map((child) => <BudgetRow key={child.id} b={child} isChild />),
-        ...(othersAmt > 0 ? [
-          <div key={`${parent.id}-otros`} className="ml-5 bg-white border border-gray-100 flex items-center justify-between rounded-xl px-3 py-2">
-            <div className="flex items-center gap-2">
-              <span className="text-muted-foreground text-xs shrink-0">↳</span>
-              <span className="text-base">📋</span>
-              <div>
-                <p className="font-medium text-xs">Otros</p>
-                <p className="text-xs text-muted-foreground">{fmt(othersAmt)}</p>
+        <BudgetRow key={parent.id} b={parent} displayAmount={Number(parent.amount)} hasChildren={hasChildren} isCollapsed={isCollapsed} onToggle={() => toggleCollapse(parent.id)} />,
+        ...(!isCollapsed ? [
+          ...children.map((child) => <BudgetRow key={child.id} b={child} isChild />),
+          ...(othersAmt > 0 ? [
+            <div key={`${parent.id}-otros`} className="ml-5 bg-white border border-gray-100 flex items-center justify-between rounded-xl px-3 py-2">
+              <div className="flex items-center gap-2">
+                <span className="text-muted-foreground text-xs shrink-0">↳</span>
+                <span className="text-base">📋</span>
+                <div>
+                  <p className="font-medium text-xs">Otros</p>
+                  <p className="text-xs text-muted-foreground">{fmt(othersAmt)}</p>
+                </div>
               </div>
             </div>
-          </div>
+          ] : []),
         ] : []),
       ];
     });
