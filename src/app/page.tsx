@@ -595,20 +595,12 @@ export default function Dashboard() {
               </CardContent>
             </Card>
 
-            <Card>
-              <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Distribución del presupuesto</CardTitle>
-              </CardHeader>
-              <CardContent>
-                {expectedIncome === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Configura tus ingresos para ver la distribución.
-                  </p>
-                ) : budgetAllocation.length === 0 ? (
-                  <p className="text-sm text-muted-foreground text-center py-4">
-                    Sin presupuesto asignado este mes.
-                  </p>
-                ) : (
+            {expectedIncome > 0 && budgetAllocation.length > 0 && (
+              <Card>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm">Distribución del presupuesto</CardTitle>
+                </CardHeader>
+                <CardContent>
                   <div className="space-y-2">
                     {budgetAllocation.map((b) => {
                       const pct = (b.amount / expectedIncome) * 100;
@@ -637,9 +629,9 @@ export default function Dashboard() {
                       </div>
                     </div>
                   </div>
-                )}
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            )}
 
             <FinancialSummaryCard
               expenses={dashboardExpenses}
