@@ -355,6 +355,29 @@ export default function Dashboard() {
     budgets.some((b) => b.period === "monthly" && b.year === prevY && b.month === prevM);
   const showClosure = !prevMonthClosed && prevMonthHasData;
 
+  const FREQ_MULT: Record<string, number> = { monthly: 1, biweekly: 2, weekly: 4 };
+  const activeRecurring = recurringIncome.filter((r) => {
+    if (!r.start_date) return true;
+    const [sy, sm] = r.start_date.split("-").map(Number);
+    return currentYear > sy || (currentYear === sy && currentMonth >= sm);
+  });
+  const sporadicForMonth = income.filter((i) => !i.recurring_income_id && i.period_key === currentMonthKey);
+  const recurringTotal = activeRecurring.reduce((s, r) => s + Number(r.amount) * (FREQ_MULT[r.frequency] ?? 1), 0);
+  const sporadicTotal = sporadicForMonth.reduce((s, i) => s + Number(i.amount), 0);
+  const expectedIncome = recurringTotal + sporadicTotal;
+
+  const budgetAllocation = categories
+    .filter((c) => !c.parent_id)
+    .map((cat) => {
+      const b = budgets.find((bg) => bg.category_id === cat.id && bg.period === "monthly" && bg.year === currentYear && bg.month === currentMonth);
+      if (!b) return null;
+      return { name: cat.name, icon: cat.icon, color: cat.color, amount: Number(b.amount) };
+    })
+    .filter((c): c is { name: string; icon: string; color: string; amount: number } => c !== null)
+    .sort((a, b) => b.amount - a.amount);
+  const totalBudgetAllocated = budgetAllocation.reduce((s, b) => s + b.amount, 0);
+  const unassignedIncome = Math.max(0, expectedIncome - totalBudgetAllocated);
+
   const childrenOf = (pid: string) => categories.filter((c) => c.parent_id === pid);
   const categorySpend = categories
     .filter((c) => !c.parent_id)
@@ -574,10 +597,47 @@ export default function Dashboard() {
 
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Últimos gastos</CardTitle>
+                <CardTitle className="text-sm">Distribución del presupuesto</CardTitle>
               </CardHeader>
               <CardContent>
-                <ExpenseList expenses={dashboardExpenses.slice(0, 5)} categories={categories} accounts={accounts} onRefresh={fetchData} compact />
+                {expectedIncome === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Configura tus ingresos para ver la distribución.
+                  </p>
+                ) : budgetAllocation.length === 0 ? (
+                  <p className="text-sm text-muted-foreground text-center py-4">
+                    Sin presupuesto asignado este mes.
+                  </p>
+                ) : (
+                  <div className="space-y-2">
+                    {budgetAllocation.map((b) => {
+                      const pct = (b.amount / expectedIncome) * 100;
+                      return (
+                        <div key={b.name} className="flex items-center justify-between">
+                          <span className="text-sm flex items-center gap-2">
+                            <span className="text-base">{b.icon}</span>
+                            <span>{b.name}</span>
+                          </span>
+                          <div className="flex items-center gap-2">
+                            <span className="text-sm font-medium">{fmt(b.amount)}</span>
+                            <span className="text-xs font-semibold w-10 text-right" style={{ color: b.color }}>
+                              {pct.toFixed(0)}%
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })}
+                    <div className="border-t pt-2 mt-2 flex items-center justify-between text-muted-foreground">
+                      <span className="text-sm italic">Sin asignar</span>
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm">{fmt(unassignedIncome)}</span>
+                        <span className="text-xs font-semibold w-10 text-right">
+                          {((unassignedIncome / expectedIncome) * 100).toFixed(0)}%
+                        </span>
+                      </div>
+                    </div>
+                  </div>
+                )}
               </CardContent>
             </Card>
 
