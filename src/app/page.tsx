@@ -549,15 +549,22 @@ export default function Dashboard() {
                           </div>
                         </div>
                         {cat.budget && (
-                          <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-secondary">
-                            <div
-                              className="h-full transition-all"
-                              style={{
-                                width: `${Math.min(pct, 100)}%`,
-                                backgroundColor: pct > 100 ? "#ef4444" : cat.color,
-                              }}
-                            />
-                          </div>
+                          <>
+                            <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-secondary">
+                              <div
+                                className="h-full transition-all"
+                                style={{
+                                  width: `${Math.min(pct, 100)}%`,
+                                  backgroundColor: pct > 100 ? "#ef4444" : cat.color,
+                                }}
+                              />
+                            </div>
+                            <p className={`text-right text-[10px] mt-0.5 ${pct > 100 ? "text-red-500" : "text-emerald-600"}`}>
+                              {pct > 100
+                                ? `${fmt(cat.total - cat.budget)} excedido`
+                                : `${fmt(cat.budget - cat.total)} disponibles`}
+                            </p>
+                          </>
                         )}
                       </div>
                     );
