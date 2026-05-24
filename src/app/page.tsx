@@ -9,7 +9,8 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, LogOut, Target, TrendingDown, Wallet, Settings, Landmark, Trophy, CheckCircle2, ChevronLeft, ChevronRight } from "lucide-react";
+import { PlusCircle, LogOut, Target, TrendingDown, Wallet, Settings, Landmark, Trophy, CheckCircle2, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { exportMonthlyCSV } from "@/utils/exportCSV";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import BudgetManager from "@/components/BudgetManager";
@@ -655,15 +656,26 @@ export default function Dashboard() {
                   <ChevronLeft className="w-4 h-4" />
                 </Button>
                 <span className="text-sm font-semibold">{MONTHS[expenseMonth - 1]} {expenseYear}</span>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  onClick={goToNextExpenseMonth}
-                  disabled={expenseMonth === currentMonth && expenseYear === currentYear}
-                  className="h-8 w-8"
-                >
-                  <ChevronRight className="w-4 h-4" />
-                </Button>
+                <div className="flex items-center gap-1">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={goToNextExpenseMonth}
+                    disabled={expenseMonth === currentMonth && expenseYear === currentYear}
+                    className="h-8 w-8"
+                  >
+                    <ChevronRight className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    onClick={() => exportMonthlyCSV(expenses, budgets, categories, expenseMonth, expenseYear)}
+                    className="h-8 w-8 text-muted-foreground hover:text-violet-600"
+                    title="Exportar CSV"
+                  >
+                    <Download className="w-4 h-4" />
+                  </Button>
+                </div>
               </div>
               <ExpenseList expenses={expenses} categories={categories} accounts={accounts} onRefresh={fetchData} onEdit={setEditingExpense} />
             </CardContent>
