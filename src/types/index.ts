@@ -1,6 +1,22 @@
+export type Company = {
+  id: string;
+  name: string;
+  nit: string | null;
+  join_code: string;
+  created_at: string;
+};
+
+export type CompanyMember = {
+  id: string;
+  company_id: string;
+  user_id: string;
+  role: 'owner' | 'employee';
+  created_at: string;
+};
+
 export type Category = {
   id: string;
-  user_id: string;
+  company_id: string;
   name: string;
   icon: string;
   color: string;
@@ -11,7 +27,7 @@ export type Category = {
 
 export type Expense = {
   id: string;
-  user_id: string;
+  company_id: string;
   category_id: string | null;
   account_id?: string | null;
   amount: number;
@@ -24,7 +40,7 @@ export type Expense = {
 
 export type Budget = {
   id: string;
-  user_id: string;
+  company_id: string;
   category_id: string | null;
   period: "monthly" | "weekly";
   amount: number;
@@ -37,7 +53,7 @@ export type Budget = {
 
 export type Account = {
   id: string;
-  user_id: string;
+  company_id: string;
   name: string;
   balance: number;
   icon: string;
@@ -47,13 +63,12 @@ export type Account = {
 
 export type RecurringIncome = {
   id: string;
-  user_id: string;
+  company_id: string;
   account_id: string | null;
   name: string;
   amount: number;
   frequency: "monthly" | "biweekly" | "weekly";
   day_of_month: number | null;
-  is_salary: boolean;
   auto_assign: boolean;
   start_date: string | null;
   created_at: string;
@@ -62,7 +77,7 @@ export type RecurringIncome = {
 
 export type Income = {
   id: string;
-  user_id: string;
+  company_id: string;
   account_id: string | null;
   amount: number;
   description: string | null;
@@ -73,36 +88,47 @@ export type Income = {
   accounts?: Account;
 };
 
-export type Goal = {
+export type Client = {
   id: string;
-  user_id: string;
+  company_id: string;
   name: string;
-  target_amount: number;
-  current_amount: number;
-  deadline: string | null;
-  icon: string;
-  completed: boolean;
-  category_id: string | null;
+  contact_name: string | null;
+  email: string | null;
+  phone: string | null;
+  notes: string | null;
   created_at: string;
-  categories?: Category;
+};
+
+export type Order = {
+  id: string;
+  company_id: string;
+  client_id: string | null;
+  description: string;
+  total_value: number;
+  advance_payment: number;
+  status: 'pending' | 'in_progress' | 'delivered' | 'cancelled';
+  order_date: string;
+  delivery_date: string | null;
+  notes: string | null;
+  created_at: string;
+  clients?: Client;
 };
 
 export type Debt = {
   id: string;
-  user_id: string;
+  company_id: string;
   name: string;
   entity: string;
   total_amount: number;
   paid_amount: number;
   icon: string;
-  color: string;
   notes: string | null;
   created_at: string;
 };
 
 export type MonthClosure = {
   id: string;
-  user_id: string;
+  company_id: string;
   year: number;
   month: number;
   closed_at: string;

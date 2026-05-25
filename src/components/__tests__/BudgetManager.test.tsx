@@ -10,15 +10,15 @@ jest.mock('@/utils/supabase/client', () => ({ createClient: jest.fn() }))
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>
 
 const cats: Category[] = [
-  { id: 'cat-1', user_id: 'u1', name: 'Alimentación', icon: '🍽️', color: '#f59e0b', is_system: false, parent_id: null, created_at: '' },
-  { id: 'cat-1a', user_id: 'u1', name: 'Mercado', icon: '🛒', color: '#f59e0b', is_system: false, parent_id: 'cat-1', created_at: '' },
-  { id: 'cat-1b', user_id: 'u1', name: 'Restaurante', icon: '🍕', color: '#f59e0b', is_system: false, parent_id: 'cat-1', created_at: '' },
-  { id: 'cat-2', user_id: 'u1', name: 'Transporte', icon: '🚌', color: '#3b82f6', is_system: false, parent_id: null, created_at: '' },
+  { id: 'cat-1', company_id: 'company-1', name: 'Alimentación', icon: '🍽️', color: '#f59e0b', is_system: false, parent_id: null, created_at: '' },
+  { id: 'cat-1a', company_id: 'company-1', name: 'Mercado', icon: '🛒', color: '#f59e0b', is_system: false, parent_id: 'cat-1', created_at: '' },
+  { id: 'cat-1b', company_id: 'company-1', name: 'Restaurante', icon: '🍕', color: '#f59e0b', is_system: false, parent_id: 'cat-1', created_at: '' },
+  { id: 'cat-2', company_id: 'company-1', name: 'Transporte', icon: '🚌', color: '#3b82f6', is_system: false, parent_id: null, created_at: '' },
 ]
 
 const budgets: Budget[] = [
-  { id: 'bud-1', user_id: 'u1', category_id: 'cat-1', period: 'monthly', amount: 300_000, year: 2026, month: 5, week: null, created_at: '', categories: cats[0] },
-  { id: 'bud-2', user_id: 'u1', category_id: null, period: 'monthly', amount: 2_000_000, year: 2026, month: 5, week: null, created_at: '' },
+  { id: 'bud-1', company_id: 'company-1', category_id: 'cat-1', period: 'monthly', amount: 300_000, year: 2026, month: 5, week: null, created_at: '', categories: cats[0] },
+  { id: 'bud-2', company_id: 'company-1', category_id: null, period: 'monthly', amount: 2_000_000, year: 2026, month: 5, week: null, created_at: '' },
 ]
 
 const defaultProps = {
@@ -27,11 +27,12 @@ const defaultProps = {
   accounts: [] as Account[],
   recurringIncome: [] as RecurringIncome[],
   income: [] as Income[],
+  companyId: 'company-1',
+  role: 'owner' as const,
   onRefresh: jest.fn(),
   onManageCategories: jest.fn(),
   currentMonth: 5,
   currentYear: 2026,
-  currentWeek: 20,
 }
 
 function makeMock() {
@@ -118,7 +119,7 @@ describe('BudgetManager', () => {
   it('preselecciona subcategorías existentes al editar', async () => {
     const budgetsWithSub: Budget[] = [
       ...budgets,
-      { id: 'bud-3', user_id: 'u1', category_id: 'cat-1a', period: 'monthly', amount: 150_000, year: 2026, month: 5, week: null, created_at: '' },
+      { id: 'bud-3', company_id: 'company-1', category_id: 'cat-1a', period: 'monthly', amount: 150_000, year: 2026, month: 5, week: null, created_at: '' },
     ]
     const user = userEvent.setup()
     render(<BudgetManager {...defaultProps} budgets={budgetsWithSub} />)
@@ -161,7 +162,7 @@ describe('BudgetManager — isRootBudget y doble conteo', () => {
   it('no suma sub-presupuestos al Total presupuestado', () => {
     const budgetsWithSub: Budget[] = [
       ...budgets,
-      { id: 'bud-3', user_id: 'u1', category_id: 'cat-1a', period: 'monthly', amount: 150_000, year: 2026, month: 5, week: null, created_at: '' },
+      { id: 'bud-3', company_id: 'company-1', category_id: 'cat-1a', period: 'monthly', amount: 150_000, year: 2026, month: 5, week: null, created_at: '' },
     ]
     render(<BudgetManager {...defaultProps} budgets={budgetsWithSub} />)
     // Total = bud-1 (300k) + bud-2 (2M) = 2.300.000; NO 2.450.000 (que incluiría sub)
@@ -171,8 +172,8 @@ describe('BudgetManager — isRootBudget y doble conteo', () => {
 
   it('muestra la fila "Otros" cuando el padre tiene más presupuesto que sus subcategorías', () => {
     const budgetsWithSub: Budget[] = [
-      { id: 'bud-1', user_id: 'u1', category_id: 'cat-1', period: 'monthly', amount: 300_000, year: 2026, month: 5, week: null, created_at: '', categories: cats[0] },
-      { id: 'bud-3', user_id: 'u1', category_id: 'cat-1a', period: 'monthly', amount: 200_000, year: 2026, month: 5, week: null, created_at: '' },
+      { id: 'bud-1', company_id: 'company-1', category_id: 'cat-1', period: 'monthly', amount: 300_000, year: 2026, month: 5, week: null, created_at: '', categories: cats[0] },
+      { id: 'bud-3', company_id: 'company-1', category_id: 'cat-1a', period: 'monthly', amount: 200_000, year: 2026, month: 5, week: null, created_at: '' },
     ]
     render(<BudgetManager {...defaultProps} budgets={budgetsWithSub} />)
     // othersAmt = 300k - 200k = 100k → debe mostrar fila "Otros" con 100.000
@@ -182,8 +183,8 @@ describe('BudgetManager — isRootBudget y doble conteo', () => {
 
   it('no muestra la fila "Otros" cuando el padre está totalmente distribuido', () => {
     const budgetsExact: Budget[] = [
-      { id: 'bud-1', user_id: 'u1', category_id: 'cat-1', period: 'monthly', amount: 300_000, year: 2026, month: 5, week: null, created_at: '', categories: cats[0] },
-      { id: 'bud-3', user_id: 'u1', category_id: 'cat-1a', period: 'monthly', amount: 300_000, year: 2026, month: 5, week: null, created_at: '' },
+      { id: 'bud-1', company_id: 'company-1', category_id: 'cat-1', period: 'monthly', amount: 300_000, year: 2026, month: 5, week: null, created_at: '', categories: cats[0] },
+      { id: 'bud-3', company_id: 'company-1', category_id: 'cat-1a', period: 'monthly', amount: 300_000, year: 2026, month: 5, week: null, created_at: '' },
     ]
     render(<BudgetManager {...defaultProps} budgets={budgetsExact} />)
     expect(screen.queryByText('Otros')).not.toBeInTheDocument()
@@ -194,7 +195,7 @@ describe('BudgetManager — campo Otros en formulario', () => {
   it('precarga el campo Otros con el remanente al editar un presupuesto con sub-presupuestos', async () => {
     const budgetsWithSub: Budget[] = [
       ...budgets,
-      { id: 'bud-3', user_id: 'u1', category_id: 'cat-1a', period: 'monthly', amount: 200_000, year: 2026, month: 5, week: null, created_at: '' },
+      { id: 'bud-3', company_id: 'company-1', category_id: 'cat-1a', period: 'monthly', amount: 200_000, year: 2026, month: 5, week: null, created_at: '' },
     ]
     const user = userEvent.setup()
     render(<BudgetManager {...defaultProps} budgets={budgetsWithSub} />)

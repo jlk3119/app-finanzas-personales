@@ -11,6 +11,7 @@ type Props = {
   expenses: Expense[];
   categories: Category[];
   accounts: Account[];
+  role?: "owner" | "employee";
   onRefresh: () => void;
   onEdit?: (expense: Expense) => void;
   compact?: boolean;
@@ -39,7 +40,7 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("es-CO", { weekday: "short", day: "numeric", month: "short" });
 }
 
-export default function ExpenseList({ expenses, categories, accounts, onRefresh, onEdit, compact }: Props) {
+export default function ExpenseList({ expenses, categories, accounts, role = "owner", onRefresh, onEdit, compact }: Props) {
   const supabase = createClient();
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -115,27 +116,29 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-semibold mr-1">{fmt(Number(e.amount))}</span>
-                    {onEdit && (
+                    {onEdit && role === "owner" && (
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="w-7 h-7 text-muted-foreground hover:text-violet-600"
+                        className="w-7 h-7 text-muted-foreground hover:text-emerald-600"
                         aria-label="Editar"
                         onClick={() => onEdit(e)}
                       >
                         <Pencil className="w-3.5 h-3.5" />
                       </Button>
                     )}
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="w-7 h-7 text-muted-foreground hover:text-red-500"
-                      aria-label="Eliminar"
-                      onClick={() => setConfirmId(e.id)}
-                      disabled={deleting === e.id}
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </Button>
+                    {role === "owner" && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="w-7 h-7 text-muted-foreground hover:text-red-500"
+                        aria-label="Eliminar"
+                        onClick={() => setConfirmId(e.id)}
+                        disabled={deleting === e.id}
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
                   </div>
                 </div>
               );

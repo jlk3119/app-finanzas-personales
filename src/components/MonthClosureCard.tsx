@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
-import type { Expense, Category, Budget, Goal, Income } from "@/types";
+import type { Expense, Category, Budget, Income } from "@/types";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
@@ -17,23 +17,21 @@ const fmt = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
 type Props = {
+  companyId: string;
   prevYear: number;
   prevMonth: number;
   expenses: Expense[];
   categories: Category[];
   budgets: Budget[];
-  goals: Goal[];
   income: Income[];
   onClose: () => void;
   onRefresh: () => void;
 };
 
 export default function MonthClosureCard({
-  prevYear, prevMonth, expenses, categories, budgets, goals, income, onClose, onRefresh,
+  companyId, prevYear, prevMonth, expenses, categories, budgets, income, onClose, onRefresh,
 }: Props) {
   const supabase = createClient();
-  const [showGoalPicker, setShowGoalPicker] = useState(false);
-  const [transferring, setTransferring] = useState(false);
   const [dismissing, setDismissing] = useState(false);
   const [expandedCats, setExpandedCats] = useState<Set<string>>(new Set());
 
@@ -104,32 +102,12 @@ export default function MonthClosureCard({
 
   const handleDismiss = async () => {
     setDismissing(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from("month_closures").upsert({ user_id: user.id, year: prevYear, month: prevMonth });
-    }
+    await supabase.from("month_closures").upsert({ company_id: companyId, year: prevYear, month: prevMonth });
     onClose();
   };
-
-  const handleMoveToGoal = async (goal: Goal) => {
-    setTransferring(true);
-    const newAmt = Math.min(goal.current_amount + surplus, goal.target_amount);
-    await supabase.from("goals").update({
-      current_amount: newAmt,
-      completed: newAmt >= goal.target_amount,
-    }).eq("id", goal.id);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from("month_closures").upsert({ user_id: user.id, year: prevYear, month: prevMonth });
-    }
-    onRefresh();
-    onClose();
-  };
-
-  const activeGoals = goals.filter((g) => !g.completed);
 
   return (
-    <Card className="border-2 border-violet-200 overflow-hidden">
+    <Card className="border-2 border-emerald-200 overflow-hidden">
       <div
         className={`px-4 py-4 text-white ${
           isPositive
@@ -247,50 +225,15 @@ export default function MonthClosureCard({
           </div>
         )}
 
-        {surplus > 0 && activeGoals.length > 0 && !showGoalPicker && (
-          <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 space-y-2">
-            <p className="text-sm font-semibold text-violet-800">💡 {fmt(surplus)} de saldo a favor</p>
-            <p className="text-xs text-violet-600">¿Quieres mover este saldo a una meta de ahorro?</p>
-            <Button size="sm" className="w-full bg-violet-600 hover:bg-violet-700" onClick={() => setShowGoalPicker(true)}>
-              Mover a meta de ahorro
-            </Button>
-          </div>
-        )}
-
-        {showGoalPicker && (
-          <div className="space-y-2">
-            <p className="text-xs font-semibold text-muted-foreground">
-              Elige dónde agregar {fmt(surplus)}:
-            </p>
-            {activeGoals.map((g) => (
-              <button
-                key={g.id}
-                className="w-full flex items-center gap-3 bg-gray-50 rounded-xl px-3 py-2.5 text-left active:bg-violet-50 transition-colors"
-                onClick={() => handleMoveToGoal(g)}
-                disabled={transferring}
-              >
-                <span className="text-2xl">{g.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <p className="text-sm font-medium">{g.name}</p>
-                  <p className="text-xs text-muted-foreground">{fmt(g.current_amount)} / {fmt(g.target_amount)}</p>
-                  <Progress value={Math.min((g.current_amount / g.target_amount) * 100, 100)} className="h-1 mt-1" />
-                </div>
-                <span className="text-violet-500 text-lg shrink-0">›</span>
-              </button>
-            ))}
-            <Button
-              variant="ghost"
-              size="sm"
-              className="w-full text-muted-foreground"
-              onClick={() => setShowGoalPicker(false)}
-            >
-              Cancelar
-            </Button>
+        {surplus > 0 && (
+          <div className="bg-emerald-50 border border-emerald-200 rounded-xl px-4 py-3">
+            <p className="text-sm font-semibold text-emerald-800">💡 {fmt(surplus)} de saldo a favor</p>
+            <p className="text-xs text-emerald-600 mt-0.5">Puedes asignarlo a una cuenta o reinvertirlo.</p>
           </div>
         )}
 
         <Button
-          className="w-full bg-violet-600 hover:bg-violet-700"
+          className="w-full bg-emerald-600 hover:bg-emerald-700"
           onClick={handleDismiss}
           disabled={dismissing}
         >

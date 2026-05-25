@@ -12,12 +12,13 @@ import { X } from "lucide-react";
 type Props = {
   categories: Category[];
   accounts: Account[];
+  companyId: string;
   editingExpense?: Expense | null;
   onClose: () => void;
   onSaved: () => void;
 };
 
-export default function ExpenseForm({ categories, accounts, editingExpense, onClose, onSaved }: Props) {
+export default function ExpenseForm({ categories, accounts, companyId, editingExpense, onClose, onSaved }: Props) {
   const supabase = createClient();
   const editing = editingExpense != null;
 
@@ -64,9 +65,6 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
     if (!amount || Number(amount) <= 0) { setError("Ingresa un monto válido"); return; }
     setLoading(true);
     setError("");
-
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
 
     const finalCategoryId = subCategoryId || categoryId || null;
     const finalAccountId = accountId || null;
@@ -121,7 +119,7 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
         category_id: finalCategoryId,
         account_id: finalAccountId,
         date,
-        user_id: user.id,
+        company_id: companyId,
       });
       if (err) { setError(err.message); setLoading(false); return; }
 
@@ -180,7 +178,7 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
                         onClick={() => setAccountId(isSelected ? "" : acc.id)}
                         className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all ${
                           isSelected
-                            ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-700 font-medium"
                             : "border-gray-200 bg-white text-gray-700"
                         }`}
                       >
@@ -207,12 +205,12 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
                       onClick={() => handleSelectParent(cat.id)}
                       className={`flex flex-col items-center gap-0.5 p-2 rounded-xl border transition-all text-center ${
                         isSelected
-                          ? "border-violet-500 bg-violet-50"
+                          ? "border-emerald-500 bg-emerald-50"
                           : "border-gray-200 bg-white active:bg-gray-50"
                       }`}
                     >
                       <span className="text-2xl">{cat.icon}</span>
-                      <span className={`text-[9px] leading-tight font-medium line-clamp-2 ${isSelected ? "text-violet-700" : "text-gray-600"}`}>
+                      <span className={`text-[9px] leading-tight font-medium line-clamp-2 ${isSelected ? "text-emerald-700" : "text-gray-600"}`}>
                         {cat.name}{hasSubs ? " ›" : ""}
                       </span>
                     </button>
@@ -238,7 +236,7 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
                         onClick={() => setSubCategoryId(isSelected ? "" : sub.id)}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-full border text-sm transition-all ${
                           isSelected
-                            ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
+                            ? "border-emerald-500 bg-emerald-50 text-emerald-700 font-medium"
                             : "border-gray-200 bg-white text-gray-700"
                         }`}
                       >
@@ -278,7 +276,7 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
               <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button type="submit" className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={loading}>
+              <Button type="submit" className="flex-1 bg-emerald-600 hover:bg-emerald-700" disabled={loading}>
                 {loading ? "Guardando..." : editing ? "Guardar cambios" : "Guardar gasto"}
               </Button>
             </div>

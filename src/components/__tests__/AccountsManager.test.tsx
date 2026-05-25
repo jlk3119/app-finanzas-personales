@@ -10,7 +10,7 @@ jest.mock('@/utils/supabase/client', () => ({ createClient: jest.fn() }))
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>
 
 const makeAccount = (id: string, name: string, balance: number): Account => ({
-  id, user_id: 'u1', name, balance, icon: '🏦', color: '#6366f1', created_at: '',
+  id, company_id: 'company-1', name, balance, icon: '🏦', color: '#6366f1', created_at: '',
 })
 
 const acc1 = makeAccount('acc-1', 'Lulobank', 500_000)
@@ -20,6 +20,8 @@ const defaultProps = {
   accounts: [acc1],
   income: [] as Income[],
   recurringIncome: [] as RecurringIncome[],
+  companyId: 'company-1',
+  role: 'owner' as const,
   disponible: 500_000,
   unlinkedMonthTotal: 0,
   onRefresh: jest.fn(),

@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Plus, Trash2, Pencil, X, CreditCard, CheckCircle2 } from "lucide-react";
 
-type Props = { debts: Debt[]; onRefresh: () => void };
+type Props = { debts: Debt[]; companyId: string; role: "owner" | "employee"; onRefresh: () => void };
 
 const fmt = (n: number) =>
   new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
@@ -34,7 +34,7 @@ const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: "progress",  label: "Más avanzadas" },
 ];
 
-export default function DebtManager({ debts, onRefresh }: Props) {
+export default function DebtManager({ debts, companyId, role, onRefresh }: Props) {
   const supabase = createClient();
 
   const [view, setView] = useState<View>("list");
@@ -119,10 +119,8 @@ export default function DebtManager({ debts, onRefresh }: Props) {
         notes: notes || null, icon,
       }).eq("id", editingDebt.id);
     } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
       await supabase.from("debts").insert({
-        user_id: user.id, name, entity,
+        company_id: companyId, name, entity,
         total_amount: total, paid_amount: paid,
         notes: notes || null, icon,
       });

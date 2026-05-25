@@ -18,6 +18,8 @@ type Props = {
   accounts: Account[];
   recurringIncome: RecurringIncome[];
   income: Income[];
+  companyId: string;
+  role: "owner" | "employee";
   onRefresh: () => void;
   onManageCategories: () => void;
   currentMonth: number;
@@ -39,7 +41,7 @@ function nextMonthOf(month: number, year: number) {
 const FREQ_MULTIPLIER: Record<string, number> = { monthly: 1, biweekly: 2, weekly: 4 };
 const FREQ_LABEL: Record<string, string> = { monthly: "mensual", biweekly: "quincenal ×2", weekly: "semanal ×4" };
 
-export default function BudgetManager({ budgets, categories, accounts, recurringIncome, income, onRefresh, onManageCategories, currentMonth, currentYear }: Props) {
+export default function BudgetManager({ budgets, categories, accounts, recurringIncome, income, companyId, role, onRefresh, onManageCategories, currentMonth, currentYear }: Props) {
   const supabase = createClient();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);
@@ -160,11 +162,8 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     if (finalAmount <= 0) return;
     setLoading(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
-
     const baseRow = {
-      user_id: user.id,
+      company_id: companyId,
       period: "monthly" as const,
       category_id: categoryId === "global" ? null : categoryId,
       amount: finalAmount,
@@ -178,7 +177,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     } else {
       // Delete any existing record first (upsert with NULL keys is unreliable in PostgreSQL)
       let delParent = supabase.from("budgets").delete()
-        .eq("user_id", user.id)
+        .eq("company_id", companyId)
         .eq("period", "monthly")
         .eq("year", selectedYear)
         .eq("month", selectedMonth)
@@ -195,7 +194,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
       const subCatIds = subEntries.map(([id]) => id);
       await supabase.from("budgets").delete()
         .in("category_id", subCatIds)
-        .eq("user_id", user.id)
+        .eq("company_id", companyId)
         .eq("period", "monthly")
         .eq("year", selectedYear)
         .eq("month", selectedMonth)
@@ -203,7 +202,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
       await supabase.from("budgets").insert(
         subEntries.map(([subCatId, subAmt]) => ({
-          user_id: user.id,
+          company_id: companyId,
           period: "monthly" as const,
           category_id: subCatId,
           amount: Number(subAmt),
@@ -258,12 +257,10 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const handleAddSub = async () => {
     if (!newSubName.trim()) return;
     setAddingSubLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setAddingSubLoading(false); return; }
     const parentCat = categories.find((c) => c.id === categoryId);
     const { data: newCat, error } = await supabase
       .from("categories")
-      .insert({ user_id: user.id, name: newSubName.trim(), icon: parentCat?.icon ?? "📂", color: parentCat?.color ?? "#6b7280", is_system: false, parent_id: categoryId })
+      .insert({ company_id: companyId, name: newSubName.trim(), icon: parentCat?.icon ?? "📂", color: parentCat?.color ?? "#6b7280", is_system: false, parent_id: categoryId })
       .select()
       .single();
     if (!error && newCat) {
@@ -278,11 +275,8 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     if (prevBudgets.length === 0) return;
     setCopying(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setCopying(false); return; }
-
     const newBudgets = prevBudgets.map((b) => ({
-      user_id: user.id,
+      company_id: companyId,
       period: "monthly" as const,
       category_id: b.category_id,
       amount: b.amount,
@@ -292,7 +286,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     }));
 
     await supabase.from("budgets").upsert(newBudgets, {
-      onConflict: "user_id,category_id,period,year,month,week",
+      onConflict: "company_id,category_id,period,year,month,week",
     });
 
     setCopying(false);
@@ -393,7 +387,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
             <span className="text-sm font-semibold">
               {MONTHS[selectedMonth - 1]} {selectedYear}
               {selectedMonth === currentMonth && selectedYear === currentYear && (
-                <span className="ml-1.5 text-xs font-normal text-violet-500">● actual</span>
+                <span className="ml-1.5 text-xs font-normal text-emerald-500">● actual</span>
               )}
             </span>
             <Button
@@ -453,9 +447,9 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                     </div>
                   </>
                 )}
-                <div className="bg-violet-50 px-4 py-3 flex items-center justify-between border-b border-violet-100">
-                  <span className="text-sm text-violet-700 font-medium">Total presupuestado</span>
-                  <span className="text-base font-bold text-violet-800">{fmt(totalBudget)}</span>
+                <div className="bg-emerald-50 px-4 py-3 flex items-center justify-between border-b border-emerald-100">
+                  <span className="text-sm text-emerald-700 font-medium">Total presupuestado</span>
+                  <span className="text-base font-bold text-emerald-800">{fmt(totalBudget)}</span>
                 </div>
                 {hasIncome && (
                   <div className={`px-4 py-3 ${cajaMenor >= 0 ? "bg-emerald-50" : "bg-red-50"}`}>
@@ -499,7 +493,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-violet-600 border-violet-200 hover:bg-violet-50"
+                  className="text-emerald-600 border-emerald-200 hover:bg-emerald-50"
                   onClick={copyFromPrevMonth}
                   disabled={copying}
                 >
@@ -522,7 +516,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <Label>Categoría</Label>
-                <button type="button" onClick={onManageCategories} className="text-xs text-violet-600 flex items-center gap-1 hover:underline">
+                <button type="button" onClick={onManageCategories} className="text-xs text-emerald-600 flex items-center gap-1 hover:underline">
                   <Settings2 className="w-3 h-3" /> Gestionar categorías
                 </button>
               </div>
@@ -554,8 +548,8 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
             )}
 
             {allSubsInForm.length > 0 && (
-              <div className="space-y-2 rounded-xl border border-dashed border-violet-200 bg-violet-50/50 p-3">
-                <p className="text-xs font-semibold text-violet-700">Montos por subcategoría</p>
+              <div className="space-y-2 rounded-xl border border-dashed border-emerald-200 bg-emerald-50/50 p-3">
+                <p className="text-xs font-semibold text-emerald-700">Montos por subcategoría</p>
                 {allSubsInForm.map((sub) => (
                   <div key={sub.id} className="flex items-center gap-2">
                     <span className="text-sm shrink-0 w-36 truncate text-muted-foreground">{sub.icon} {sub.name}</span>
@@ -588,7 +582,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                   <button
                     type="button"
                     onClick={() => setShowAddSub(true)}
-                    className="flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-800 font-medium py-0.5"
+                    className="flex items-center gap-1.5 text-xs text-emerald-600 hover:text-emerald-800 font-medium py-0.5"
                   >
                     <Plus className="w-3.5 h-3.5" /> Agregar subcategoría
                   </button>
@@ -614,7 +608,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                       type="button"
                       onClick={handleAddSub}
                       disabled={!newSubName.trim() || addingSubLoading}
-                      className="p-1.5 rounded-lg bg-violet-600 text-white disabled:opacity-40"
+                      className="p-1.5 rounded-lg bg-emerald-600 text-white disabled:opacity-40"
                     >
                       <Check className="w-3.5 h-3.5" />
                     </button>
@@ -628,9 +622,9 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                   </div>
                 )}
 
-                <div className="flex justify-between items-center pt-1.5 border-t border-violet-200">
-                  <span className="text-xs font-semibold text-violet-700">Total</span>
-                  <span className="text-sm font-bold text-violet-800">
+                <div className="flex justify-between items-center pt-1.5 border-t border-emerald-200">
+                  <span className="text-xs font-semibold text-emerald-700">Total</span>
+                  <span className="text-sm font-bold text-emerald-800">
                     {fmt(Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0) + (Number(othersAmount) || 0))}
                   </span>
                 </div>
@@ -642,7 +636,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                 Cancelar
               </Button>
               <Button
-                className="flex-1 bg-violet-600 hover:bg-violet-700"
+                className="flex-1 bg-emerald-600 hover:bg-emerald-700"
                 onClick={handleSave}
                 disabled={loading || (allSubsInForm.length === 0 ? !amount || Number(amount) <= 0 : Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0) + (Number(othersAmount) || 0) <= 0)}
               >
@@ -658,7 +652,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           <Button className="flex-1" variant="outline" onClick={() => setShowForm(true)}>
             <Plus className="w-4 h-4 mr-1" /> Agregar presupuesto
           </Button>
-          <Button variant="outline" onClick={onManageCategories} className="text-violet-600 border-violet-200 hover:bg-violet-50">
+          <Button variant="outline" onClick={onManageCategories} className="text-emerald-600 border-emerald-200 hover:bg-emerald-50">
             <Settings2 className="w-4 h-4 mr-1" /> Categorías
           </Button>
         </div>

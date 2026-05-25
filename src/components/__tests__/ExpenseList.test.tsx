@@ -9,7 +9,7 @@ import type { Account, Category, Expense } from '@/types'
 jest.mock('@/utils/supabase/client', () => ({ createClient: jest.fn() }))
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>
 
-const cat: Category = { id: 'cat-1', user_id: 'u1', name: 'Alimentación', icon: '🍽️', color: '#f59e0b', is_system: false, parent_id: null, created_at: '' }
+const cat: Category = { id: 'cat-1', company_id: 'company-1', name: 'Alimentación', icon: '🍽️', color: '#f59e0b', is_system: false, parent_id: null, created_at: '' }
 
 function toLocalDateStr(d: Date) {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
@@ -18,12 +18,12 @@ function toLocalDateStr(d: Date) {
 const today = toLocalDateStr(new Date())
 const yesterday = (() => { const d = new Date(); d.setDate(d.getDate() - 1); return toLocalDateStr(d) })()
 
-const mockAccount: Account = { id: 'acc-1', user_id: 'u1', name: 'Nequi', balance: 200000, icon: '📱', color: '#6366f1', created_at: '' }
+const mockAccount: Account = { id: 'acc-1', company_id: 'company-1', name: 'Nequi', balance: 200000, icon: '📱', color: '#6366f1', created_at: '' }
 
 const mockExpenses: Expense[] = [
-  { id: 'e1', user_id: 'u1', category_id: 'cat-1', account_id: 'acc-1', amount: 50000, description: 'Supermercado', date: today, created_at: '', categories: cat },
-  { id: 'e2', user_id: 'u1', category_id: 'cat-1', account_id: null, amount: 15000, description: 'Bus', date: yesterday, created_at: '', categories: cat },
-  { id: 'e3', user_id: 'u1', category_id: null, account_id: null, amount: 8000, description: 'Café', date: '2020-03-10', created_at: '' },
+  { id: 'e1', company_id: 'company-1', category_id: 'cat-1', account_id: 'acc-1', amount: 50000, description: 'Supermercado', date: today, created_at: '', categories: cat },
+  { id: 'e2', company_id: 'company-1', category_id: 'cat-1', account_id: null, amount: 15000, description: 'Bus', date: yesterday, created_at: '', categories: cat },
+  { id: 'e3', company_id: 'company-1', category_id: null, account_id: null, amount: 8000, description: 'Café', date: '2020-03-10', created_at: '' },
 ]
 
 function makeDeleteMock() {
@@ -75,6 +75,9 @@ describe('ExpenseList', () => {
     render(<ExpenseList expenses={mockExpenses} categories={[cat]} accounts={[]} onRefresh={onRefresh} />)
     const deleteButtons = screen.getAllByRole('button', { name: /eliminar|trash|delete/i })
     await user.click(deleteButtons[0])
+    // Confirm dialog: click the confirmation button
+    const allDeleteBtns = await screen.findAllByRole('button', { name: /eliminar/i })
+    await user.click(allDeleteBtns[allDeleteBtns.length - 1])
     await waitFor(() => expect(onRefresh).toHaveBeenCalled())
   })
 
@@ -114,6 +117,9 @@ describe('ExpenseList', () => {
     render(<ExpenseList expenses={[mockExpenses[0]]} categories={[cat]} accounts={[mockAccount]} onRefresh={jest.fn()} />)
     const deleteBtn = screen.getByRole('button', { name: /eliminar|trash|delete/i })
     await user.click(deleteBtn)
+    // Confirm dialog: click the confirmation button
+    const allDeleteBtns = await screen.findAllByRole('button', { name: /eliminar/i })
+    await user.click(allDeleteBtns[allDeleteBtns.length - 1])
     await waitFor(() => expect(mockUpdateEq).toHaveBeenCalled())
   })
 

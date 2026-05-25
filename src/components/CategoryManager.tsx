@@ -13,6 +13,8 @@ import { Pencil, Trash2, Plus, Check, X, ChevronLeft, Lock } from "lucide-react"
 
 type Props = {
   categories: Category[];
+  companyId: string;
+  role: "owner" | "employee";
   onClose: () => void;
   onRefresh: () => void;
 };
@@ -36,7 +38,7 @@ const AUTO_COLORS = ["#f59e0b","#3b82f6","#8b5cf6","#ef4444","#ec4899","#14b8a6"
 type FormState = { name: string; icon: string; color: string; parent_id: string };
 const EMPTY: FormState = { name: "", icon: "📦", color: "#6b7280", parent_id: "" };
 
-export default function CategoryManager({ categories, onClose, onRefresh }: Props) {
+export default function CategoryManager({ categories, companyId, role, onClose, onRefresh }: Props) {
   const supabase = createClient();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -78,11 +80,9 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
         name: form.name.trim(), icon: form.icon, color: form.color,
       }).eq("id", editingId);
     } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
       await supabase.from("categories").insert({
         name: form.name.trim(), icon: form.icon, color: form.color,
-        user_id: user.id,
+        company_id: companyId,
         parent_id: form.parent_id || null,
       });
     }
@@ -149,7 +149,7 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                       </div>
                       {!cat.is_system && (
                         <div className="flex gap-0.5">
-                          <Button variant="ghost" size="icon" className="w-8 h-8 text-violet-500"
+                          <Button variant="ghost" size="icon" className="w-8 h-8 text-emerald-500"
                             title="Agregar subcategoría" onClick={() => openCreateSub(cat)}>
                             <Plus className="w-3.5 h-3.5" />
                           </Button>
@@ -201,14 +201,14 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
 
               {/* Badge: subcategoría de [padre] */}
               {!editingId && selectedParentCat && (
-                <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2.5">
+                <div className="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-xl px-3 py-2.5">
                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: selectedParentCat.color + "33" }}>
                     {selectedParentCat.icon}
                   </div>
-                  <span className="text-sm text-violet-700 flex-1">
+                  <span className="text-sm text-emerald-700 flex-1">
                     Subcategoría de <strong>{selectedParentCat.name}</strong>
                   </span>
-                  <button type="button" onClick={() => setForm({ ...form, parent_id: "" })} className="text-violet-400">
+                  <button type="button" onClick={() => setForm({ ...form, parent_id: "" })} className="text-emerald-400">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -224,7 +224,7 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                         key={p.id}
                         type="button"
                         onClick={() => setForm({ ...form, parent_id: p.id, icon: p.icon, color: p.color })}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 bg-white text-sm text-gray-700 hover:border-violet-400 hover:bg-violet-50 transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 bg-white text-sm text-gray-700 hover:border-emerald-400 hover:bg-emerald-50 transition-colors"
                       >
                         {p.icon} {p.name}
                       </button>
@@ -248,7 +248,7 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                 <div className="flex flex-wrap gap-2">
                   {ICONS.map((ic) => (
                     <button key={ic} type="button" onClick={() => setForm({ ...form, icon: ic })}
-                      className={`text-2xl p-1.5 rounded-xl transition-all ${form.icon === ic ? "ring-2 ring-violet-500 bg-violet-50 scale-110" : "hover:bg-gray-100"}`}>
+                      className={`text-2xl p-1.5 rounded-xl transition-all ${form.icon === ic ? "ring-2 ring-emerald-500 bg-emerald-50 scale-110" : "hover:bg-gray-100"}`}>
                       {ic}
                     </button>
                   ))}
@@ -269,7 +269,7 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                 <Button variant="outline" className="flex-1" onClick={cancel}>
                   <X className="w-4 h-4 mr-1" /> Cancelar
                 </Button>
-                <Button className="flex-1 bg-violet-600 hover:bg-violet-700" onClick={handleSave} disabled={loading || !form.name.trim()}>
+                <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={handleSave} disabled={loading || !form.name.trim()}>
                   <Check className="w-4 h-4 mr-1" /> {loading ? "Guardando..." : editingId ? "Actualizar" : "Crear"}
                 </Button>
               </div>

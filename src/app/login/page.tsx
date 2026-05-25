@@ -96,7 +96,7 @@ export default function LoginPage() {
         <h2 className="text-lg font-semibold text-center">¡Revisa tu correo!</h2>
         <p className="text-sm text-muted-foreground text-center">
           Te enviamos un enlace de confirmación a <strong>{email}</strong>.
-          Haz clic en el enlace para activar tu cuenta y comenzar a usar MisFinanzas.
+          Haz clic en el enlace para activar tu cuenta y comenzar a usar MiNegocio.
         </p>
         <p className="text-xs text-muted-foreground text-center">
           ¿No lo ves? Revisa la carpeta de spam.
@@ -142,7 +142,7 @@ export default function LoginPage() {
                   value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
               </div>
               {message.text && <p className="text-sm text-red-500">{message.text}</p>}
-              <Button type="submit" className="w-full bg-violet-600 hover:bg-violet-700" disabled={loading}>
+              <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={loading}>
                 {loading ? "Enviando…" : "Enviar instrucciones"}
               </Button>
             </form>
@@ -162,8 +162,8 @@ export default function LoginPage() {
     <Wrapper>
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
-          <div className="text-4xl mb-2">💸</div>
-          <CardTitle className="text-2xl">MisFinanzas</CardTitle>
+          <div className="text-4xl mb-2">🏢</div>
+          <CardTitle className="text-2xl">MiNegocio</CardTitle>
           <CardDescription>
             {mode === "signin" ? "Inicia sesión en tu cuenta" : "Crea tu cuenta gratis"}
           </CardDescription>
@@ -207,7 +207,7 @@ export default function LoginPage() {
               </p>
             )}
 
-            <Button type="submit" className="w-full bg-violet-600 hover:bg-violet-700" disabled={loading}>
+            <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={loading}>
               {loading ? "Cargando…" : mode === "signin" ? "Entrar" : "Crear cuenta"}
             </Button>
           </form>
@@ -233,7 +233,7 @@ export default function LoginPage() {
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-50 to-teal-100 p-4">
       {children}
     </div>
   );

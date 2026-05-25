@@ -5,14 +5,14 @@ import "./globals.css";
 const geist = Geist({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "MisFinanzas",
-  description: "Controla tus gastos y cumple tus objetivos financieros",
+  title: "MiNegocio",
+  description: "Gestión financiera para tu emprendimiento",
   manifest: "/manifest.json",
-  appleWebApp: { capable: true, statusBarStyle: "default", title: "MisFinanzas" },
+  appleWebApp: { capable: true, statusBarStyle: "default", title: "MiNegocio" },
 };
 
 export const viewport: Viewport = {
-  themeColor: "#6366f1",
+  themeColor: "#059669",
   width: "device-width",
   initialScale: 1,
   maximumScale: 1,

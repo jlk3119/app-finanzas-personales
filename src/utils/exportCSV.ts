@@ -95,7 +95,7 @@ export function exportMonthlyCSV(
   const url = URL.createObjectURL(blob);
   const link = document.createElement("a");
   link.href = url;
-  link.download = `misfinanzas_${year}-${String(month).padStart(2, "0")}.csv`;
+  link.download = `minegocio_${year}-${String(month).padStart(2, "0")}.csv`;
   link.click();
   URL.revokeObjectURL(url);
 }
