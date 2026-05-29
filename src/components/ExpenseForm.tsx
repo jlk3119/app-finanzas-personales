@@ -47,6 +47,14 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
     if (editing) return editingExpense.account_id ?? "";
     return accounts.length === 1 ? accounts[0].id : "";
   });
+  const [budgetPeriod, setBudgetPeriod] = useState(() => {
+    if (editing) return editingExpense.budget_period ?? editingExpense.date.slice(0, 7);
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [budgetPeriodManual, setBudgetPeriodManual] = useState(
+    editing ? !!(editingExpense.budget_period && editingExpense.budget_period !== editingExpense.date.slice(0, 7)) : false
+  );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
 
@@ -79,6 +87,7 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
         category_id: finalCategoryId,
         account_id: finalAccountId,
         date,
+        budget_period: budgetPeriod,
       }).eq("id", editingExpense.id);
       if (err) { setError(err.message); setLoading(false); return; }
 
@@ -121,6 +130,7 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
         category_id: finalCategoryId,
         account_id: finalAccountId,
         date,
+        budget_period: budgetPeriod,
         user_id: user.id,
       });
       if (err) { setError(err.message); setLoading(false); return; }
@@ -268,8 +278,28 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
                 id="date"
                 type="date"
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={(e) => {
+                  setDate(e.target.value);
+                  if (!budgetPeriodManual) setBudgetPeriod(e.target.value.slice(0, 7));
+                }}
               />
+            </div>
+
+            {/* Mes de presupuesto */}
+            <div className="space-y-1">
+              <Label htmlFor="budget-period">Mes de presupuesto</Label>
+              <Input
+                id="budget-period"
+                type="month"
+                value={budgetPeriod}
+                onChange={(e) => { setBudgetPeriod(e.target.value); setBudgetPeriodManual(true); }}
+                className={budgetPeriod !== date.slice(0, 7) ? "border-amber-400 bg-amber-50" : ""}
+              />
+              {budgetPeriod !== date.slice(0, 7) && (
+                <p className="text-xs text-amber-600">
+                  Este gasto contará en el presupuesto de {new Date(budgetPeriod + "-01T12:00:00").toLocaleDateString("es-CO", { month: "long", year: "numeric" })}, no en el de {new Date(date.slice(0, 7) + "-01T12:00:00").toLocaleDateString("es-CO", { month: "long", year: "numeric" })}.
+                </p>
+              )}
             </div>
 
             {error && <p className="text-sm text-red-500">{error}</p>}

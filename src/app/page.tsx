@@ -136,12 +136,12 @@ export default function Dashboard() {
     const pY = curM === 1 ? curY - 1 : curY;
     const startOfPrevMonthStr = `${pY}-${String(pM).padStart(2, "0")}-01`;
 
-    const startOfMonthStr = `${expenseYear}-${String(expenseMonth).padStart(2, "0")}-01`;
-    const endOfMonthStr = `${expenseYear}-${String(expenseMonth).padStart(2, "0")}-${new Date(expenseYear, expenseMonth, 0).getDate()}`;
+    const expMonthKey = `${expenseYear}-${String(expenseMonth).padStart(2, "0")}`;
+    const prevMonthKey = `${pY}-${String(pM).padStart(2, "0")}`;
 
     const [expRes, dashExpRes, budRes, catRes, goalRes, accRes, incRes, recurRes, closuresRes, debtRes] = await Promise.all([
-      supabase.from("expenses").select("*, categories(*), accounts(*)").gte("date", startOfMonthStr).lte("date", endOfMonthStr).order("date", { ascending: false }),
-      supabase.from("expenses").select("*, categories(*), accounts(*)").gte("date", startOfPrevMonthStr).order("date", { ascending: false }),
+      supabase.from("expenses").select("*, categories(*), accounts(*)").eq("budget_period", expMonthKey).order("date", { ascending: false }),
+      supabase.from("expenses").select("*, categories(*), accounts(*)").gte("budget_period", prevMonthKey).order("date", { ascending: false }),
       supabase.from("budgets").select("*, categories(*)"),
       supabase.from("categories").select("*").order("name"),
       supabase.from("goals").select("*, categories(*)").order("created_at", { ascending: false }),
@@ -290,9 +290,16 @@ export default function Dashboard() {
     }
   };
 
+  const isNextExpenseMonthDisabled = (() => {
+    const nextM = expenseMonth === 12 ? 1 : expenseMonth + 1;
+    const nextY = expenseMonth === 12 ? expenseYear + 1 : expenseYear;
+    const limitM = currentMonth === 12 ? 1 : currentMonth + 1;
+    const limitY = currentMonth === 12 ? currentYear + 1 : currentYear;
+    return nextY > limitY || (nextY === limitY && nextM > limitM);
+  })();
+
   const goToNextExpenseMonth = () => {
-    const isCurrentMonth = expenseMonth === currentMonth && expenseYear === currentYear;
-    if (isCurrentMonth) return;
+    if (isNextExpenseMonthDisabled) return;
     if (expenseMonth === 12) {
       setExpenseMonth(1);
       setExpenseYear((y) => y + 1);
@@ -311,10 +318,7 @@ export default function Dashboard() {
     location.href = "/login";
   };
 
-  const thisMonthExpenses = dashboardExpenses.filter((e) => {
-    const d = new Date(e.date + "T12:00:00");
-    return d.getMonth() + 1 === currentMonth && d.getFullYear() === currentYear;
-  });
+  const thisMonthExpenses = dashboardExpenses.filter((e) => e.budget_period === currentMonthKey);
 
   const thisWeekExpenses = dashboardExpenses.filter((e) => {
     const d = new Date(e.date + "T12:00:00");
@@ -349,10 +353,7 @@ export default function Dashboard() {
   const prevY = currentMonth === 1 ? currentYear - 1 : currentYear;
   const prevMonthClosed = monthClosures.some((c) => c.year === prevY && c.month === prevM);
   const prevMonthHasData =
-    dashboardExpenses.some((e) => {
-      const d = new Date(e.date + "T12:00:00");
-      return d.getMonth() + 1 === prevM && d.getFullYear() === prevY;
-    }) ||
+    dashboardExpenses.some((e) => e.budget_period === `${prevY}-${String(prevM).padStart(2, "0")}`) ||
     budgets.some((b) => b.period === "monthly" && b.year === prevY && b.month === prevM);
   const showClosure = !prevMonthClosed && prevMonthHasData;
 
@@ -661,7 +662,7 @@ export default function Dashboard() {
                     variant="ghost"
                     size="icon"
                     onClick={goToNextExpenseMonth}
-                    disabled={expenseMonth === currentMonth && expenseYear === currentYear}
+                    disabled={isNextExpenseMonthDisabled}
                     className="h-8 w-8"
                   >
                     <ChevronRight className="w-4 h-4" />

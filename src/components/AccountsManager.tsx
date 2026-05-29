@@ -76,6 +76,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
   const [view, setView] = useState<View>("main");
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [editingRecurring, setEditingRecurring] = useState<RecurringIncome | null>(null);
+  const [editingIncome, setEditingIncome] = useState<Income | null>(null);
   const [accountForm, setAccountForm] = useState<AccountForm>(EMPTY_ACCOUNT);
   const [incomeForm, setIncomeForm] = useState<IncomeForm>(emptyIncome());
   const [recurringForm, setRecurringForm] = useState<RecurringForm>(EMPTY_RECURRING);
@@ -109,7 +110,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
     else await deleteRecurring(confirmDelete.id);
   };
 
-  useBackButtonClose(view !== "main", () => setView("main"));
+  useBackButtonClose(view !== "main", () => { setView("main"); setEditingIncome(null); });
 
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -173,6 +174,18 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
   };
 
   /* ── Sporadic income ── */
+  const openEditIncome = (entry: Income) => {
+    setEditingIncome(entry);
+    setIncomeForm({
+      amount: String(entry.amount),
+      description: entry.description ?? "",
+      date: entry.date,
+      account_id: entry.account_id ?? "",
+      budget_month: entry.period_key ?? entry.date.slice(0, 7),
+    });
+    setView("income-form");
+  };
+
   const saveIncome = async () => {
     if (!incomeForm.amount || Number(incomeForm.amount) <= 0) return;
     setLoading(true);
@@ -180,14 +193,40 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
     if (!user) { setLoading(false); return; }
     const amount = Number(incomeForm.amount);
     const account_id = incomeForm.account_id || null;
-    await supabase.from("income").insert({
-      user_id: user.id, account_id, amount,
-      description: incomeForm.description || null, date: incomeForm.date,
-      period_key: incomeForm.budget_month || null,
-    });
-    if (account_id) {
-      const acc = accounts.find((a) => a.id === account_id);
-      if (acc) await supabase.from("accounts").update({ balance: Number(acc.balance) + amount }).eq("id", account_id);
+
+    if (editingIncome) {
+      await supabase.from("income").update({
+        amount, description: incomeForm.description || null,
+        date: incomeForm.date, account_id,
+        period_key: incomeForm.budget_month || null,
+      }).eq("id", editingIncome.id);
+
+      const oldAccountId = editingIncome.account_id ?? null;
+      const oldAmount = Number(editingIncome.amount);
+      if (oldAccountId === account_id && account_id) {
+        const acc = accounts.find((a) => a.id === account_id);
+        if (acc) await supabase.from("accounts").update({ balance: Number(acc.balance) + amount - oldAmount }).eq("id", account_id);
+      } else {
+        if (oldAccountId) {
+          const oa = accounts.find((a) => a.id === oldAccountId);
+          if (oa) await supabase.from("accounts").update({ balance: Math.max(0, Number(oa.balance) - oldAmount) }).eq("id", oldAccountId);
+        }
+        if (account_id) {
+          const na = accounts.find((a) => a.id === account_id);
+          if (na) await supabase.from("accounts").update({ balance: Number(na.balance) + amount }).eq("id", account_id);
+        }
+      }
+      setEditingIncome(null);
+    } else {
+      await supabase.from("income").insert({
+        user_id: user.id, account_id, amount,
+        description: incomeForm.description || null, date: incomeForm.date,
+        period_key: incomeForm.budget_month || null,
+      });
+      if (account_id) {
+        const acc = accounts.find((a) => a.id === account_id);
+        if (acc) await supabase.from("accounts").update({ balance: Number(acc.balance) + amount }).eq("id", account_id);
+      }
     }
     setLoading(false); setView("main"); onRefresh();
   };
@@ -340,8 +379,8 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 pb-2 border-b">
-          <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setView("main")}><X className="w-4 h-4" /></Button>
-          <h2 className="font-semibold text-sm">Registrar ingreso esporádico</h2>
+          <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => { setView("main"); setEditingIncome(null); }}><X className="w-4 h-4" /></Button>
+          <h2 className="font-semibold text-sm">{editingIncome ? "Editar ingreso" : "Registrar ingreso esporádico"}</h2>
         </div>
         <div className="space-y-1">
           <Label>Monto *</Label>
@@ -379,10 +418,10 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
           {incomeForm.account_id && <p className="text-xs text-violet-600">El saldo se actualizará automáticamente.</p>}
         </div>
         <div className="flex gap-2 pt-2">
-          <Button variant="outline" className="flex-1" onClick={() => setView("main")}>Cancelar</Button>
+          <Button variant="outline" className="flex-1" onClick={() => { setView("main"); setEditingIncome(null); }}>Cancelar</Button>
           <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={saveIncome}
             disabled={loading || !incomeForm.amount || Number(incomeForm.amount) <= 0}>
-            {loading ? "Guardando..." : "Registrar ingreso"}
+            {loading ? "Guardando..." : editingIncome ? "Actualizar" : "Registrar ingreso"}
           </Button>
         </div>
       </div>
@@ -583,6 +622,11 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-sm font-semibold text-emerald-600">+{fmt(entry.amount)}</span>
+                {!entry.recurring_income_id && (
+                  <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground hover:text-violet-600" onClick={() => openEditIncome(entry)} disabled={deletingId === entry.id}>
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                )}
                 <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => setConfirmDelete({ type: "income", entry })} disabled={deletingId === entry.id}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
@@ -799,6 +843,9 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-semibold text-emerald-600">+{fmt(entry.amount)}</span>
+                    <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground hover:text-violet-600" onClick={() => openEditIncome(entry)} disabled={deletingId === entry.id}>
+                      <Pencil className="w-3.5 h-3.5" />
+                    </Button>
                     <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => setConfirmDelete({ type: "income", entry })} disabled={deletingId === entry.id}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
