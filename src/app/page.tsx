@@ -86,12 +86,12 @@ export default function Dashboard() {
     const pY = curM === 1 ? curY - 1 : curY;
     const startOfPrevMonthStr = `${pY}-${String(pM).padStart(2, "0")}-01`;
 
-    const startOfMonthStr = `${expenseYear}-${String(expenseMonth).padStart(2, "0")}-01`;
-    const endOfMonthStr = `${expenseYear}-${String(expenseMonth).padStart(2, "0")}-${new Date(expenseYear, expenseMonth, 0).getDate()}`;
+    const expMonthKey = `${expenseYear}-${String(expenseMonth).padStart(2, "0")}`;
+    const prevMonthKey = `${pY}-${String(pM).padStart(2, "0")}`;
 
     const [expRes, dashExpRes, budRes, catRes, accRes, incRes, recurRes, closuresRes, debtRes, clientRes, orderRes] = await Promise.all([
-      supabase.from("expenses").select("*, categories(*)").gte("date", startOfMonthStr).lte("date", endOfMonthStr).order("date", { ascending: false }),
-      supabase.from("expenses").select("*, categories(*)").gte("date", startOfPrevMonthStr).order("date", { ascending: false }),
+      supabase.from("expenses").select("*, categories(*)").eq("budget_period", expMonthKey).order("date", { ascending: false }),
+      supabase.from("expenses").select("*, categories(*)").gte("budget_period", prevMonthKey).order("date", { ascending: false }),
       supabase.from("budgets").select("*, categories(*)"),
       supabase.from("categories").select("*").order("name"),
       supabase.from("accounts").select("*").order("created_at"),
@@ -191,10 +191,7 @@ export default function Dashboard() {
   };
 
   // KPIs for dashboard
-  const thisMonthExpenses = dashboardExpenses.filter((e) => {
-    const d = new Date(e.date + "T12:00:00");
-    return d.getMonth() + 1 === currentMonth && d.getFullYear() === currentYear;
-  });
+  const thisMonthExpenses = dashboardExpenses.filter((e) => e.budget_period === currentMonthKey);
   const totalMonthSpent = thisMonthExpenses.reduce((s, e) => s + Number(e.amount), 0);
 
   const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
@@ -224,10 +221,8 @@ export default function Dashboard() {
   const prevY = currentMonth === 1 ? currentYear - 1 : currentYear;
   const prevMonthClosed = monthClosures.some((c) => c.year === prevY && c.month === prevM);
   const prevMonthHasData =
-    dashboardExpenses.some((e) => {
-      const d = new Date(e.date + "T12:00:00");
-      return d.getMonth() + 1 === prevM && d.getFullYear() === prevY;
-    }) || budgets.some((b) => b.period === "monthly" && b.year === prevY && b.month === prevM);
+    dashboardExpenses.some((e) => e.budget_period === `${prevY}-${String(prevM).padStart(2, "0")}`) ||
+    budgets.some((b) => b.period === "monthly" && b.year === prevY && b.month === prevM);
   const showClosure = !prevMonthClosed && prevMonthHasData;
 
   // Category spend for dashboard

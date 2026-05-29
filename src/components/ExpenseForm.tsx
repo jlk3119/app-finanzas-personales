@@ -30,6 +30,15 @@ export default function ExpenseForm({ categories, accounts, companyId, editingEx
     return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
   });
 
+  const [budgetPeriod, setBudgetPeriod] = useState(() => {
+    if (editing) return editingExpense.budget_period ?? editingExpense.date.slice(0, 7);
+    const d = new Date();
+    return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`;
+  });
+  const [budgetPeriodManual, setBudgetPeriodManual] = useState(
+    editing ? !!(editingExpense.budget_period && editingExpense.budget_period !== editingExpense.date.slice(0, 7)) : false
+  );
+
   // Resolve initial category selection from expense (may be subcategory)
   const initialCatId = (() => {
     if (!editing) return "";
@@ -50,6 +59,9 @@ export default function ExpenseForm({ categories, accounts, companyId, editingEx
   });
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const formatBudgetMonth = (bp: string) =>
+    new Date(bp + "-01T12:00:00").toLocaleDateString("es-CO", { month: "long", year: "numeric" });
 
   const parentCats = categories.filter((c) => !c.parent_id);
   const childrenOf = (pid: string) => categories.filter((c) => c.parent_id === pid);
@@ -77,6 +89,7 @@ export default function ExpenseForm({ categories, accounts, companyId, editingEx
         category_id: finalCategoryId,
         account_id: finalAccountId,
         date,
+        budget_period: budgetPeriod,
       }).eq("id", editingExpense.id);
       if (err) { setError(err.message); setLoading(false); return; }
 
@@ -119,6 +132,7 @@ export default function ExpenseForm({ categories, accounts, companyId, editingEx
         category_id: finalCategoryId,
         account_id: finalAccountId,
         date,
+        budget_period: budgetPeriod,
         company_id: companyId,
       });
       if (err) { setError(err.message); setLoading(false); return; }
@@ -266,8 +280,29 @@ export default function ExpenseForm({ categories, accounts, companyId, editingEx
                 id="date"
                 type="date"
                 value={date}
-                onChange={(e) => setDate(e.target.value)}
+                onChange={(e) => {
+                  const newDate = e.target.value;
+                  setDate(newDate);
+                  if (!budgetPeriodManual && newDate.length >= 7) setBudgetPeriod(newDate.slice(0, 7));
+                }}
               />
+            </div>
+
+            {/* Mes de presupuesto */}
+            <div className="space-y-1">
+              <Label htmlFor="budget-period">Mes de presupuesto</Label>
+              <Input
+                id="budget-period"
+                type="month"
+                value={budgetPeriod}
+                onChange={(e) => { setBudgetPeriod(e.target.value); setBudgetPeriodManual(true); }}
+                className={budgetPeriod !== date.slice(0, 7) ? "border-amber-400 bg-amber-50" : ""}
+              />
+              {budgetPeriod !== date.slice(0, 7) && budgetPeriod && (
+                <p className="text-xs text-amber-600">
+                  Este gasto contará en el presupuesto de {formatBudgetMonth(budgetPeriod)}, no en el de {formatBudgetMonth(date.slice(0, 7))}.
+                </p>
+              )}
             </div>
 
             {error && <p className="text-sm text-red-500">{error}</p>}

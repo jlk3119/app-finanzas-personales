@@ -110,7 +110,14 @@ export default function ExpenseList({ expenses, categories, accounts, role = "ow
                       {cat?.icon ?? "📦"}
                     </div>
                     <div>
-                      <p className="text-sm font-medium leading-tight">{e.description || cat?.name || "Gasto"}</p>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        <p className="text-sm font-medium leading-tight">{e.description || cat?.name || "Gasto"}</p>
+                        {e.budget_period && e.budget_period !== e.date.slice(0, 7) && (
+                          <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
+                            → {new Date(e.budget_period + "-01T12:00:00").toLocaleDateString("es-CO", { month: "short" })}
+                          </span>
+                        )}
+                      </div>
                       <p className="text-xs text-muted-foreground">{catLabel}</p>
                     </div>
                   </div>

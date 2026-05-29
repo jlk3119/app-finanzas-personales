@@ -40,7 +40,7 @@ const ACCOUNT_COLORS = ["#059669","#0d9488","#3b82f6","#f59e0b","#ef4444","#8b5c
 type AccountForm = { name: string; icon: string; color: string; balance: string };
 const EMPTY_ACCOUNT: AccountForm = { name: "", icon: "🏦", color: "#059669", balance: "0" };
 
-type IncomeForm = { amount: string; description: string; date: string; account_id: string; budget_month: string };
+type IncomeForm = { amount: string; description: string; date: string; account_id: string; budget_month: string; recurring_income_id: string | null };
 const emptyIncome = (): IncomeForm => {
   const d = new Date();
   return {
@@ -48,6 +48,7 @@ const emptyIncome = (): IncomeForm => {
     date: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`,
     account_id: "",
     budget_month: `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}`,
+    recurring_income_id: null,
   };
 };
 
@@ -73,6 +74,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, com
   const [view, setView] = useState<View>("main");
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [editingRecurring, setEditingRecurring] = useState<RecurringIncome | null>(null);
+  const [editingIncome, setEditingIncome] = useState<Income | null>(null);
   const [accountForm, setAccountForm] = useState<AccountForm>(EMPTY_ACCOUNT);
   const [incomeForm, setIncomeForm] = useState<IncomeForm>(emptyIncome());
   const [recurringForm, setRecurringForm] = useState<RecurringForm>(EMPTY_RECURRING);
@@ -105,7 +107,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, com
     else await deleteRecurring(confirmDelete.id);
   };
 
-  useBackButtonClose(view !== "main", () => setView("main"));
+  useBackButtonClose(view !== "main", () => { setEditingIncome(null); setView("main"); });
 
   const now = new Date();
   const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
@@ -149,21 +151,62 @@ export default function AccountsManager({ accounts, income, recurringIncome, com
   };
 
   /* ── Sporadic income ── */
+  const openEditIncome = (entry: Income) => {
+    setEditingIncome(entry);
+    setIncomeForm({
+      amount: String(entry.amount),
+      description: entry.description ?? "",
+      date: entry.date,
+      account_id: entry.account_id ?? "",
+      budget_month: entry.period_key ?? entry.date.slice(0, 7),
+      recurring_income_id: entry.recurring_income_id ?? null,
+    });
+    setView("income-form");
+  };
+
   const saveIncome = async () => {
     if (!incomeForm.amount || Number(incomeForm.amount) <= 0) return;
     setLoading(true);
     const amount = Number(incomeForm.amount);
     const account_id = incomeForm.account_id || null;
-    await supabase.from("income").insert({
-      company_id: companyId, account_id, amount,
-      description: incomeForm.description || null, date: incomeForm.date,
-      period_key: incomeForm.budget_month || null,
-    });
-    if (account_id) {
-      const acc = accounts.find((a) => a.id === account_id);
-      if (acc) await supabase.from("accounts").update({ balance: Number(acc.balance) + amount }).eq("id", account_id);
+
+    if (editingIncome) {
+      await supabase.from("income").update({
+        amount,
+        description: incomeForm.description || null,
+        date: incomeForm.date,
+        account_id,
+        period_key: incomeForm.budget_month || null,
+      }).eq("id", editingIncome.id);
+
+      const oldAccountId = editingIncome.account_id;
+      const oldAmount = Number(editingIncome.amount);
+      if (oldAccountId === account_id && account_id) {
+        const acc = accounts.find((a) => a.id === account_id);
+        if (acc) await supabase.from("accounts").update({ balance: Number(acc.balance) + amount - oldAmount }).eq("id", account_id);
+      } else {
+        if (oldAccountId) {
+          const oa = accounts.find((a) => a.id === oldAccountId);
+          if (oa) await supabase.from("accounts").update({ balance: Number(oa.balance) - oldAmount }).eq("id", oldAccountId);
+        }
+        if (account_id) {
+          const na = accounts.find((a) => a.id === account_id);
+          if (na) await supabase.from("accounts").update({ balance: Number(na.balance) + amount }).eq("id", account_id);
+        }
+      }
+    } else {
+      await supabase.from("income").insert({
+        company_id: companyId, account_id, amount,
+        description: incomeForm.description || null, date: incomeForm.date,
+        period_key: incomeForm.budget_month || null,
+        recurring_income_id: incomeForm.recurring_income_id || null,
+      });
+      if (account_id) {
+        const acc = accounts.find((a) => a.id === account_id);
+        if (acc) await supabase.from("accounts").update({ balance: Number(acc.balance) + amount }).eq("id", account_id);
+      }
     }
-    setLoading(false); setView("main"); onRefresh();
+    setLoading(false); setEditingIncome(null); setView("main"); onRefresh();
   };
 
   const deleteIncome = async (entry: Income) => {
@@ -213,6 +256,32 @@ export default function AccountsManager({ accounts, income, recurringIncome, com
     setDeletingId(id);
     await supabase.from("recurring_income").delete().eq("id", id);
     setDeletingId(null); onRefresh();
+  };
+
+  /* ── Calcular período pendiente para ingresos recurrentes ── */
+  const nextPendingPeriod = (r: RecurringIncome): string | null => {
+    if (!r.start_date || !r.day_of_month) return null;
+    const today = new Date();
+    const registeredPeriods = new Set(
+      income.filter((i) => i.recurring_income_id === r.id && i.period_key).map((i) => i.period_key as string)
+    );
+    const [startYear, startMonthNum] = r.start_date.slice(0, 7).split("-").map(Number);
+    for (let offset = 0; offset < 13; offset++) {
+      const totalMonths = startMonthNum - 1 + offset;
+      const periodYear = startYear + Math.floor(totalMonths / 12);
+      const periodMonth = (totalMonths % 12) + 1;
+      const periodKey = `${periodYear}-${String(periodMonth).padStart(2, "0")}`;
+      if (registeredPeriods.has(periodKey)) continue;
+      // Trigger físico: 5 días antes del 1ro del período (pagos anticipados) O mismo día del mes en el período
+      const periodFirstDay = new Date(`${periodKey}-01T12:00:00`);
+      const earlyTrigger = new Date(periodFirstDay);
+      earlyTrigger.setDate(earlyTrigger.getDate() - 5);
+      const safeDay = Math.min(r.day_of_month, new Date(periodYear, periodMonth, 0).getDate());
+      const inPeriodTrigger = new Date(`${periodKey}-${String(safeDay).padStart(2, "0")}T12:00:00`);
+      if (today >= earlyTrigger || today >= inPeriodTrigger) return periodKey;
+      break;
+    }
+    return null;
   };
 
   /* ══ VISTAS ══ */
@@ -277,11 +346,12 @@ export default function AccountsManager({ accounts, income, recurringIncome, com
   }
 
   if (view === "income-form") {
+    const cancelIncomeForm = () => { setEditingIncome(null); setIncomeForm(emptyIncome()); setView("main"); };
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-2 pb-2 border-b">
-          <Button variant="ghost" size="icon" className="w-8 h-8" onClick={() => setView("main")}><X className="w-4 h-4" /></Button>
-          <h2 className="font-semibold text-sm">Registrar ingreso esporádico</h2>
+          <Button variant="ghost" size="icon" className="w-8 h-8" onClick={cancelIncomeForm}><X className="w-4 h-4" /></Button>
+          <h2 className="font-semibold text-sm">{editingIncome ? "Editar ingreso" : "Registrar ingreso"}</h2>
         </div>
         <div className="space-y-1">
           <Label>Monto *</Label>
@@ -319,10 +389,10 @@ export default function AccountsManager({ accounts, income, recurringIncome, com
           {incomeForm.account_id && <p className="text-xs text-emerald-600">El saldo se actualizará automáticamente.</p>}
         </div>
         <div className="flex gap-2 pt-2">
-          <Button variant="outline" className="flex-1" onClick={() => setView("main")}>Cancelar</Button>
+          <Button variant="outline" className="flex-1" onClick={cancelIncomeForm}>Cancelar</Button>
           <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={saveIncome}
             disabled={loading || !incomeForm.amount || Number(incomeForm.amount) <= 0}>
-            {loading ? "Guardando..." : "Registrar ingreso"}
+            {loading ? "Guardando..." : editingIncome ? "Actualizar ingreso" : "Registrar ingreso"}
           </Button>
         </div>
       </div>
@@ -444,6 +514,11 @@ export default function AccountsManager({ accounts, income, recurringIncome, com
               </div>
               <div className="flex items-center gap-1">
                 <span className="text-sm font-semibold text-emerald-600">+{fmt(entry.amount)}</span>
+                {role === "owner" && (
+                  <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" onClick={() => openEditIncome(entry)} disabled={deletingId === entry.id}>
+                    <Pencil className="w-3.5 h-3.5" />
+                  </Button>
+                )}
                 {role === "owner" && (
                   <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => setConfirmDelete({ type: "income", entry })} disabled={deletingId === entry.id}>
                     <Trash2 className="w-3.5 h-3.5" />
@@ -586,6 +661,36 @@ export default function AccountsManager({ accounts, income, recurringIncome, com
                       {FREQ_LABELS[r.frequency]}
                     </span>
                   </div>
+                  {role === "owner" && (() => {
+                    const pending = nextPendingPeriod(r);
+                    if (!pending) return null;
+                    const pendingLabel = new Date(pending + "-01T12:00:00").toLocaleDateString("es-CO", { month: "short", year: "numeric" });
+                    const todayStr = (() => { const d = new Date(); return `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,"0")}-${String(d.getDate()).padStart(2,"0")}`; })();
+                    return (
+                      <div className="px-4 pb-3 pt-1 border-t border-emerald-50 flex items-center justify-between">
+                        <span className="text-xs text-emerald-700">Pendiente: {pendingLabel}</span>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          className="text-emerald-700 border-emerald-200 bg-emerald-50 hover:bg-emerald-100 h-7 text-xs px-3"
+                          onClick={() => {
+                            setIncomeForm({
+                              amount: String(r.amount),
+                              description: r.name,
+                              date: todayStr,
+                              account_id: r.account_id ?? "",
+                              budget_month: pending,
+                              recurring_income_id: r.id,
+                            });
+                            setEditingIncome(null);
+                            setView("income-form");
+                          }}
+                        >
+                          💵 Recibir
+                        </Button>
+                      </div>
+                    );
+                  })()}
                 </div>
               );
             })}
@@ -630,6 +735,11 @@ export default function AccountsManager({ accounts, income, recurringIncome, com
                   </div>
                   <div className="flex items-center gap-1">
                     <span className="text-sm font-semibold text-emerald-600">+{fmt(entry.amount)}</span>
+                    {role === "owner" && (
+                      <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" onClick={() => openEditIncome(entry)} disabled={deletingId === entry.id}>
+                        <Pencil className="w-3.5 h-3.5" />
+                      </Button>
+                    )}
                     {role === "owner" && (
                       <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => setConfirmDelete({ type: "income", entry })} disabled={deletingId === entry.id}>
                         <Trash2 className="w-3.5 h-3.5" />

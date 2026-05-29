@@ -33,6 +33,7 @@ export type Expense = {
   amount: number;
   description: string | null;
   date: string;
+  budget_period?: string | null;
   created_at: string;
   categories?: Category;
   accounts?: Account;
