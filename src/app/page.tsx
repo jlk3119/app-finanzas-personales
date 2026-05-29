@@ -69,6 +69,7 @@ export default function Dashboard() {
   const currentMonth = now.getMonth() + 1;
   const currentYear = now.getFullYear();
   const currentWeek = getWeekNumber(now);
+  const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
 
   const checkAutoAssign = useCallback(async (
     recurData: RecurringIncome[],
@@ -343,7 +344,6 @@ export default function Dashboard() {
     .reduce((s, e) => s + Number(e.amount), 0);
   // Ingresos esporádicos asignados a meses futuros ya están en el saldo de la cuenta,
   // pero aún no deben contarse como dinero disponible para el mes en curso
-  const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
   const futureSporadicLinked = income
     .filter((i) => !i.recurring_income_id && !!i.period_key && i.period_key > currentMonthKey && !!i.account_id)
     .reduce((s, i) => s + Number(i.amount), 0);
