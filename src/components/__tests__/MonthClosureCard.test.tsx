@@ -129,4 +129,41 @@ describe('MonthClosureCard', () => {
     render(<MonthClosureCard {...defaultProps} />)
     expect(screen.getByText('Alimentación')).toBeInTheDocument()
   })
+
+  it('con budgetPeriod, suma los gastos por budget_period y no por fecha', () => {
+    // Un gasto fechado en junio pero presupuestado a junio, y otro fechado en junio
+    // pero presupuestado a julio. Al cerrar junio solo debe contar el primero.
+    const junExpenses: Expense[] = [
+      { id: 'e1', user_id: 'u1', category_id: 'cat-1', amount: 200_000, description: 'Junio', date: '2026-06-01', budget_period: '2026-06', created_at: '', categories: cat },
+      { id: 'e2', user_id: 'u1', category_id: 'cat-1', amount: 999_000, description: 'Julio', date: '2026-06-03', budget_period: '2026-07', created_at: '', categories: cat },
+    ]
+    render(
+      <MonthClosureCard
+        {...defaultProps}
+        prevYear={2026}
+        prevMonth={6}
+        budgetPeriod="2026-06"
+        budgets={[]}
+        goals={[]}
+        expenses={junExpenses}
+      />,
+    )
+    expect(screen.getAllByText(/200\.?000/).length).toBeGreaterThanOrEqual(1)
+    expect(screen.queryByText(/999\.?000/)).not.toBeInTheDocument()
+  })
+
+  it('sin budgetPeriod conserva el comportamiento por fecha (retrocompatible)', () => {
+    render(<MonthClosureCard {...defaultProps} />)
+    expect(screen.getAllByText(/300\.?000/).length).toBeGreaterThanOrEqual(1)
+  })
+
+  it('registra el cierre con el año y mes seleccionados', async () => {
+    const { mockUpsert } = makeMock()
+    const user = userEvent.setup()
+    render(<MonthClosureCard {...defaultProps} prevYear={2026} prevMonth={6} budgetPeriod="2026-06" budgets={[]} goals={[]} />)
+    await user.click(screen.getByRole('button', { name: /entendido/i }))
+    await waitFor(() => {
+      expect(mockUpsert).toHaveBeenCalledWith(expect.objectContaining({ year: 2026, month: 6 }))
+    })
+  })
 })

@@ -108,8 +108,10 @@ describe('CategoryManager', () => {
     const onRefresh = jest.fn()
     const user = userEvent.setup()
     render(<CategoryManager categories={categories} onClose={jest.fn()} onRefresh={onRefresh} />)
-    const deleteButtons = screen.getAllByRole('button', { name: /eliminar|trash|delete/i })
-    await user.click(deleteButtons[0])
+    // El botón borrar tiene aria-label "Eliminar"; el de confirmación del diálogo
+    // tiene texto visible "Eliminar", que es el que ubicamos con findByText.
+    await user.click(screen.getAllByRole('button', { name: /^eliminar$/i })[0])
+    await user.click(await screen.findByText('Eliminar', { selector: 'button' }))
     await waitFor(() => expect(onRefresh).toHaveBeenCalled())
   })
 })

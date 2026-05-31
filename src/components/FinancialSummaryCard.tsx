@@ -50,6 +50,7 @@ export default function FinancialSummaryCard({
   useEffect(() => {
     try {
       const cached = localStorage.getItem(CACHE_KEY);
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       if (cached) setSummary(JSON.parse(cached) as Summary);
     } catch {}
   }, []);
