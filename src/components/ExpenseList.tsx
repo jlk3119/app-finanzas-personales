@@ -43,7 +43,25 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
   const supabase = createClient();
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
+  const [filterParentId, setFilterParentId] = useState<string>("");
+  const [filterSubId, setFilterSubId] = useState<string>("");
   const confirmExpense = confirmId ? expenses.find((e) => e.id === confirmId) : null;
+
+  const parentCats = categories.filter((c) => !c.parent_id);
+  const childrenOf = (pid: string) => categories.filter((c) => c.parent_id === pid);
+  const filterChildren = filterParentId ? childrenOf(filterParentId) : [];
+
+  const selectFilterParent = (id: string) => {
+    setFilterParentId((prev) => (prev === id ? "" : id));
+    setFilterSubId("");
+  };
+
+  const filteredExpenses = expenses.filter((e) => {
+    if (!filterParentId) return true;
+    if (filterSubId) return e.category_id === filterSubId;
+    const allIds = [filterParentId, ...childrenOf(filterParentId).map((c) => c.id)];
+    return e.category_id ? allIds.includes(e.category_id) : false;
+  });
 
   const handleDelete = async (id: string) => {
     setDeleting(id);
@@ -87,10 +105,80 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
     );
   }
 
-  const grouped = groupByDate(expenses);
+  const grouped = groupByDate(filteredExpenses);
 
   return (
     <div className="space-y-4">
+      {/* Filtro por categoría / subcategoría */}
+      <div className="space-y-2">
+        <div className="flex flex-wrap gap-1.5">
+          <button
+            type="button"
+            onClick={() => selectFilterParent("")}
+            className={`px-3 py-1.5 rounded-full border text-xs transition-all ${
+              filterParentId === ""
+                ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
+                : "border-gray-200 bg-white text-gray-700"
+            }`}
+          >
+            Todas
+          </button>
+          {parentCats.map((cat) => {
+            const isSelected = filterParentId === cat.id;
+            return (
+              <button
+                key={cat.id}
+                type="button"
+                onClick={() => selectFilterParent(cat.id)}
+                className={`flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs transition-all ${
+                  isSelected
+                    ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
+                    : "border-gray-200 bg-white text-gray-700"
+                }`}
+              >
+                <span>{cat.icon}</span> {cat.name}
+              </button>
+            );
+          })}
+        </div>
+        {filterChildren.length > 0 && (
+          <div className="flex flex-wrap gap-1.5 pl-2 border-l-2 border-violet-100">
+            <button
+              type="button"
+              onClick={() => setFilterSubId("")}
+              className={`px-3 py-1.5 rounded-full border text-xs transition-all ${
+                filterSubId === ""
+                  ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
+                  : "border-gray-200 bg-white text-gray-700"
+              }`}
+            >
+              Todas
+            </button>
+            {filterChildren.map((sub) => {
+              const isSelected = filterSubId === sub.id;
+              return (
+                <button
+                  key={sub.id}
+                  type="button"
+                  onClick={() => setFilterSubId(isSelected ? "" : sub.id)}
+                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs transition-all ${
+                    isSelected
+                      ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
+                      : "border-gray-200 bg-white text-gray-700"
+                  }`}
+                >
+                  <span>{sub.icon}</span> {sub.name}
+                </button>
+              );
+            })}
+          </div>
+        )}
+      </div>
+
+      {filteredExpenses.length === 0 && (
+        <p className="text-sm text-muted-foreground text-center py-6">Sin gastos en esta categoría.</p>
+      )}
+
       {Object.entries(grouped).map(([date, items]) => (
         <div key={date}>
           <div className="flex justify-between items-center mb-2">
