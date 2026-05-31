@@ -3,6 +3,7 @@ import { generateText } from "ai";
 import { z } from "zod";
 import { cookies } from "next/headers";
 import { createClient } from "@/utils/supabase/server";
+import { friendlyAIError } from "@/utils/ai-error";
 
 export const runtime = "nodejs";
 
@@ -199,7 +200,7 @@ Estructura exacta (sin espacios extra en las claves):
     return Response.json(validated);
   } catch (err) {
     console.error("[financial-summary] error:", err);
-    const message = err instanceof Error ? err.message : "Error al generar el resumen";
-    return Response.json({ error: message }, { status: 500 });
+    const { message, status } = friendlyAIError(err instanceof Error ? err.message : "");
+    return Response.json({ error: message }, { status });
   }
 }

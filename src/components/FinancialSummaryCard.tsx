@@ -157,11 +157,15 @@ export default function FinancialSummaryCard({
         body: JSON.stringify(buildPayload()),
       });
       const data = await res.json();
-      if (!res.ok) throw new Error(data.error ?? "Error al obtener el análisis");
+      if (!res.ok) throw new Error(data.error ?? "No pudimos generar el análisis. Inténtalo de nuevo más tarde.");
       setSummary(data as Summary);
       try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch {}
     } catch (e) {
-      setError(e instanceof Error ? e.message : "Error desconocido");
+      // El mensaje de la API ya viene en lenguaje amable; para fallos de red usamos un genérico.
+      const msg = e instanceof Error && e.message && !/fetch|network|json/i.test(e.message)
+        ? e.message
+        : "No pudimos generar el análisis. Revisa tu conexión e inténtalo de nuevo.";
+      setError(msg);
     } finally {
       setLoading(false);
     }
