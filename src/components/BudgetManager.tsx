@@ -128,9 +128,8 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const prev = prevMonthOf(selectedMonth, selectedYear);
   const next = nextMonthOf(selectedMonth, selectedYear);
 
-  // No navegar más de 2 meses al futuro
-  const isNextDisabled =
-    next.year > currentYear || (next.year === currentYear && next.month > currentMonth + 2);
+  // Permitir planear hasta diciembre del año en curso
+  const isNextDisabled = next.year > currentYear;
 
   const prevBudgets = budgets.filter((b) =>
     b.period === "monthly" && b.year === prev.year && b.month === prev.month
