@@ -225,4 +225,18 @@ describe('BudgetManager — campo Otros en formulario', () => {
     await user.click(screen.getByRole('button', { name: /agregar subcategor/i }))
     expect(screen.getByPlaceholderText(/nueva subcategor/i)).toBeInTheDocument()
   })
+
+  it('permite planear hasta diciembre del año en curso y bloquea el año siguiente', async () => {
+    const user = userEvent.setup()
+    const { container } = render(<BudgetManager {...defaultProps} currentMonth={5} currentYear={2026} />)
+    const nextBtn = () => container.querySelector('.lucide-chevron-right')?.closest('button') as HTMLButtonElement
+    // Desde Mayo 2026, avanzar mes a mes hasta Diciembre 2026.
+    for (let i = 0; i < 7; i++) {
+      expect(nextBtn()).not.toBeDisabled()
+      await user.click(nextBtn())
+    }
+    expect(screen.getByText(/Diciembre 2026/)).toBeInTheDocument()
+    // En Diciembre 2026 el botón "siguiente" queda deshabilitado (no se planea 2027).
+    expect(nextBtn()).toBeDisabled()
+  })
 })
