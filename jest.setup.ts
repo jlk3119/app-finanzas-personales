@@ -137,3 +137,20 @@ jest.mock('@/components/ui/badge', () => {
       React.createElement('span', { 'data-testid': 'badge', className }, children),
   }
 })
+
+jest.mock('@/components/ui/dialog', () => {
+  const React = require('react')
+  return {
+    Dialog: ({ children, open }: any) =>
+      open === false ? null : React.createElement('div', { role: 'dialog' }, children),
+    DialogContent: ({ children }: any) => React.createElement('div', null, children),
+    DialogHeader: ({ children }: any) => React.createElement('div', null, children),
+    DialogTitle: ({ children }: any) => React.createElement('h2', null, children),
+    DialogDescription: ({ children }: any) => React.createElement('p', null, children),
+    DialogFooter: ({ children }: any) => React.createElement('div', null, children),
+    DialogTrigger: ({ children }: any) => React.createElement('div', null, children),
+    DialogClose: ({ children }: any) => React.createElement('div', null, children),
+    DialogOverlay: () => null,
+    DialogPortal: ({ children }: any) => React.createElement(React.Fragment, null, children),
+  }
+})

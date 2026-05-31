@@ -73,8 +73,8 @@ describe('ExpenseList', () => {
     const onRefresh = jest.fn()
     const user = userEvent.setup()
     render(<ExpenseList expenses={mockExpenses} categories={[cat]} accounts={[]} onRefresh={onRefresh} />)
-    const deleteButtons = screen.getAllByRole('button', { name: /eliminar|trash|delete/i })
-    await user.click(deleteButtons[0])
+    await user.click(screen.getAllByRole('button', { name: /^eliminar$/i })[0])
+    await user.click(await screen.findByText('Eliminar', { selector: 'button' }))
     await waitFor(() => expect(onRefresh).toHaveBeenCalled())
   })
 
@@ -112,8 +112,8 @@ describe('ExpenseList', () => {
     const mockUpdateEq = mockEq
     const user = userEvent.setup()
     render(<ExpenseList expenses={[mockExpenses[0]]} categories={[cat]} accounts={[mockAccount]} onRefresh={jest.fn()} />)
-    const deleteBtn = screen.getByRole('button', { name: /eliminar|trash|delete/i })
-    await user.click(deleteBtn)
+    await user.click(screen.getAllByRole('button', { name: /^eliminar$/i })[0])
+    await user.click(await screen.findByText('Eliminar', { selector: 'button' }))
     await waitFor(() => expect(mockUpdateEq).toHaveBeenCalled())
   })
 
@@ -125,8 +125,8 @@ describe('ExpenseList', () => {
     const user = userEvent.setup()
     // expense sin account_id
     render(<ExpenseList expenses={[mockExpenses[1]]} categories={[cat]} accounts={[mockAccount]} onRefresh={jest.fn()} />)
-    const deleteBtn = screen.getByRole('button', { name: /eliminar|trash|delete/i })
-    await user.click(deleteBtn)
+    await user.click(screen.getAllByRole('button', { name: /^eliminar$/i })[0])
+    await user.click(await screen.findByText('Eliminar', { selector: 'button' }))
     await waitFor(() => {})
     expect(checkSpy).not.toHaveBeenCalled()
     expect(updateCalled).toBe(false)
