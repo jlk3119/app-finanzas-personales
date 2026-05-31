@@ -113,6 +113,8 @@ jest.mock('@/components/ui/card', () => {
     CardHeader: ({ children }: any) => React.createElement('div', null, children),
     CardTitle: ({ children, className }: any) =>
       React.createElement('h3', { className }, children),
+    CardDescription: ({ children, className }: any) =>
+      React.createElement('p', { className }, children),
   }
 })
 
