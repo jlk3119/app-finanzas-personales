@@ -122,6 +122,22 @@ describe('Dashboard — Resumen por mes de presupuesto', () => {
     expect(await screen.findByRole('button', { name: new RegExp(`Cerrar mes de ${MONTHS[nextM - 1]}`, 'i') })).toBeInTheDocument()
   })
 
+  it('Caja menor usa el margen libre como presupuesto dinámico', async () => {
+    const expenses = [
+      { id: 'cm', user_id: 'u1', category_id: 'sys', amount: 10_000, description: 'Caja', date: `${curKey}-08`, budget_period: curKey, created_at: '', categories: sysCat },
+    ]
+    const tables = baseTables([], expenses)
+    tables.recurring_income = [
+      { id: 'r1', user_id: 'u1', account_id: null, name: 'Salario', amount: 100_000, frequency: 'monthly', day_of_month: null, is_salary: true, auto_assign: false, start_date: null, created_at: '' },
+    ]
+    setupSupabase(tables)
+    render(<Dashboard />)
+    await screen.findByText(new RegExp(`${MONTHS[curM - 1]} ${curY}`))
+    // Margen libre = 100.000 (ingreso) − 0 (sin presupuestos) → presupuesto dinámico de Caja menor.
+    // Gasto 10.000 / 100.000 → debe mostrarse la barra con "disponibles".
+    expect(await screen.findByText(/90\.?000 disponibles/i)).toBeInTheDocument()
+  })
+
   it('el total "Mes" refleja solo gastos del budget_period seleccionado', async () => {
     const expenses = [
       { id: 'e1', user_id: 'u1', category_id: 'sys', amount: 70_000, description: 'mes actual', date: `${curKey}-05`, budget_period: curKey, created_at: '', categories: sysCat },

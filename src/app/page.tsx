@@ -454,12 +454,17 @@ export default function Dashboard() {
     .map((cat) => {
       const subs = childrenOf(cat.id);
       const allIds = [cat.id, ...subs.map((s) => s.id)];
+      // Caja menor (categoría de sistema) usa el margen libre como presupuesto dinámico.
+      const explicitBudget = budgets.find((b) => b.category_id === cat.id && b.period === "monthly" && b.year === summaryYear && b.month === summaryMonth)?.amount;
+      const budget = cat.is_system
+        ? (unassignedIncome > 0 ? unassignedIncome : undefined)
+        : explicitBudget;
       return {
         name: cat.name,
         icon: cat.icon,
         color: cat.color,
         total: thisMonthExpenses.filter((e) => allIds.includes(e.category_id ?? "")).reduce((s, e) => s + Number(e.amount), 0),
-        budget: budgets.find((b) => b.category_id === cat.id && b.period === "monthly" && b.year === summaryYear && b.month === summaryMonth)?.amount,
+        budget,
       };
     })
     .filter((c) => c.total > 0);
