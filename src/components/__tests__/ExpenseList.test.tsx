@@ -131,4 +131,50 @@ describe('ExpenseList', () => {
     expect(checkSpy).not.toHaveBeenCalled()
     expect(updateCalled).toBe(false)
   })
+
+  describe('filtro por categoría y subcategoría', () => {
+    const transporte: Category = { id: 'tr', user_id: 'u1', name: 'Transporte', icon: '🚌', color: '#3b82f6', is_system: false, parent_id: null, created_at: '' }
+    const bus: Category = { id: 'tr-bus', user_id: 'u1', name: 'Bus', icon: '🚌', color: '#3b82f6', is_system: false, parent_id: 'tr', created_at: '' }
+    const taxi: Category = { id: 'tr-taxi', user_id: 'u1', name: 'Taxi', icon: '🚕', color: '#3b82f6', is_system: false, parent_id: 'tr', created_at: '' }
+    const cats = [cat, transporte, bus, taxi]
+    const exps: Expense[] = [
+      { id: 'a', user_id: 'u1', category_id: 'cat-1', account_id: null, amount: 50000, description: 'Mercado', date: today, created_at: '', categories: cat },
+      { id: 'b', user_id: 'u1', category_id: 'tr-bus', account_id: null, amount: 3000, description: 'Pasaje bus', date: today, created_at: '', categories: bus },
+      { id: 'c', user_id: 'u1', category_id: 'tr-taxi', account_id: null, amount: 12000, description: 'Carrera taxi', date: today, created_at: '', categories: taxi },
+    ]
+
+    it('muestra todos los gastos por defecto', () => {
+      render(<ExpenseList expenses={exps} categories={cats} accounts={[]} onRefresh={jest.fn()} />)
+      expect(screen.getByText('Mercado')).toBeInTheDocument()
+      expect(screen.getByText('Pasaje bus')).toBeInTheDocument()
+      expect(screen.getByText('Carrera taxi')).toBeInTheDocument()
+    })
+
+    it('filtra por categoría padre incluyendo sus subcategorías', async () => {
+      const user = userEvent.setup()
+      render(<ExpenseList expenses={exps} categories={cats} accounts={[]} onRefresh={jest.fn()} />)
+      await user.click(screen.getByRole('button', { name: /🚌 Transporte/ }))
+      expect(screen.queryByText('Mercado')).not.toBeInTheDocument()
+      expect(screen.getByText('Pasaje bus')).toBeInTheDocument()
+      expect(screen.getByText('Carrera taxi')).toBeInTheDocument()
+    })
+
+    it('filtra por subcategoría específica', async () => {
+      const user = userEvent.setup()
+      render(<ExpenseList expenses={exps} categories={cats} accounts={[]} onRefresh={jest.fn()} />)
+      await user.click(screen.getByRole('button', { name: /🚌 Transporte/ }))
+      await user.click(screen.getByRole('button', { name: /🚕 Taxi/ }))
+      expect(screen.getByText('Carrera taxi')).toBeInTheDocument()
+      expect(screen.queryByText('Pasaje bus')).not.toBeInTheDocument()
+      expect(screen.queryByText('Mercado')).not.toBeInTheDocument()
+    })
+
+    it('muestra mensaje cuando no hay gastos en la categoría filtrada', async () => {
+      const soloMercado: Expense[] = [exps[0]]
+      const user = userEvent.setup()
+      render(<ExpenseList expenses={soloMercado} categories={cats} accounts={[]} onRefresh={jest.fn()} />)
+      await user.click(screen.getByRole('button', { name: /🚌 Transporte/ }))
+      expect(screen.getByText(/sin gastos en esta categoría/i)).toBeInTheDocument()
+    })
+  })
 })
