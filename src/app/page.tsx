@@ -420,10 +420,8 @@ export default function Dashboard() {
   const disponible = totalBalance - unlinkedMonthTotal - futureSporadicLinked;
 
   const summaryMonthClosed = monthClosures.some((c) => c.year === summaryYear && c.month === summaryMonth);
-  const summaryHasData =
-    thisMonthExpenses.length > 0 ||
-    budgets.some((b) => b.period === "monthly" && b.year === summaryYear && b.month === summaryMonth);
-  const canCloseSummary = !summaryMonthClosed && summaryHasData;
+  // Se puede cerrar cualquier mes no cerrado aún, incluso sin gastos ni presupuesto.
+  const canCloseSummary = !summaryMonthClosed;
 
   const FREQ_MULT: Record<string, number> = { monthly: 1, biweekly: 2, weekly: 4 };
   const activeRecurring = recurringIncome.filter((r) => {

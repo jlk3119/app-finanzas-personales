@@ -109,6 +109,14 @@ describe('Dashboard — Resumen por mes de presupuesto', () => {
     })
   })
 
+  it('ofrece "Cerrar mes" aunque el mes no tenga gastos ni presupuesto', async () => {
+    setupSupabase(baseTables([], []))
+    render(<Dashboard />)
+    expect(
+      await screen.findByRole('button', { name: new RegExp(`Cerrar mes de ${MONTHS[curM - 1]}`, 'i') }),
+    ).toBeInTheDocument()
+  })
+
   it('no muestra la tarjeta de cierre automáticamente en un mes no cerrado', async () => {
     // Mayo cerrado → el Resumen abre en junio (no vivo). Junio NO está cerrado,
     // así que NO debe aparecer la tarjeta "Resumen del mes cerrado" sin pulsar el botón.
