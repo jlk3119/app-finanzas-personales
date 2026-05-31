@@ -15,7 +15,6 @@ const config: Config = {
     '!src/app/auth/**',
     '!src/components/ui/**',
     '!src/lib/**',
-    '!src/proxy.ts',
   ],
   moduleNameMapper: {
     '^@/(.*)$': '<rootDir>/src/$1',
