@@ -646,9 +646,9 @@ export default function Dashboard() {
                 )}
                 {[...categorySpend]
                   .sort((a, b) => {
-                    const pctA = a.budget ? a.total / a.budget : -1;
-                    const pctB = b.budget ? b.total / b.budget : -1;
-                    return pctB - pctA;
+                    const pctA = a.budget ? a.total / a.budget : Infinity;
+                    const pctB = b.budget ? b.total / b.budget : Infinity;
+                    return pctA - pctB;
                   })
                   .map((cat) => {
                     const pct = cat.budget ? (cat.total / cat.budget) * 100 : 0;
