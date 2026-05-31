@@ -19,6 +19,7 @@ const fmt = (n: number) =>
 type Props = {
   prevYear: number;
   prevMonth: number;
+  budgetPeriod?: string;
   expenses: Expense[];
   categories: Category[];
   budgets: Budget[];
@@ -29,7 +30,7 @@ type Props = {
 };
 
 export default function MonthClosureCard({
-  prevYear, prevMonth, expenses, categories, budgets, goals, income, onClose, onRefresh,
+  prevYear, prevMonth, budgetPeriod, expenses, categories, budgets, goals, income, onClose, onRefresh,
 }: Props) {
   const supabase = createClient();
   const [showGoalPicker, setShowGoalPicker] = useState(false);
@@ -39,24 +40,34 @@ export default function MonthClosureCard({
 
   const monthName = MONTH_NAMES[prevMonth - 1];
 
-  const prevExpenses = expenses.filter((e) => {
-    const d = new Date(e.date + "T12:00:00");
-    return d.getMonth() + 1 === prevMonth && d.getFullYear() === prevYear;
-  });
+  const prevExpenses = budgetPeriod
+    ? expenses.filter((e) => e.budget_period === budgetPeriod)
+    : expenses.filter((e) => {
+        const d = new Date(e.date + "T12:00:00");
+        return d.getMonth() + 1 === prevMonth && d.getFullYear() === prevYear;
+      });
   const totalSpent = prevExpenses.reduce((s, e) => s + Number(e.amount), 0);
 
   const ppMonth = prevMonth === 1 ? 12 : prevMonth - 1;
   const ppYear = prevMonth === 1 ? prevYear - 1 : prevYear;
-  const ppExpenses = expenses.filter((e) => {
-    const d = new Date(e.date + "T12:00:00");
-    return d.getMonth() + 1 === ppMonth && d.getFullYear() === ppYear;
-  });
+  const ppKey = `${ppYear}-${String(ppMonth).padStart(2, "0")}`;
+  const ppExpenses = budgetPeriod
+    ? expenses.filter((e) => e.budget_period === ppKey)
+    : expenses.filter((e) => {
+        const d = new Date(e.date + "T12:00:00");
+        return d.getMonth() + 1 === ppMonth && d.getFullYear() === ppYear;
+      });
 
   const monthBudget = budgets.find(
     (b) => b.period === "monthly" && b.category_id === null && b.year === prevYear && b.month === prevMonth,
   );
 
   const prevIncome = income.filter((i) => {
+    if (budgetPeriod) {
+      if (i.period_key) return i.period_key === budgetPeriod;
+      const d = new Date(i.date + "T12:00:00");
+      return d.getMonth() + 1 === prevMonth && d.getFullYear() === prevYear;
+    }
     const d = new Date(i.date + "T12:00:00");
     return d.getMonth() + 1 === prevMonth && d.getFullYear() === prevYear;
   });

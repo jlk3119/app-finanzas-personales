@@ -1,10 +1,11 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useState, useCallback, useRef } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
 import type { Expense, Budget, Category, Goal, Account, Income, RecurringIncome, MonthClosure, Debt } from "@/types";
 import { getCurrentPayPeriod, getCustomPayPeriod } from "@/utils/colombian-holidays";
+import { getDefaultBudgetMonth } from "@/utils/budget-month";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
@@ -60,6 +61,11 @@ export default function Dashboard() {
   const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
   const [expenseMonth, setExpenseMonth] = useState(() => new Date().getMonth() + 1);
   const [expenseYear, setExpenseYear] = useState(() => new Date().getFullYear());
+  const [summaryMonth, setSummaryMonth] = useState(() => new Date().getMonth() + 1);
+  const [summaryYear, setSummaryYear] = useState(() => new Date().getFullYear());
+  const [showClosurePanel, setShowClosurePanel] = useState(false);
+  const summaryTouchedRef = useRef(false);
+  const summaryDefaultAppliedRef = useRef(false);
 
   useBackButtonClose(showForm, () => setShowForm(false));
   useBackButtonClose(editingExpense !== null, () => setEditingExpense(null));
@@ -70,6 +76,8 @@ export default function Dashboard() {
   const currentYear = now.getFullYear();
   const currentWeek = getWeekNumber(now);
   const currentMonthKey = `${currentYear}-${String(currentMonth).padStart(2, "0")}`;
+  const summaryMonthKey = `${summaryYear}-${String(summaryMonth).padStart(2, "0")}`;
+  const isLiveMonth = summaryMonth === currentMonth && summaryYear === currentYear;
 
   const checkAutoAssign = useCallback(async (
     recurData: RecurringIncome[],
@@ -133,21 +141,22 @@ export default function Dashboard() {
     const nowObj = new Date();
     const curM = nowObj.getMonth() + 1;
     const curY = nowObj.getFullYear();
-    const pM = curM === 1 ? 12 : curM - 1;
-    const pY = curM === 1 ? curY - 1 : curY;
-    const startOfPrevMonthStr = `${pY}-${String(pM).padStart(2, "0")}-01`;
+
+    // Ventana hacia atrás para permitir navegar el Resumen por meses anteriores.
+    const windowStart = new Date(curY, curM - 1 - 6, 1);
+    const windowStartKey = `${windowStart.getFullYear()}-${String(windowStart.getMonth() + 1).padStart(2, "0")}`;
+    const startOfWindowStr = `${windowStartKey}-01`;
 
     const expMonthKey = `${expenseYear}-${String(expenseMonth).padStart(2, "0")}`;
-    const prevMonthKey = `${pY}-${String(pM).padStart(2, "0")}`;
 
     const [expRes, dashExpRes, budRes, catRes, goalRes, accRes, incRes, recurRes, closuresRes, debtRes] = await Promise.all([
       supabase.from("expenses").select("*, categories(*), accounts(*)").eq("budget_period", expMonthKey).order("date", { ascending: false }),
-      supabase.from("expenses").select("*, categories(*), accounts(*)").gte("budget_period", prevMonthKey).order("date", { ascending: false }),
+      supabase.from("expenses").select("*, categories(*), accounts(*)").gte("budget_period", windowStartKey).order("date", { ascending: false }),
       supabase.from("budgets").select("*, categories(*)"),
       supabase.from("categories").select("*").order("name"),
       supabase.from("goals").select("*, categories(*)").order("created_at", { ascending: false }),
       supabase.from("accounts").select("*").order("created_at"),
-      supabase.from("income").select("*, accounts(*)").gte("date", startOfPrevMonthStr).order("date", { ascending: false }),
+      supabase.from("income").select("*, accounts(*)").gte("date", startOfWindowStr).order("date", { ascending: false }),
       supabase.from("recurring_income").select("*, accounts(*)").order("created_at"),
       supabase.from("month_closures").select("*"),
       supabase.from("debts").select("*").order("created_at", { ascending: false }),
@@ -200,7 +209,7 @@ export default function Dashboard() {
     if (assigned) {
       const [accRefresh, incRefresh] = await Promise.all([
         supabase.from("accounts").select("*").order("created_at"),
-        supabase.from("income").select("*, accounts(*)").gte("date", startOfPrevMonthStr).order("date", { ascending: false }),
+        supabase.from("income").select("*, accounts(*)").gte("date", startOfWindowStr).order("date", { ascending: false }),
       ]);
       if (accRefresh.data) {
         finalAccData = accRefresh.data as Account[];
@@ -268,6 +277,22 @@ export default function Dashboard() {
   // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData(); }, [fetchData]);
 
+  // Mes por defecto del Resumen = mes no cerrado más reciente. Se aplica una sola vez
+  // tras el primer fetch real y nunca pisa la navegación manual del usuario.
+  useEffect(() => {
+    if (loading || summaryTouchedRef.current || summaryDefaultAppliedRef.current) return;
+    const def = getDefaultBudgetMonth(monthClosures, new Date());
+    setSummaryMonth(def.month);
+    setSummaryYear(def.year);
+    summaryDefaultAppliedRef.current = true;
+  }, [loading, monthClosures]);
+
+  // Al cambiar de mes en el Resumen, ocultar el panel de cierre para que no se filtre.
+  useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setShowClosurePanel(false);
+  }, [summaryMonth, summaryYear]);
+
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
     const tab = params.get("tab") as TabValue | null;
@@ -309,6 +334,51 @@ export default function Dashboard() {
     }
   };
 
+  const goToPrevSummaryMonth = () => {
+    summaryTouchedRef.current = true;
+    if (summaryMonth === 1) {
+      setSummaryMonth(12);
+      setSummaryYear((y) => y - 1);
+    } else {
+      setSummaryMonth((m) => m - 1);
+    }
+  };
+
+  const isNextSummaryMonthDisabled = (() => {
+    const nextM = summaryMonth === 12 ? 1 : summaryMonth + 1;
+    const nextY = summaryMonth === 12 ? summaryYear + 1 : summaryYear;
+    // Permitir ver meses futuros (el usuario gasta el presupuesto del mes siguiente),
+    // con un tope de mes actual + 2 o el mes por defecto, lo que sea mayor.
+    const defM = getDefaultBudgetMonth(monthClosures, now);
+    const cap = new Date(currentYear, currentMonth - 1 + 2, 1);
+    const defDate = new Date(defM.year, defM.month - 1, 1);
+    const limitDate = defDate > cap ? defDate : cap;
+    const nextDate = new Date(nextY, nextM - 1, 1);
+    return nextDate > limitDate;
+  })();
+
+  const goToNextSummaryMonth = () => {
+    if (isNextSummaryMonthDisabled) return;
+    summaryTouchedRef.current = true;
+    if (summaryMonth === 12) {
+      setSummaryMonth(1);
+      setSummaryYear((y) => y + 1);
+    } else {
+      setSummaryMonth((m) => m + 1);
+    }
+  };
+
+  const handleSummaryClosed = () => {
+    summaryTouchedRef.current = true;
+    setMonthClosures((prev) => [...prev, { id: "", user_id: "", year: summaryYear, month: summaryMonth, closed_at: "" }]);
+    if (summaryMonth === 12) {
+      setSummaryMonth(1);
+      setSummaryYear((y) => y + 1);
+    } else {
+      setSummaryMonth((m) => m + 1);
+    }
+  };
+
   const handleTabChange = (value: TabValue) => {
     setActiveTab(value);
     window.history.pushState({}, "", `?tab=${value}`);
@@ -319,7 +389,7 @@ export default function Dashboard() {
     location.href = "/login";
   };
 
-  const thisMonthExpenses = dashboardExpenses.filter((e) => e.budget_period === currentMonthKey);
+  const thisMonthExpenses = dashboardExpenses.filter((e) => e.budget_period === summaryMonthKey);
 
   const thisWeekExpenses = dashboardExpenses.filter((e) => {
     const d = new Date(e.date + "T12:00:00");
@@ -331,7 +401,7 @@ export default function Dashboard() {
   const totalWeek = thisWeekExpenses.reduce((s, e) => s + Number(e.amount), 0);
   const totalMonth = thisMonthExpenses.reduce((s, e) => s + Number(e.amount), 0);
 
-  const monthBudget = budgets.find((b) => b.period === "monthly" && b.category_id === null && b.year === currentYear && b.month === currentMonth);
+  const monthBudget = budgets.find((b) => b.period === "monthly" && b.category_id === null && b.year === summaryYear && b.month === summaryMonth);
   const weekBudget = budgets.find((b) => b.period === "weekly" && b.category_id === null && b.year === currentYear && b.week === currentWeek);
 
   const totalBalance = accounts.reduce((s, a) => s + Number(a.balance), 0);
@@ -349,21 +419,19 @@ export default function Dashboard() {
     .reduce((s, i) => s + Number(i.amount), 0);
   const disponible = totalBalance - unlinkedMonthTotal - futureSporadicLinked;
 
-  const prevM = currentMonth === 1 ? 12 : currentMonth - 1;
-  const prevY = currentMonth === 1 ? currentYear - 1 : currentYear;
-  const prevMonthClosed = monthClosures.some((c) => c.year === prevY && c.month === prevM);
-  const prevMonthHasData =
-    dashboardExpenses.some((e) => e.budget_period === `${prevY}-${String(prevM).padStart(2, "0")}`) ||
-    budgets.some((b) => b.period === "monthly" && b.year === prevY && b.month === prevM);
-  const showClosure = !prevMonthClosed && prevMonthHasData;
+  const summaryMonthClosed = monthClosures.some((c) => c.year === summaryYear && c.month === summaryMonth);
+  const summaryHasData =
+    thisMonthExpenses.length > 0 ||
+    budgets.some((b) => b.period === "monthly" && b.year === summaryYear && b.month === summaryMonth);
+  const canCloseSummary = !summaryMonthClosed && summaryHasData;
 
   const FREQ_MULT: Record<string, number> = { monthly: 1, biweekly: 2, weekly: 4 };
   const activeRecurring = recurringIncome.filter((r) => {
     if (!r.start_date) return true;
     const [sy, sm] = r.start_date.split("-").map(Number);
-    return currentYear > sy || (currentYear === sy && currentMonth >= sm);
+    return summaryYear > sy || (summaryYear === sy && summaryMonth >= sm);
   });
-  const sporadicForMonth = income.filter((i) => !i.recurring_income_id && i.period_key === currentMonthKey);
+  const sporadicForMonth = income.filter((i) => !i.recurring_income_id && i.period_key === summaryMonthKey);
   const recurringTotal = activeRecurring.reduce((s, r) => s + Number(r.amount) * (FREQ_MULT[r.frequency] ?? 1), 0);
   const sporadicTotal = sporadicForMonth.reduce((s, i) => s + Number(i.amount), 0);
   const expectedIncome = recurringTotal + sporadicTotal;
@@ -371,7 +439,7 @@ export default function Dashboard() {
   const budgetAllocation = categories
     .filter((c) => !c.parent_id)
     .map((cat) => {
-      const b = budgets.find((bg) => bg.category_id === cat.id && bg.period === "monthly" && bg.year === currentYear && bg.month === currentMonth);
+      const b = budgets.find((bg) => bg.category_id === cat.id && bg.period === "monthly" && bg.year === summaryYear && bg.month === summaryMonth);
       if (!b) return null;
       return { name: cat.name, icon: cat.icon, color: cat.color, amount: Number(b.amount) };
     })
@@ -391,7 +459,7 @@ export default function Dashboard() {
         icon: cat.icon,
         color: cat.color,
         total: thisMonthExpenses.filter((e) => allIds.includes(e.category_id ?? "")).reduce((s, e) => s + Number(e.amount), 0),
-        budget: budgets.find((b) => b.category_id === cat.id && b.period === "monthly" && b.year === currentYear && b.month === currentMonth)?.amount,
+        budget: budgets.find((b) => b.category_id === cat.id && b.period === "monthly" && b.year === summaryYear && b.month === summaryMonth)?.amount,
       };
     })
     .filter((c) => c.total > 0);
@@ -439,7 +507,7 @@ export default function Dashboard() {
             {weekBudget && <p className="text-xs text-violet-300">/ {fmt(weekBudget.amount)}</p>}
           </div>
           <div className="bg-white/20 rounded-xl p-3 text-center">
-            <p className="text-xs text-violet-200">Mes</p>
+            <p className="text-xs text-violet-200">{isLiveMonth ? "Mes" : `Mes · ${MONTHS[summaryMonth - 1].slice(0, 3)}`}</p>
             <p className="font-bold text-sm">{fmt(totalMonth)}</p>
             {monthBudget && <p className="text-xs text-violet-300">/ {fmt(monthBudget.amount)}</p>}
           </div>
@@ -473,16 +541,45 @@ export default function Dashboard() {
       {/* Contenido por pestaña */}
       <div className="px-4 mt-4 space-y-4">
         <div className={activeTab !== "dashboard" ? "hidden" : ""}>
-            {showClosure && (
+            <div className="flex items-center justify-between">
+              <Button variant="ghost" size="icon" onClick={goToPrevSummaryMonth} className="h-8 w-8">
+                <ChevronLeft className="w-4 h-4" />
+              </Button>
+              <span className="text-sm font-semibold">
+                {MONTHS[summaryMonth - 1]} {summaryYear}{!isLiveMonth && " · presupuesto"}
+              </span>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={goToNextSummaryMonth}
+                disabled={isNextSummaryMonthDisabled}
+                className="h-8 w-8"
+              >
+                <ChevronRight className="w-4 h-4" />
+              </Button>
+            </div>
+
+            {canCloseSummary && isLiveMonth && !showClosurePanel && (
+              <Button
+                variant="outline"
+                className="w-full border-violet-300 text-violet-700"
+                onClick={() => setShowClosurePanel(true)}
+              >
+                <CheckCircle2 className="w-4 h-4 mr-1" /> Cerrar mes de {MONTHS[summaryMonth - 1]}
+              </Button>
+            )}
+
+            {(showClosurePanel || (canCloseSummary && !isLiveMonth)) && (
               <MonthClosureCard
-                prevYear={prevY}
-                prevMonth={prevM}
+                prevYear={summaryYear}
+                prevMonth={summaryMonth}
+                budgetPeriod={summaryMonthKey}
                 expenses={dashboardExpenses}
                 categories={categories}
                 budgets={budgets}
                 goals={goals}
                 income={income}
-                onClose={() => setMonthClosures((prev) => [...prev, { id: "", user_id: "", year: prevY, month: prevM, closed_at: "" }])}
+                onClose={() => { setShowClosurePanel(false); handleSummaryClosed(); }}
                 onRefresh={fetchData}
               />
             )}
@@ -643,8 +740,8 @@ export default function Dashboard() {
               categories={categories}
               accounts={accounts}
               recurringIncome={recurringIncome}
-              currentMonth={currentMonth}
-              currentYear={currentYear}
+              currentMonth={summaryMonth}
+              currentYear={summaryYear}
               dataLoaded={!loading}
             />
         </div>
