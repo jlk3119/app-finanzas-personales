@@ -109,6 +109,19 @@ describe('Dashboard — Resumen por mes de presupuesto', () => {
     })
   })
 
+  it('no muestra la tarjeta de cierre automáticamente en un mes no cerrado', async () => {
+    // Mayo cerrado → el Resumen abre en junio (no vivo). Junio NO está cerrado,
+    // así que NO debe aparecer la tarjeta "Resumen del mes cerrado" sin pulsar el botón.
+    const expenses = [
+      { id: 'e1', user_id: 'u1', category_id: 'sys', amount: 50_000, description: 'x', date: `${nextY}-${String(nextM).padStart(2, '0')}-10`, budget_period: `${nextY}-${String(nextM).padStart(2, '0')}`, created_at: '', categories: sysCat },
+    ]
+    setupSupabase(baseTables([{ id: 'c', user_id: 'u1', year: curY, month: curM, closed_at: '' }], expenses))
+    render(<Dashboard />)
+    await screen.findByText(new RegExp(`${MONTHS[nextM - 1]} ${nextY} · presupuesto`))
+    expect(screen.queryByText(/resumen del mes cerrado/i)).not.toBeInTheDocument()
+    expect(await screen.findByRole('button', { name: new RegExp(`Cerrar mes de ${MONTHS[nextM - 1]}`, 'i') })).toBeInTheDocument()
+  })
+
   it('el total "Mes" refleja solo gastos del budget_period seleccionado', async () => {
     const expenses = [
       { id: 'e1', user_id: 'u1', category_id: 'sys', amount: 70_000, description: 'mes actual', date: `${curKey}-05`, budget_period: curKey, created_at: '', categories: sysCat },

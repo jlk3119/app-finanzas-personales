@@ -559,7 +559,7 @@ export default function Dashboard() {
               </Button>
             </div>
 
-            {canCloseSummary && isLiveMonth && !showClosurePanel && (
+            {canCloseSummary && !showClosurePanel && (
               <Button
                 variant="outline"
                 className="w-full border-violet-300 text-violet-700"
@@ -569,7 +569,7 @@ export default function Dashboard() {
               </Button>
             )}
 
-            {(showClosurePanel || (canCloseSummary && !isLiveMonth)) && (
+            {showClosurePanel && (
               <MonthClosureCard
                 prevYear={summaryYear}
                 prevMonth={summaryMonth}
