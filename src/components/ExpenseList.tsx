@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { motion, useReducedMotion } from "motion/react";
 import { createClient } from "@/utils/supabase/client";
 import type { Account, Expense, Category } from "@/types";
 import { Button } from "@/components/ui/button";
@@ -41,6 +42,7 @@ function formatDate(dateStr: string) {
 
 export default function ExpenseList({ expenses, categories, accounts, onRefresh, onEdit, compact }: Props) {
   const supabase = createClient();
+  const reduceMotion = useReducedMotion();
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
   const [filterParentId, setFilterParentId] = useState<string>("");
@@ -185,13 +187,21 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">{formatDate(date)}</p>
             <p className="text-xs text-muted-foreground">{fmt(items.reduce((s, e) => s + Number(e.amount), 0))}</p>
           </div>
-          <div className="space-y-2">
+          <motion.div
+            className="space-y-2"
+            initial={reduceMotion ? false : "hidden"}
+            animate="visible"
+            variants={{ visible: { transition: { staggerChildren: 0.04 } } }}
+          >
             {items.map((e) => {
               const cat = categories.find((c) => c.id === e.category_id);
               const parentCat = cat?.parent_id ? categories.find((c) => c.id === cat.parent_id) : null;
               const catLabel = parentCat ? `${parentCat.name} › ${cat?.name}` : cat?.name;
               return (
-                <div key={e.id} className="flex items-center justify-between bg-surface rounded-xl px-3 py-2">
+                <motion.div
+                  key={e.id}
+                  variants={{ hidden: { opacity: 0, y: 8 }, visible: { opacity: 1, y: 0 } }}
+                  className="flex items-center justify-between bg-surface rounded-xl px-3 py-2">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-base" style={{ backgroundColor: (parentCat?.color ?? cat?.color) + "22" }}>
                       {cat?.icon ?? "📦"}
@@ -232,10 +242,10 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>
-                </div>
+                </motion.div>
               );
             })}
-          </div>
+          </motion.div>
         </div>
       ))}
       <ConfirmDialog
