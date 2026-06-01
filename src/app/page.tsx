@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
 import type { Expense, Budget, Category, Goal, Account, Income, RecurringIncome, MonthClosure, Debt } from "@/types";
@@ -21,6 +22,7 @@ import DebtManager from "@/components/DebtManager";
 import CategoryManager from "@/components/CategoryManager";
 import AccountsManager from "@/components/AccountsManager";
 import MonthClosureCard from "@/components/MonthClosureCard";
+import { ThemeToggle } from "@/components/ThemeToggle";
 
 const MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -44,6 +46,7 @@ type TabValue = typeof TABS[number]["value"];
 
 export default function Dashboard() {
   const supabase = createClient();
+  const reduceMotion = useReducedMotion();
   const [expenses, setExpenses] = useState<Expense[]>([]);
   const [dashboardExpenses, setDashboardExpenses] = useState<Expense[]>([]);
   const [budgets, setBudgets] = useState<Budget[]>([]);
@@ -483,60 +486,61 @@ export default function Dashboard() {
   return (
     <div className="min-h-screen pb-24">
       {/* Header */}
-      <div className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white px-4 pt-10 pb-6">
+      <div className="bg-primary text-on-primary px-4 pt-10 pb-6 rounded-b-3xl shadow-e2">
         <div className="flex justify-between items-start mb-4">
           <div>
-            <h1 className="text-2xl font-bold">💸 MisFinanzas</h1>
-            <p className="text-violet-200 text-sm">{now.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</p>
+            <h1 className="text-3xl font-bold tracking-tight">💸 MisFinanzas</h1>
+            <p className="text-on-primary/70 text-sm">{now.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</p>
           </div>
           <div className="flex gap-1">
-            <Button variant="ghost" size="icon" onClick={() => setShowCategories(true)} className="text-white hover:bg-white/20">
+            <ThemeToggle className="text-on-primary hover:bg-on-primary/20" />
+            <Button variant="ghost" size="icon" onClick={() => setShowCategories(true)} className="text-on-primary hover:bg-on-primary/20">
               <Settings className="w-5 h-5" />
             </Button>
-            <Button variant="ghost" size="icon" onClick={signOut} className="text-white hover:bg-white/20">
+            <Button variant="ghost" size="icon" onClick={signOut} className="text-on-primary hover:bg-on-primary/20">
               <LogOut className="w-5 h-5" />
             </Button>
           </div>
         </div>
 
         <div className="grid grid-cols-3 gap-2 mt-2">
-          <div className="bg-white/20 rounded-xl p-3 text-center">
-            <p className="text-xs text-violet-200">Hoy</p>
+          <div className="bg-on-primary/15 rounded-2xl p-3 text-center">
+            <p className="text-xs text-on-primary/70">Hoy</p>
             <p className="font-bold text-sm">{fmt(totalToday)}</p>
           </div>
-          <div className="bg-white/20 rounded-xl p-3 text-center">
-            <p className="text-xs text-violet-200">Semana</p>
+          <div className="bg-on-primary/15 rounded-2xl p-3 text-center">
+            <p className="text-xs text-on-primary/70">Semana</p>
             <p className="font-bold text-sm">{fmt(totalWeek)}</p>
-            {weekBudget && <p className="text-xs text-violet-300">/ {fmt(weekBudget.amount)}</p>}
+            {weekBudget && <p className="text-xs text-on-primary/60">/ {fmt(weekBudget.amount)}</p>}
           </div>
-          <div className="bg-white/20 rounded-xl p-3 text-center">
-            <p className="text-xs text-violet-200">{isLiveMonth ? "Mes" : `Mes · ${MONTHS[summaryMonth - 1].slice(0, 3)}`}</p>
+          <div className="bg-on-primary/15 rounded-2xl p-3 text-center">
+            <p className="text-xs text-on-primary/70">{isLiveMonth ? "Mes" : `Mes · ${MONTHS[summaryMonth - 1].slice(0, 3)}`}</p>
             <p className="font-bold text-sm">{fmt(totalMonth)}</p>
-            {monthBudget && <p className="text-xs text-violet-300">/ {fmt(monthBudget.amount)}</p>}
+            {monthBudget && <p className="text-xs text-on-primary/60">/ {fmt(monthBudget.amount)}</p>}
           </div>
         </div>
 
         {accounts.length > 0 && (
-          <div className={`mt-2 rounded-xl px-4 py-2.5 flex items-center justify-between ${disponible >= 0 ? "bg-white/10" : "bg-red-500/30"}`}>
+          <div className={`mt-2 rounded-2xl px-4 py-2.5 flex items-center justify-between ${disponible >= 0 ? "bg-on-primary/10" : "bg-error/40"}`}>
             <div>
-              <p className="text-xs text-violet-300">Disponible total</p>
-              <p className="text-[10px] text-violet-400">
+              <p className="text-xs text-on-primary/70">Disponible total</p>
+              <p className="text-[10px] text-on-primary/60">
                 {unlinkedMonthTotal > 0
                   ? `saldo en cuentas − ${fmt(unlinkedMonthTotal)} sin cuenta`
                   : "saldo real en cuentas"}
               </p>
             </div>
-            <p className={`font-bold text-base ${disponible < 0 ? "text-red-200" : "text-white"}`}>{fmt(disponible)}</p>
+            <p className={`font-bold text-base ${disponible < 0 ? "text-on-error-container" : "text-on-primary"}`}>{fmt(disponible)}</p>
           </div>
         )}
 
         {monthBudget && (
           <div className="mt-3">
-            <div className="flex justify-between text-xs text-violet-200 mb-1">
+            <div className="flex justify-between text-xs text-on-primary/70 mb-1">
               <span>Presupuesto mensual</span>
               <span>{Math.round((totalMonth / monthBudget.amount) * 100)}%</span>
             </div>
-            <Progress value={Math.min((totalMonth / monthBudget.amount) * 100, 100)} className="h-2 bg-white/30" />
+            <Progress value={Math.min((totalMonth / monthBudget.amount) * 100, 100)} className="h-2 bg-on-primary/30" />
           </div>
         )}
       </div>
@@ -565,7 +569,7 @@ export default function Dashboard() {
             {canCloseSummary && !showClosurePanel && (
               <Button
                 variant="outline"
-                className="w-full border-violet-300 text-violet-700"
+                className="w-full text-primary"
                 onClick={() => setShowClosurePanel(true)}
               >
                 <CheckCircle2 className="w-4 h-4 mr-1" /> Cerrar mes de {MONTHS[summaryMonth - 1]}
@@ -598,39 +602,39 @@ export default function Dashboard() {
               ];
               const doneCount = steps.filter((s) => s.done).length;
               return (
-                <Card className="border-violet-200 bg-gradient-to-br from-violet-50 to-indigo-50">
+                <Card className="bg-primary-container">
                   <CardContent className="pt-5 pb-4 space-y-3">
                     <div className="flex items-center justify-between">
                       <div>
-                        <h2 className="text-sm font-bold text-violet-900">
+                        <h2 className="text-sm font-bold text-on-primary-container">
                           {doneCount === 0 ? "👋 ¡Bienvenido a MisFinanzas!" : "Configuración inicial"}
                         </h2>
-                        <p className="text-xs text-violet-600 mt-0.5">{doneCount} de 3 pasos completados</p>
+                        <p className="text-xs text-on-primary-container/80 mt-0.5">{doneCount} de 3 pasos completados</p>
                       </div>
                       <div className="flex gap-1">
                         {steps.map((s, i) => (
-                          <div key={i} className={`w-2 h-2 rounded-full ${s.done ? "bg-emerald-500" : "bg-violet-200"}`} />
+                          <div key={i} className={`w-2 h-2 rounded-full ${s.done ? "bg-success" : "bg-on-primary-container/30"}`} />
                         ))}
                       </div>
                     </div>
                     <ol className="space-y-2">
                       {steps.map((step, i) => step.done ? (
-                        <li key={i} className="flex items-center gap-2.5 bg-white/60 rounded-xl px-3 py-2.5">
-                          <CheckCircle2 className="w-5 h-5 text-emerald-500 shrink-0" />
-                          <p className="text-sm text-emerald-700 line-through">{step.label}</p>
+                        <li key={i} className="flex items-center gap-2.5 bg-surface-container-lowest/60 rounded-xl px-3 py-2.5">
+                          <CheckCircle2 className="w-5 h-5 text-success shrink-0" />
+                          <p className="text-sm text-on-success-container line-through">{step.label}</p>
                         </li>
                       ) : (
                         <li key={i}>
                           <button
-                            className="w-full flex items-center gap-2.5 bg-white rounded-xl px-3 py-2.5 shadow-sm text-left active:bg-violet-50 transition-colors"
+                            className="w-full flex items-center gap-2.5 bg-surface-container-lowest rounded-xl px-3 py-2.5 shadow-e1 text-left active:bg-primary-container transition-colors"
                             onClick={() => handleTabChange(step.tab)}
                           >
-                            <span className="w-5 h-5 rounded-full bg-violet-100 text-violet-700 font-bold text-[10px] flex items-center justify-center shrink-0">{i + 1}</span>
+                            <span className="w-5 h-5 rounded-full bg-primary text-on-primary font-bold text-[10px] flex items-center justify-center shrink-0">{i + 1}</span>
                             <div className="min-w-0">
-                              <p className="font-semibold text-sm text-gray-800">{step.label}</p>
+                              <p className="font-semibold text-sm text-on-surface">{step.label}</p>
                               <p className="text-xs text-muted-foreground">{step.desc}</p>
                             </div>
-                            <span className="ml-auto text-violet-400 text-base shrink-0">›</span>
+                            <span className="ml-auto text-on-surface-variant text-base shrink-0">›</span>
                           </button>
                         </li>
                       ))}
@@ -680,11 +684,11 @@ export default function Dashboard() {
                                 className="h-full transition-all"
                                 style={{
                                   width: `${Math.min(pct, 100)}%`,
-                                  backgroundColor: pct > 100 ? "#ef4444" : cat.color,
+                                  backgroundColor: pct > 100 ? "var(--md-error)" : cat.color,
                                 }}
                               />
                             </div>
-                            <p className={`text-right text-[10px] mt-0.5 ${pct > 100 ? "text-red-500" : "text-emerald-600"}`}>
+                            <p className={`text-right text-[10px] mt-0.5 ${pct > 100 ? "text-error" : "text-success"}`}>
                               {pct > 100
                                 ? `${fmt(cat.total - cat.budget)} excedido`
                                 : `${fmt(cat.budget - cat.total)} disponibles`}
@@ -750,6 +754,12 @@ export default function Dashboard() {
         </div>
 
         {activeTab === "expenses" && (
+          <motion.div
+            key="tab-expenses"
+            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 32 }}
+          >
           <Card>
             <CardContent className="pt-4">
               <div className="flex items-center justify-between mb-3">
@@ -771,7 +781,7 @@ export default function Dashboard() {
                     variant="ghost"
                     size="icon"
                     onClick={() => exportMonthlyCSV(expenses, budgets, categories, expenseMonth, expenseYear)}
-                    className="h-8 w-8 text-muted-foreground hover:text-violet-600"
+                    className="h-8 w-8 text-muted-foreground hover:text-primary"
                     title="Exportar CSV"
                   >
                     <Download className="w-4 h-4" />
@@ -781,9 +791,16 @@ export default function Dashboard() {
               <ExpenseList expenses={expenses} categories={categories} accounts={accounts} onRefresh={fetchData} onEdit={setEditingExpense} />
             </CardContent>
           </Card>
+          </motion.div>
         )}
 
         {activeTab === "budget" && (
+          <motion.div
+            key="tab-budget"
+            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 32 }}
+          >
           <BudgetManager
             budgets={budgets}
             categories={categories}
@@ -795,19 +812,32 @@ export default function Dashboard() {
             currentMonth={currentMonth}
             currentYear={currentYear}
           />
+          </motion.div>
         )}
 
         {activeTab === "goals" && (
-          <div className="space-y-6">
+          <motion.div
+            key="tab-goals"
+            className="space-y-6"
+            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 32 }}
+          >
             <GoalsList goals={goals} categories={categories} onRefresh={fetchData} />
             <div>
-              <h2 className="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Deudas</h2>
+              <h2 className="text-sm font-semibold text-on-surface-variant uppercase tracking-wide mb-3">Deudas</h2>
               <DebtManager debts={debts} onRefresh={fetchData} />
             </div>
-          </div>
+          </motion.div>
         )}
 
         {activeTab === "accounts" && (
+          <motion.div
+            key="tab-accounts"
+            initial={reduceMotion ? false : { opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ type: "spring", stiffness: 400, damping: 32 }}
+          >
           <AccountsManager
             accounts={accounts}
             income={income}
@@ -816,36 +846,56 @@ export default function Dashboard() {
             unlinkedMonthTotal={unlinkedMonthTotal}
             onRefresh={fetchData}
           />
+          </motion.div>
         )}
       </div>
 
       {/* FAB — solo en Resumen y Gastos */}
-      {(activeTab === "dashboard" || activeTab === "expenses") && (
-        <div className="fixed bottom-[76px] right-4 z-50">
-          <button
-            className="flex items-center gap-2 bg-violet-600 active:bg-violet-800 text-white rounded-full pl-4 pr-5 py-3 shadow-lg active:scale-95 transition-transform"
-            onClick={() => setShowForm(true)}
+      <AnimatePresence>
+        {(activeTab === "dashboard" || activeTab === "expenses") && (
+          <motion.div
+            className="fixed bottom-[88px] right-4 z-50"
+            initial={reduceMotion ? false : { scale: 0, opacity: 0 }}
+            animate={{ scale: 1, opacity: 1 }}
+            exit={reduceMotion ? { opacity: 0 } : { scale: 0, opacity: 0 }}
+            transition={{ type: "spring", stiffness: 500, damping: 30 }}
           >
-            <PlusCircle className="w-5 h-5 shrink-0" />
-            <span className="text-sm font-semibold">Nuevo gasto</span>
-          </button>
-        </div>
-      )}
+            <motion.button
+              className="flex items-center gap-2 bg-primary-container text-on-primary-container rounded-2xl pl-4 pr-5 py-4 shadow-e3"
+              whileTap={{ scale: 0.94, borderRadius: 28 }}
+              onClick={() => setShowForm(true)}
+            >
+              <PlusCircle className="w-5 h-5 shrink-0" />
+              <span className="text-sm font-semibold">Nuevo gasto</span>
+            </motion.button>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-      {/* Barra de navegación inferior */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-100 shadow-[0_-2px_10px_rgba(0,0,0,0.06)] flex">
-        {TABS.map(({ value, label, Icon }) => (
-          <button
-            key={value}
-            className={`flex-1 flex flex-col items-center justify-center py-2.5 gap-0.5 transition-colors ${
-              activeTab === value ? "text-violet-600" : "text-gray-400"
-            }`}
-            onClick={() => handleTabChange(value)}
-          >
-            <Icon className={`w-5 h-5 ${activeTab === value ? "stroke-[2.2px]" : ""}`} />
-            <span className="text-[10px] font-medium leading-tight">{label}</span>
-          </button>
-        ))}
+      {/* Barra de navegación inferior — MD3 Navigation Bar */}
+      <nav className="fixed bottom-0 inset-x-0 z-40 bg-surface-container shadow-e2 flex h-20 pb-2">
+        {TABS.map(({ value, label, Icon }) => {
+          const active = activeTab === value;
+          return (
+            <button
+              key={value}
+              className="flex-1 flex flex-col items-center justify-center gap-1 pt-3"
+              onClick={() => handleTabChange(value)}
+            >
+              <span className="relative flex items-center justify-center w-16 h-8">
+                {active && (
+                  <motion.span
+                    layoutId="nav-pill"
+                    className="absolute inset-0 rounded-full bg-secondary-container"
+                    transition={{ type: "spring", stiffness: 500, damping: 35 }}
+                  />
+                )}
+                <Icon className={`relative w-5 h-5 transition-colors ${active ? "text-on-secondary-container stroke-[2.2px]" : "text-on-surface-variant"}`} />
+              </span>
+              <span className={`text-[11px] font-medium leading-tight transition-colors ${active ? "text-on-surface" : "text-on-surface-variant"}`}>{label}</span>
+            </button>
+          );
+        })}
       </nav>
 
       {(showForm || editingExpense !== null) && (
