@@ -140,12 +140,12 @@ export default function MonthClosureCard({
   const activeGoals = goals.filter((g) => !g.completed);
 
   return (
-    <Card className="border-2 border-violet-200 overflow-hidden">
+    <Card className="border-2 border-primary/30 overflow-hidden">
       <div
         className={`px-4 py-4 text-white ${
           isPositive
-            ? "bg-gradient-to-r from-emerald-500 to-teal-500"
-            : "bg-gradient-to-r from-rose-500 to-orange-500"
+            ? "bg-success"
+            : "bg-error"
         }`}
       >
         <div className="flex items-center justify-between">
@@ -156,11 +156,11 @@ export default function MonthClosureCard({
           <span className="text-4xl">{isPositive ? "🎉" : "😅"}</span>
         </div>
         <div className="mt-3 grid grid-cols-2 gap-2">
-          <div className="bg-white/20 rounded-xl p-2.5">
+          <div className="bg-surface-container-lowest/20 rounded-xl p-2.5">
             <p className="text-xs opacity-80">Total gastado</p>
             <p className="font-bold">{fmt(totalSpent)}</p>
           </div>
-          <div className="bg-white/20 rounded-xl p-2.5">
+          <div className="bg-surface-container-lowest/20 rounded-xl p-2.5">
             <p className="text-xs opacity-80">{totalIncome > 0 ? "Ingresos del mes" : "Presupuesto"}</p>
             <p className="font-bold">{totalIncome > 0 ? fmt(totalIncome) : (monthBudget ? fmt(monthBudget.amount) : "—")}</p>
           </div>
@@ -171,19 +171,19 @@ export default function MonthClosureCard({
         {realMargin !== null && (
           <div
             className={`rounded-xl px-4 py-3 flex items-center justify-between ${
-              isPositive ? "bg-emerald-50 border border-emerald-200" : "bg-rose-50 border border-rose-200"
+              isPositive ? "bg-success-container border border-success/30" : "bg-error-container border border-error/30"
             }`}
           >
             <div>
               <p className="text-xs font-medium text-muted-foreground">Margen real del mes</p>
-              <p className={`text-2xl font-bold ${isPositive ? "text-emerald-700" : "text-rose-700"}`}>
+              <p className={`text-2xl font-bold ${isPositive ? "text-success" : "text-error"}`}>
                 {fmt(Math.abs(realMargin))}
               </p>
               <p className="text-xs text-muted-foreground">{isPositive ? "a tu favor" : "de déficit"}</p>
             </div>
             {isPositive
-              ? <TrendingUp className="w-8 h-8 text-emerald-400" />
-              : <TrendingDown className="w-8 h-8 text-rose-400" />
+              ? <TrendingUp className="w-8 h-8 text-success" />
+              : <TrendingDown className="w-8 h-8 text-error" />
             }
           </div>
         )}
@@ -202,7 +202,7 @@ export default function MonthClosureCard({
           <div className="space-y-2">
             <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">Por categoría</p>
             {catBreakdown.map((cat) => (
-              <div key={cat.id} className="bg-gray-50 rounded-xl overflow-hidden">
+              <div key={cat.id} className="bg-surface rounded-xl overflow-hidden">
                 <button
                   className="w-full flex items-center gap-2 px-3 py-2.5 text-left"
                   onClick={() => cat.subBreakdown.length > 0 && toggleCat(cat.id)}
@@ -215,7 +215,7 @@ export default function MonthClosureCard({
                         {cat.pctChange !== null && (
                           <span
                             className={`text-xs font-medium flex items-center gap-0.5 ${
-                              cat.pctChange > 5 ? "text-rose-500" : cat.pctChange < -5 ? "text-emerald-500" : "text-muted-foreground"
+                              cat.pctChange > 5 ? "text-error" : cat.pctChange < -5 ? "text-success" : "text-muted-foreground"
                             }`}
                           >
                             {cat.pctChange > 5
@@ -233,7 +233,7 @@ export default function MonthClosureCard({
                     {cat.budget && (
                       <Progress
                         value={Math.min((cat.spent / cat.budget) * 100, 100)}
-                        className={`h-1 mt-1 ${cat.spent > cat.budget ? "[&>div]:bg-rose-500" : ""}`}
+                        className={`h-1 mt-1 ${cat.spent > cat.budget ? "[&>div]:bg-error" : ""}`}
                       />
                     )}
                   </div>
@@ -244,7 +244,7 @@ export default function MonthClosureCard({
                   )}
                 </button>
                 {expandedCats.has(cat.id) && cat.subBreakdown.length > 0 && (
-                  <div className="border-t border-gray-100 px-3 pb-2 pt-1 space-y-1">
+                  <div className="border-t border-outline-variant px-3 pb-2 pt-1 space-y-1">
                     {cat.subBreakdown.map((sub) => (
                       <div key={sub.id} className="flex items-center justify-between py-0.5">
                         <span className="text-xs text-muted-foreground">↳ {sub.icon} {sub.name}</span>
@@ -259,10 +259,10 @@ export default function MonthClosureCard({
         )}
 
         {surplus > 0 && activeGoals.length > 0 && !showGoalPicker && (
-          <div className="bg-violet-50 border border-violet-200 rounded-xl px-4 py-3 space-y-2">
-            <p className="text-sm font-semibold text-violet-800">💡 {fmt(surplus)} de saldo a favor</p>
-            <p className="text-xs text-violet-600">¿Quieres mover este saldo a una meta de ahorro?</p>
-            <Button size="sm" className="w-full bg-violet-600 hover:bg-violet-700" onClick={() => setShowGoalPicker(true)}>
+          <div className="bg-primary-container border border-primary/30 rounded-xl px-4 py-3 space-y-2">
+            <p className="text-sm font-semibold text-on-primary-container">💡 {fmt(surplus)} de saldo a favor</p>
+            <p className="text-xs text-primary">¿Quieres mover este saldo a una meta de ahorro?</p>
+            <Button size="sm" className="w-full bg-primary hover:bg-primary/90" onClick={() => setShowGoalPicker(true)}>
               Mover a meta de ahorro
             </Button>
           </div>
@@ -276,7 +276,7 @@ export default function MonthClosureCard({
             {activeGoals.map((g) => (
               <button
                 key={g.id}
-                className="w-full flex items-center gap-3 bg-gray-50 rounded-xl px-3 py-2.5 text-left active:bg-violet-50 transition-colors"
+                className="w-full flex items-center gap-3 bg-surface rounded-xl px-3 py-2.5 text-left active:bg-primary-container transition-colors"
                 onClick={() => handleMoveToGoal(g)}
                 disabled={transferring}
               >
@@ -286,7 +286,7 @@ export default function MonthClosureCard({
                   <p className="text-xs text-muted-foreground">{fmt(g.current_amount)} / {fmt(g.target_amount)}</p>
                   <Progress value={Math.min((g.current_amount / g.target_amount) * 100, 100)} className="h-1 mt-1" />
                 </div>
-                <span className="text-violet-500 text-lg shrink-0">›</span>
+                <span className="text-primary text-lg shrink-0">›</span>
               </button>
             ))}
             <Button
@@ -301,7 +301,7 @@ export default function MonthClosureCard({
         )}
 
         <Button
-          className="w-full bg-violet-600 hover:bg-violet-700"
+          className="w-full bg-primary hover:bg-primary/90"
           onClick={handleDismiss}
           disabled={dismissing}
         >

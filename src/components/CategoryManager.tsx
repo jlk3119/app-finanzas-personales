@@ -106,7 +106,7 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="bottom" className="rounded-t-2xl max-h-[90vh] flex flex-col gap-0 p-0 pb-8" showCloseButton={false}>
-        <SheetHeader className="sticky top-0 z-10 bg-white rounded-t-2xl flex-row items-center justify-between px-4 py-3 border-b mb-0 gap-0">
+        <SheetHeader className="sticky top-0 z-10 bg-surface-container-lowest rounded-t-2xl flex-row items-center justify-between px-4 py-3 border-b mb-0 gap-0">
           <div className="flex items-center gap-1">
             {showForm && (
               <Button variant="ghost" size="icon" className="w-8 h-8 -ml-1 text-muted-foreground" onClick={cancel}>
@@ -130,7 +130,7 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                 return (
                   <div key={cat.id}>
                     {/* Categoría padre */}
-                    <div className={`flex items-center justify-between rounded-xl px-3 py-2.5 ${cat.is_system ? "bg-emerald-50 border border-emerald-100" : "bg-gray-50"}`}>
+                    <div className={`flex items-center justify-between rounded-xl px-3 py-2.5 ${cat.is_system ? "bg-success-container border border-success-container" : "bg-surface"}`}>
                       <div className="flex items-center gap-2.5">
                         <div className="w-9 h-9 rounded-full flex items-center justify-center text-xl shrink-0" style={{ backgroundColor: cat.color + "33" }}>
                           {cat.icon}
@@ -138,7 +138,7 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                         <div>
                           <span className="font-medium text-sm">{cat.name}</span>
                           {cat.is_system && (
-                            <p className="text-xs text-emerald-600 flex items-center gap-0.5">
+                            <p className="text-xs text-success flex items-center gap-0.5">
                               <Lock className="w-2.5 h-2.5" /> Sistema
                             </p>
                           )}
@@ -149,14 +149,14 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                       </div>
                       {!cat.is_system && (
                         <div className="flex gap-0.5">
-                          <Button variant="ghost" size="icon" className="w-8 h-8 text-violet-500"
+                          <Button variant="ghost" size="icon" className="w-8 h-8 text-primary"
                             title="Agregar subcategoría" onClick={() => openCreateSub(cat)}>
                             <Plus className="w-3.5 h-3.5" />
                           </Button>
                           <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground" aria-label="Editar" onClick={() => openEdit(cat)}>
                             <Pencil className="w-3.5 h-3.5" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400" aria-label="Eliminar"
+                          <Button variant="ghost" size="icon" className="w-8 h-8 text-error" aria-label="Eliminar"
                             onClick={() => setConfirmId(cat.id)} disabled={deletingId === cat.id}>
                             <Trash2 className="w-3.5 h-3.5" />
                           </Button>
@@ -166,19 +166,19 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
 
                     {/* Subcategorías */}
                     {children.map((child) => (
-                      <div key={child.id} className="flex items-center justify-between rounded-xl px-3 py-2 bg-white border border-gray-100 ml-5 mt-1.5">
+                      <div key={child.id} className="flex items-center justify-between rounded-xl px-3 py-2 bg-surface-container-lowest border border-outline-variant ml-5 mt-1.5">
                         <div className="flex items-center gap-2">
                           <span className="text-muted-foreground text-xs">↳</span>
                           <div className="w-7 h-7 rounded-full flex items-center justify-center text-base shrink-0" style={{ backgroundColor: child.color + "33" }}>
                             {child.icon}
                           </div>
-                          <span className="text-sm text-gray-700">{child.name}</span>
+                          <span className="text-sm text-on-surface">{child.name}</span>
                         </div>
                         <div className="flex gap-0.5">
                           <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" aria-label="Editar" onClick={() => openEdit(child)}>
                             <Pencil className="w-3 h-3" />
                           </Button>
-                          <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar"
+                          <Button variant="ghost" size="icon" className="w-7 h-7 text-error" aria-label="Eliminar"
                             onClick={() => setConfirmId(child.id)} disabled={deletingId === child.id}>
                             <Trash2 className="w-3 h-3" />
                           </Button>
@@ -201,14 +201,14 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
 
               {/* Badge: subcategoría de [padre] */}
               {!editingId && selectedParentCat && (
-                <div className="flex items-center gap-2 bg-violet-50 border border-violet-200 rounded-xl px-3 py-2.5">
+                <div className="flex items-center gap-2 bg-primary-container border border-primary/30 rounded-xl px-3 py-2.5">
                   <div className="w-6 h-6 rounded-full flex items-center justify-center text-sm" style={{ backgroundColor: selectedParentCat.color + "33" }}>
                     {selectedParentCat.icon}
                   </div>
-                  <span className="text-sm text-violet-700 flex-1">
+                  <span className="text-sm text-primary flex-1">
                     Subcategoría de <strong>{selectedParentCat.name}</strong>
                   </span>
-                  <button type="button" onClick={() => setForm({ ...form, parent_id: "" })} className="text-violet-400">
+                  <button type="button" onClick={() => setForm({ ...form, parent_id: "" })} className="text-primary">
                     <X className="w-3.5 h-3.5" />
                   </button>
                 </div>
@@ -224,7 +224,7 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                         key={p.id}
                         type="button"
                         onClick={() => setForm({ ...form, parent_id: p.id, icon: p.icon, color: p.color })}
-                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-gray-200 bg-white text-sm text-gray-700 hover:border-violet-400 hover:bg-violet-50 transition-colors"
+                        className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-outline-variant bg-surface-container-lowest text-sm text-on-surface hover:border-primary/30 hover:bg-primary-container transition-colors"
                       >
                         {p.icon} {p.name}
                       </button>
@@ -248,14 +248,14 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                 <div className="flex flex-wrap gap-2">
                   {ICONS.map((ic) => (
                     <button key={ic} type="button" onClick={() => setForm({ ...form, icon: ic })}
-                      className={`text-2xl p-1.5 rounded-xl transition-all ${form.icon === ic ? "ring-2 ring-violet-500 bg-violet-50 scale-110" : "hover:bg-gray-100"}`}>
+                      className={`text-2xl p-1.5 rounded-xl transition-all ${form.icon === ic ? "ring-2 ring-primary bg-primary-container scale-110" : "hover:bg-surface-container"}`}>
                       {ic}
                     </button>
                   ))}
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 bg-gray-50 rounded-xl px-3 py-2.5">
+              <div className="flex items-center gap-2 bg-surface rounded-xl px-3 py-2.5">
                 <div className="w-9 h-9 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: form.color + "33" }}>
                   {form.icon}
                 </div>
@@ -269,7 +269,7 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
                 <Button variant="outline" className="flex-1" onClick={cancel}>
                   <X className="w-4 h-4 mr-1" /> Cancelar
                 </Button>
-                <Button className="flex-1 bg-violet-600 hover:bg-violet-700" onClick={handleSave} disabled={loading || !form.name.trim()}>
+                <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleSave} disabled={loading || !form.name.trim()}>
                   <Check className="w-4 h-4 mr-1" /> {loading ? "Guardando..." : editingId ? "Actualizar" : "Crear"}
                 </Button>
               </div>

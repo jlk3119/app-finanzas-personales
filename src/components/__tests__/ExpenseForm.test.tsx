@@ -116,7 +116,7 @@ describe('ExpenseForm', () => {
     const mockAccount: Account = { id: 'acc-1', user_id: 'u1', name: 'Nequi', balance: 300000, icon: '📱', color: '#6366f1', created_at: '' }
     render(<ExpenseForm categories={[]} accounts={[mockAccount]} onClose={jest.fn()} onSaved={jest.fn()} />)
     const accountBtn = screen.getByRole('button', { name: /nequi/i })
-    expect(accountBtn).toHaveClass('border-violet-500')
+    expect(accountBtn).toHaveClass('border-primary')
   })
 
   it('selecciona una cuenta al hacer clic cuando hay varias', async () => {
@@ -125,9 +125,9 @@ describe('ExpenseForm', () => {
     const user = userEvent.setup()
     render(<ExpenseForm categories={[]} accounts={[acc1, acc2]} onClose={jest.fn()} onSaved={jest.fn()} />)
     const acc2Btn = screen.getByRole('button', { name: /bancolombia/i })
-    expect(acc2Btn).not.toHaveClass('border-violet-500')
+    expect(acc2Btn).not.toHaveClass('border-primary')
     await user.click(acc2Btn)
-    expect(acc2Btn).toHaveClass('border-violet-500')
+    expect(acc2Btn).toHaveClass('border-primary')
   })
 
   it('descuenta el gasto del saldo de la cuenta seleccionada', async () => {

@@ -117,8 +117,8 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
             onClick={() => selectFilterParent("")}
             className={`px-3 py-1.5 rounded-full border text-xs transition-all ${
               filterParentId === ""
-                ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
-                : "border-gray-200 bg-white text-gray-700"
+                ? "border-primary bg-primary-container text-primary font-medium"
+                : "border-outline-variant bg-surface-container-lowest text-on-surface"
             }`}
           >
             Todas
@@ -132,8 +132,8 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
                 onClick={() => selectFilterParent(cat.id)}
                 className={`flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs transition-all ${
                   isSelected
-                    ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
-                    : "border-gray-200 bg-white text-gray-700"
+                    ? "border-primary bg-primary-container text-primary font-medium"
+                    : "border-outline-variant bg-surface-container-lowest text-on-surface"
                 }`}
               >
                 <span>{cat.icon}</span> {cat.name}
@@ -142,14 +142,14 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
           })}
         </div>
         {filterChildren.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pl-2 border-l-2 border-violet-100">
+          <div className="flex flex-wrap gap-1.5 pl-2 border-l-2 border-primary/30">
             <button
               type="button"
               onClick={() => setFilterSubId("")}
               className={`px-3 py-1.5 rounded-full border text-xs transition-all ${
                 filterSubId === ""
-                  ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
-                  : "border-gray-200 bg-white text-gray-700"
+                  ? "border-primary bg-primary-container text-primary font-medium"
+                  : "border-outline-variant bg-surface-container-lowest text-on-surface"
               }`}
             >
               Todas
@@ -163,8 +163,8 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
                   onClick={() => setFilterSubId(isSelected ? "" : sub.id)}
                   className={`flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs transition-all ${
                     isSelected
-                      ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
-                      : "border-gray-200 bg-white text-gray-700"
+                      ? "border-primary bg-primary-container text-primary font-medium"
+                      : "border-outline-variant bg-surface-container-lowest text-on-surface"
                   }`}
                 >
                   <span>{sub.icon}</span> {sub.name}
@@ -191,7 +191,7 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
               const parentCat = cat?.parent_id ? categories.find((c) => c.id === cat.parent_id) : null;
               const catLabel = parentCat ? `${parentCat.name} › ${cat?.name}` : cat?.name;
               return (
-                <div key={e.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2">
+                <div key={e.id} className="flex items-center justify-between bg-surface rounded-xl px-3 py-2">
                   <div className="flex items-center gap-2">
                     <div className="w-8 h-8 rounded-full flex items-center justify-center text-base" style={{ backgroundColor: (parentCat?.color ?? cat?.color) + "22" }}>
                       {cat?.icon ?? "📦"}
@@ -200,7 +200,7 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
                       <div className="flex items-center gap-1.5">
                         <p className="text-sm font-medium leading-tight">{e.description || cat?.name || "Gasto"}</p>
                         {e.budget_period && e.budget_period !== e.date.slice(0, 7) && (
-                          <span className="text-[10px] font-medium bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full">
+                          <span className="text-[10px] font-medium bg-tertiary-container text-tertiary px-1.5 py-0.5 rounded-full">
                             → {new Date(e.budget_period + "-01T12:00:00").toLocaleDateString("es-CO", { month: "short" })}
                           </span>
                         )}
@@ -214,7 +214,7 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
                       <Button
                         variant="ghost"
                         size="icon"
-                        className="w-7 h-7 text-muted-foreground hover:text-violet-600"
+                        className="w-7 h-7 text-muted-foreground hover:text-primary"
                         aria-label="Editar"
                         onClick={() => onEdit(e)}
                       >
@@ -224,7 +224,7 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
                     <Button
                       variant="ghost"
                       size="icon"
-                      className="w-7 h-7 text-muted-foreground hover:text-red-500"
+                      className="w-7 h-7 text-muted-foreground hover:text-error"
                       aria-label="Eliminar"
                       onClick={() => setConfirmId(e.id)}
                       disabled={deleting === e.id}

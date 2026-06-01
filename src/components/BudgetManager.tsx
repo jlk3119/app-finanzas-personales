@@ -302,7 +302,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     const cat = categories.find((c) => c.id === b.category_id);
     const shownAmount = displayAmount ?? Number(b.amount);
     return (
-      <div className={`flex items-center justify-between rounded-xl px-3 py-2 ${isChild ? "ml-5 bg-white border border-gray-100" : "bg-gray-50"}`}>
+      <div className={`flex items-center justify-between rounded-xl px-3 py-2 ${isChild ? "ml-5 bg-surface-container-lowest border border-outline-variant" : "bg-surface"}`}>
         <div className="flex items-center gap-2">
           {isChild && <span className="text-muted-foreground text-xs shrink-0">↳</span>}
           <span className={isChild ? "text-base" : "text-lg"}>{cat?.icon ?? "🌐"}</span>
@@ -315,7 +315,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           <Button variant="ghost" size="icon" className="w-7 h-7" aria-label="Editar" onClick={() => startEdit(b)}>
             <Pencil className="w-3.5 h-3.5" />
           </Button>
-          <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar" onClick={() => setConfirmDeleteId(b.id)}>
+          <Button variant="ghost" size="icon" className="w-7 h-7 text-error" aria-label="Eliminar" onClick={() => setConfirmDeleteId(b.id)}>
             <Trash2 className="w-3.5 h-3.5" />
           </Button>
           {hasChildren && (
@@ -359,7 +359,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
         ...(!isCollapsed ? [
           ...children.map((child) => <BudgetRow key={child.id} b={child} isChild />),
           ...(othersAmt > 0 ? [
-            <div key={`${parent.id}-otros`} className="ml-5 bg-white border border-gray-100 flex items-center justify-between rounded-xl px-3 py-2">
+            <div key={`${parent.id}-otros`} className="ml-5 bg-surface-container-lowest border border-outline-variant flex items-center justify-between rounded-xl px-3 py-2">
               <div className="flex items-center gap-2">
                 <span className="text-muted-foreground text-xs shrink-0">↳</span>
                 <span className="text-base">📋</span>
@@ -385,14 +385,14 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     <div className="space-y-4">
       <div className="space-y-2">
           {/* Navegación de mes */}
-          <div className="flex items-center justify-between bg-white border rounded-xl px-3 py-2">
+          <div className="flex items-center justify-between bg-surface-container-lowest border rounded-xl px-3 py-2">
             <Button variant="ghost" size="icon" className="w-8 h-8" onClick={goToPrev}>
               <ChevronLeft className="w-4 h-4" />
             </Button>
             <span className="text-sm font-semibold">
               {MONTHS[selectedMonth - 1]} {selectedYear}
               {selectedMonth === currentMonth && selectedYear === currentYear && (
-                <span className="ml-1.5 text-xs font-normal text-violet-500">● actual</span>
+                <span className="ml-1.5 text-xs font-normal text-primary">● actual</span>
               )}
             </span>
             <Button
@@ -429,50 +429,50 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                 {/* Ingresos esperados — si hay recurrentes o esporádicos asignados al mes */}
                 {hasIncome && (
                   <>
-                    <div className="bg-emerald-50 px-4 py-2.5 border-b border-emerald-100">
+                    <div className="bg-success-container px-4 py-2.5 border-b border-success-container">
                       <div className="flex items-center justify-between mb-1.5">
-                        <span className="text-sm text-emerald-700 font-medium">Ingresos esperados</span>
-                        <span className="text-base font-bold text-emerald-700">+{fmt(expectedIncome)}</span>
+                        <span className="text-sm text-success font-medium">Ingresos esperados</span>
+                        <span className="text-base font-bold text-success">+{fmt(expectedIncome)}</span>
                       </div>
                       {activeRecurring.map((r) => {
                         const mult = FREQ_MULTIPLIER[r.frequency] ?? 1;
                         return (
-                          <div key={r.id} className="flex items-center justify-between text-xs text-emerald-600 py-0.5">
-                            <span>{r.name} <span className="text-emerald-400">({FREQ_LABEL[r.frequency]})</span></span>
+                          <div key={r.id} className="flex items-center justify-between text-xs text-success py-0.5">
+                            <span>{r.name} <span className="text-success">({FREQ_LABEL[r.frequency]})</span></span>
                             <span>+{fmt(Number(r.amount) * mult)}</span>
                           </div>
                         );
                       })}
                       {sporadicForMonth.map((i) => (
-                        <div key={i.id} className="flex items-center justify-between text-xs text-emerald-600 py-0.5">
-                          <span>{i.description || "Ingreso esporádico"} <span className="text-emerald-400">(esporádico)</span></span>
+                        <div key={i.id} className="flex items-center justify-between text-xs text-success py-0.5">
+                          <span>{i.description || "Ingreso esporádico"} <span className="text-success">(esporádico)</span></span>
                           <span>+{fmt(Number(i.amount))}</span>
                         </div>
                       ))}
                     </div>
                   </>
                 )}
-                <div className="bg-violet-50 px-4 py-3 flex items-center justify-between border-b border-violet-100">
-                  <span className="text-sm text-violet-700 font-medium">Total presupuestado</span>
-                  <span className="text-base font-bold text-violet-800">{fmt(totalBudget)}</span>
+                <div className="bg-primary-container px-4 py-3 flex items-center justify-between border-b border-primary/30">
+                  <span className="text-sm text-on-primary-container font-medium">Total presupuestado</span>
+                  <span className="text-base font-bold text-on-primary-container">{fmt(totalBudget)}</span>
                 </div>
                 {hasIncome && (
-                  <div className={`px-4 py-3 ${cajaMenor >= 0 ? "bg-emerald-50" : "bg-red-50"}`}>
+                  <div className={`px-4 py-3 ${cajaMenor >= 0 ? "bg-success-container" : "bg-error-container"}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-1.5">
-                        <span className={`text-sm font-semibold ${cajaMenor >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                        <span className={`text-sm font-semibold ${cajaMenor >= 0 ? "text-on-success-container" : "text-on-error-container"}`}>
                           Margen libre
                         </span>
-                        <button type="button" onClick={() => setShowCajaInfo((v) => !v)} className="text-muted-foreground hover:text-gray-600">
+                        <button type="button" onClick={() => setShowCajaInfo((v) => !v)} className="text-muted-foreground hover:text-on-surface-variant">
                           <Info className="w-3.5 h-3.5" />
                         </button>
                       </div>
-                      <span className={`text-base font-bold ${cajaMenor >= 0 ? "text-emerald-700" : "text-red-700"}`}>
+                      <span className={`text-base font-bold ${cajaMenor >= 0 ? "text-on-success-container" : "text-on-error-container"}`}>
                         {cajaMenor >= 0 ? "+" : ""}{fmt(cajaMenor)}
                       </span>
                     </div>
                     {showCajaInfo ? (
-                      <p className="text-xs text-muted-foreground mt-1.5 bg-white/70 rounded-lg px-2.5 py-2 leading-relaxed">
+                      <p className="text-xs text-muted-foreground mt-1.5 bg-surface-container-lowest/70 rounded-lg px-2.5 py-2 leading-relaxed">
                         Es lo que te sobra (o te falta) después de cubrir todo lo presupuestado. Si es negativo, tus gastos planeados superan tus ingresos esperados.
                       </p>
                     ) : (
@@ -486,10 +486,10 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
           {/* Sin presupuesto — ofrecer copiar del mes anterior */}
           {monthlyBudgets.length === 0 && (
-            <div className="rounded-xl border border-dashed border-gray-200 bg-gray-50 px-4 py-6 space-y-3 text-center">
+            <div className="rounded-xl border border-dashed border-outline-variant bg-surface px-4 py-6 space-y-3 text-center">
               <p className="text-3xl">📊</p>
               <div>
-                <p className="text-sm font-semibold text-gray-700">Sin presupuesto para {MONTHS[selectedMonth - 1]}</p>
+                <p className="text-sm font-semibold text-on-surface">Sin presupuesto para {MONTHS[selectedMonth - 1]}</p>
                 <p className="text-xs text-muted-foreground mt-1">
                   Un presupuesto te permite definir cuánto puedes gastar en total o por categoría (comida, transporte, entretenimiento…).
                 </p>
@@ -498,7 +498,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                 <Button
                   variant="outline"
                   size="sm"
-                  className="text-violet-600 border-violet-200 hover:bg-violet-50"
+                  className="text-primary border-primary/30 hover:bg-primary-container"
                   onClick={copyFromPrevMonth}
                   disabled={copying}
                 >
@@ -521,7 +521,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
             <div className="space-y-1">
               <div className="flex items-center justify-between">
                 <Label>Categoría</Label>
-                <button type="button" onClick={onManageCategories} className="text-xs text-violet-600 flex items-center gap-1 hover:underline">
+                <button type="button" onClick={onManageCategories} className="text-xs text-primary flex items-center gap-1 hover:underline">
                   <Settings2 className="w-3 h-3" /> Gestionar categorías
                 </button>
               </div>
@@ -553,8 +553,8 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
             )}
 
             {allSubsInForm.length > 0 && (
-              <div className="space-y-2 rounded-xl border border-dashed border-violet-200 bg-violet-50/50 p-3">
-                <p className="text-xs font-semibold text-violet-700">Montos por subcategoría</p>
+              <div className="space-y-2 rounded-xl border border-dashed border-primary/30 bg-primary-container/50 p-3">
+                <p className="text-xs font-semibold text-on-primary-container">Montos por subcategoría</p>
                 {allSubsInForm.map((sub) => (
                   <div key={sub.id} className="flex items-center gap-2">
                     <span className="text-sm shrink-0 w-36 truncate text-muted-foreground">{sub.icon} {sub.name}</span>
@@ -587,7 +587,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                   <button
                     type="button"
                     onClick={() => setShowAddSub(true)}
-                    className="flex items-center gap-1.5 text-xs text-violet-600 hover:text-violet-800 font-medium py-0.5"
+                    className="flex items-center gap-1.5 text-xs text-primary hover:text-on-primary-container font-medium py-0.5"
                   >
                     <Plus className="w-3.5 h-3.5" /> Agregar subcategoría
                   </button>
@@ -613,7 +613,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                       type="button"
                       onClick={handleAddSub}
                       disabled={!newSubName.trim() || addingSubLoading}
-                      className="p-1.5 rounded-lg bg-violet-600 text-white disabled:opacity-40"
+                      className="p-1.5 rounded-lg bg-primary text-on-primary disabled:opacity-40"
                     >
                       <Check className="w-3.5 h-3.5" />
                     </button>
@@ -627,9 +627,9 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                   </div>
                 )}
 
-                <div className="flex justify-between items-center pt-1.5 border-t border-violet-200">
-                  <span className="text-xs font-semibold text-violet-700">Total</span>
-                  <span className="text-sm font-bold text-violet-800">
+                <div className="flex justify-between items-center pt-1.5 border-t border-primary/30">
+                  <span className="text-xs font-semibold text-on-primary-container">Total</span>
+                  <span className="text-sm font-bold text-on-primary-container">
                     {fmt(Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0) + (Number(othersAmount) || 0))}
                   </span>
                 </div>
@@ -641,7 +641,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                 Cancelar
               </Button>
               <Button
-                className="flex-1 bg-violet-600 hover:bg-violet-700"
+                className="flex-1 bg-primary hover:bg-primary/90"
                 onClick={handleSave}
                 disabled={loading || (allSubsInForm.length === 0 ? !amount || Number(amount) <= 0 : Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0) + (Number(othersAmount) || 0) <= 0)}
               >
@@ -657,7 +657,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           <Button className="flex-1" variant="outline" onClick={() => setShowForm(true)}>
             <Plus className="w-4 h-4 mr-1" /> Agregar presupuesto
           </Button>
-          <Button variant="outline" onClick={onManageCategories} className="text-violet-600 border-violet-200 hover:bg-violet-50">
+          <Button variant="outline" onClick={onManageCategories} className="text-primary border-primary/30 hover:bg-primary-container">
             <Settings2 className="w-4 h-4 mr-1" /> Categorías
           </Button>
         </div>

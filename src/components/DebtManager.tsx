@@ -160,7 +160,7 @@ export default function DebtManager({ debts, onRefresh }: Props) {
             <div className="flex flex-wrap gap-1.5">
               {ICONS.map((ic) => (
                 <button key={ic} type="button" onClick={() => setIcon(ic)}
-                  className={`text-xl p-1.5 rounded-lg transition-all ${icon === ic ? "bg-orange-100 ring-2 ring-orange-400 scale-110" : "hover:bg-gray-100"}`}>
+                  className={`text-xl p-1.5 rounded-lg transition-all ${icon === ic ? "bg-tertiary-container ring-2 ring-tertiary scale-110" : "hover:bg-surface-container"}`}>
                   {ic}
                 </button>
               ))}
@@ -195,7 +195,7 @@ export default function DebtManager({ debts, onRefresh }: Props) {
           <div className="flex gap-2">
             <Button variant="outline" className="flex-1" onClick={closeForm}>Cancelar</Button>
             <Button
-              className="flex-1 bg-orange-600 hover:bg-orange-700"
+              className="flex-1 bg-tertiary hover:bg-tertiary/90"
               onClick={handleSave}
               disabled={loading || !name || !entity || !totalAmount || Number(totalAmount) <= 0}
             >
@@ -235,7 +235,7 @@ export default function DebtManager({ debts, onRefresh }: Props) {
               <X className="w-4 h-4 mr-1" /> Cancelar
             </Button>
             <Button
-              className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+              className="flex-1 bg-success hover:bg-success/90"
               onClick={handlePay}
               disabled={!payAmount || Number(payAmount) <= 0}
             >
@@ -258,8 +258,8 @@ export default function DebtManager({ debts, onRefresh }: Props) {
               onClick={() => setSortBy(opt.value)}
               className={`text-xs px-2.5 py-1 rounded-full border transition-colors ${
                 sortBy === opt.value
-                  ? "bg-orange-600 text-white border-orange-600"
-                  : "bg-white text-gray-500 border-gray-200"
+                  ? "bg-tertiary text-on-tertiary border-tertiary"
+                  : "bg-surface-container-lowest text-on-surface-variant border-outline-variant"
               }`}
             >
               {opt.label}
@@ -269,32 +269,32 @@ export default function DebtManager({ debts, onRefresh }: Props) {
       )}
 
       {debts.length > 0 && (
-        <Card className="border-orange-100 bg-orange-50">
+        <Card className="border-tertiary/30 bg-tertiary-container">
           <CardContent className="pt-4">
             <div className="flex justify-between items-center mb-3">
               <div className="flex items-center gap-2">
-                <CreditCard className="w-4 h-4 text-orange-600" />
-                <span className="text-sm font-semibold text-orange-800">Resumen de deudas</span>
+                <CreditCard className="w-4 h-4 text-tertiary" />
+                <span className="text-sm font-semibold text-on-tertiary-container">Resumen de deudas</span>
               </div>
             </div>
             <div className="grid grid-cols-3 gap-2 text-center">
               <div>
-                <p className="text-xs text-orange-600 font-medium">Total deuda</p>
-                <p className="text-sm font-bold text-orange-800">{fmt(totalDebt)}</p>
+                <p className="text-xs text-tertiary font-medium">Total deuda</p>
+                <p className="text-sm font-bold text-on-tertiary-container">{fmt(totalDebt)}</p>
               </div>
               <div>
-                <p className="text-xs text-emerald-600 font-medium">Pagado</p>
-                <p className="text-sm font-bold text-emerald-700">{fmt(totalPaid)}</p>
+                <p className="text-xs text-success font-medium">Pagado</p>
+                <p className="text-sm font-bold text-success">{fmt(totalPaid)}</p>
               </div>
               <div>
-                <p className="text-xs text-red-600 font-medium">Pendiente</p>
-                <p className="text-sm font-bold text-red-700">{fmt(totalRemaining)}</p>
+                <p className="text-xs text-error font-medium">Pendiente</p>
+                <p className="text-sm font-bold text-error">{fmt(totalRemaining)}</p>
               </div>
             </div>
             {totalDebt > 0 && (
               <div className="mt-3">
-                <Progress value={(totalPaid / totalDebt) * 100} className="h-2 bg-orange-100 [&>div]:bg-emerald-500" />
-                <p className="text-xs text-orange-700 mt-1 text-right">{Math.round((totalPaid / totalDebt) * 100)}% pagado</p>
+                <Progress value={(totalPaid / totalDebt) * 100} className="h-2 bg-tertiary-container [&>div]:bg-success" />
+                <p className="text-xs text-tertiary mt-1 text-right">{Math.round((totalPaid / totalDebt) * 100)}% pagado</p>
               </div>
             )}
           </CardContent>
@@ -302,15 +302,15 @@ export default function DebtManager({ debts, onRefresh }: Props) {
       )}
 
       {debts.length === 0 && (
-        <div className="text-center py-8 space-y-3 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+        <div className="text-center py-8 space-y-3 bg-surface rounded-2xl border border-dashed border-outline-variant">
           <p className="text-4xl">💳</p>
           <div className="px-4">
-            <p className="text-sm font-semibold text-gray-700">Sin deudas registradas</p>
+            <p className="text-sm font-semibold text-on-surface">Sin deudas registradas</p>
             <p className="text-xs text-muted-foreground mt-1">
               Lleva el control de tus deudas: cuánto debes, en qué entidad y lo que ya pagaste.
             </p>
           </div>
-          <Button size="sm" className="bg-orange-600 hover:bg-orange-700" onClick={openCreate}>
+          <Button size="sm" className="bg-tertiary hover:bg-tertiary/90" onClick={openCreate}>
             <Plus className="w-4 h-4 mr-1" /> Registrar primera deuda
           </Button>
         </div>
@@ -323,7 +323,7 @@ export default function DebtManager({ debts, onRefresh }: Props) {
         const pct = total > 0 ? Math.min((paid / total) * 100, 100) : 0;
         const settled = remaining <= 0;
         return (
-          <Card key={debt.id} className={settled ? "border-green-200 bg-green-50" : ""}>
+          <Card key={debt.id} className={settled ? "border-success/30 bg-success-container" : ""}>
             <CardContent className="pt-4 space-y-3">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
@@ -335,11 +335,11 @@ export default function DebtManager({ debts, onRefresh }: Props) {
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5">
-                  {settled && <Badge className="bg-green-500 text-xs mr-1">Saldada</Badge>}
+                  {settled && <Badge className="bg-success text-xs mr-1">Saldada</Badge>}
                   <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" aria-label="Editar" onClick={() => openEdit(debt)}>
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar" onClick={() => setConfirmId(debt.id)}>
+                  <Button variant="ghost" size="icon" className="w-7 h-7 text-error" aria-label="Eliminar" onClick={() => setConfirmId(debt.id)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
@@ -350,12 +350,12 @@ export default function DebtManager({ debts, onRefresh }: Props) {
                   <span>{fmt(paid)} pagado</span>
                   <span>{Math.round(pct)}% — {settled ? "¡Saldada!" : `faltan ${fmt(remaining)}`}</span>
                 </div>
-                <Progress value={pct} className={`h-2 ${settled ? "[&>div]:bg-green-500" : "[&>div]:bg-orange-500"}`} />
+                <Progress value={pct} className={`h-2 ${settled ? "[&>div]:bg-success" : "[&>div]:bg-tertiary"}`} />
                 <p className="text-xs text-right text-muted-foreground mt-1">Deuda total: {fmt(total)}</p>
               </div>
 
               {!settled && (
-                <Button variant="outline" size="sm" className="w-full border-orange-200 text-orange-700 hover:bg-orange-50" onClick={() => openPay(debt)}>
+                <Button variant="outline" size="sm" className="w-full border-tertiary/30 text-tertiary hover:bg-tertiary-container" onClick={() => openPay(debt)}>
                   <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Registrar pago
                 </Button>
               )}
