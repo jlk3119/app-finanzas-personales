@@ -333,7 +333,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
           <div className="flex flex-wrap gap-2">
             {ACCOUNT_ICONS.map((ic) => (
               <button key={ic} type="button" onClick={() => setAccountForm({ ...accountForm, icon: ic })}
-                className={`text-2xl p-1.5 rounded-xl transition-all ${accountForm.icon === ic ? "ring-2 ring-violet-500 bg-violet-50 scale-110" : "hover:bg-gray-100"}`}>
+                className={`text-2xl p-1.5 rounded-xl transition-all ${accountForm.icon === ic ? "ring-2 ring-primary bg-primary-container scale-110" : "hover:bg-surface-container"}`}>
                 {ic}
               </button>
             ))}
@@ -356,7 +356,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
           <Input type="number" inputMode="decimal" placeholder="0" value={accountForm.balance}
             onChange={(e) => setAccountForm({ ...accountForm, balance: e.target.value })} className="h-11" />
         </div>
-        <div className="flex items-center gap-3 bg-gray-50 rounded-xl px-3 py-3">
+        <div className="flex items-center gap-3 bg-surface rounded-xl px-3 py-3">
           <div className="w-10 h-10 rounded-full flex items-center justify-center text-xl" style={{ backgroundColor: accountForm.color + "33" }}>
             {accountForm.icon}
           </div>
@@ -367,7 +367,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
         </div>
         <div className="flex gap-2">
           <Button variant="outline" className="flex-1" onClick={() => setView("main")}>Cancelar</Button>
-          <Button className="flex-1 bg-violet-600 hover:bg-violet-700" onClick={saveAccount} disabled={loading || !accountForm.name.trim()}>
+          <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={saveAccount} disabled={loading || !accountForm.name.trim()}>
             <Check className="w-4 h-4 mr-1" /> {loading ? "Guardando..." : editingAccount ? "Actualizar" : "Crear cuenta"}
           </Button>
         </div>
@@ -415,11 +415,11 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
           ) : (
             <p className="text-xs text-muted-foreground py-2">No tienes cuentas creadas aún.</p>
           )}
-          {incomeForm.account_id && <p className="text-xs text-violet-600">El saldo se actualizará automáticamente.</p>}
+          {incomeForm.account_id && <p className="text-xs text-primary">El saldo se actualizará automáticamente.</p>}
         </div>
         <div className="flex gap-2 pt-2">
           <Button variant="outline" className="flex-1" onClick={() => { setView("main"); setEditingIncome(null); }}>Cancelar</Button>
-          <Button className="flex-1 bg-emerald-600 hover:bg-emerald-700" onClick={saveIncome}
+          <Button className="flex-1 bg-success hover:bg-success/90" onClick={saveIncome}
             disabled={loading || !incomeForm.amount || Number(incomeForm.amount) <= 0}>
             {loading ? "Guardando..." : editingIncome ? "Actualizar" : "Registrar ingreso"}
           </Button>
@@ -456,8 +456,8 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
               type="button"
               className={`rounded-xl py-3 text-sm font-medium transition-all border ${
                 recurringForm.is_salary
-                  ? "bg-indigo-600 text-white border-indigo-600"
-                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                  ? "bg-tertiary text-on-tertiary border-tertiary"
+                  : "bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:border-outline"
               }`}
               onClick={() => setRecurringForm({ ...recurringForm, is_salary: true, day_of_month: "" })}
             >
@@ -467,8 +467,8 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
               type="button"
               className={`rounded-xl py-3 text-sm font-medium transition-all border ${
                 !recurringForm.is_salary
-                  ? "bg-violet-600 text-white border-violet-600"
-                  : "bg-white text-gray-500 border-gray-200 hover:border-gray-300"
+                  ? "bg-primary text-on-primary border-primary"
+                  : "bg-surface-container-lowest text-on-surface-variant border-outline-variant hover:border-outline"
               }`}
               onClick={() => setRecurringForm({ ...recurringForm, is_salary: false })}
             >
@@ -476,7 +476,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
             </button>
           </div>
           {recurringForm.is_salary && (
-            <p className="text-xs text-indigo-600 bg-indigo-50 rounded-lg px-3 py-2">
+            <p className="text-xs text-tertiary bg-tertiary-container rounded-lg px-3 py-2">
               Se asignará el último día hábil del período (festivos CO incluidos).
             </p>
           )}
@@ -556,16 +556,16 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
             type="button"
             className={`flex items-center gap-3 w-full rounded-xl px-3 py-3 text-left transition-colors border ${
               recurringForm.auto_assign
-                ? "bg-violet-50 border-violet-200"
-                : "bg-gray-50 border-gray-200"
+                ? "bg-primary-container border-primary/30"
+                : "bg-surface border-outline-variant"
             }`}
             onClick={() => setRecurringForm({ ...recurringForm, auto_assign: !recurringForm.auto_assign })}
           >
-            <div className={`relative w-11 h-6 rounded-full flex-shrink-0 transition-colors ${recurringForm.auto_assign ? "bg-violet-500" : "bg-gray-300"}`}>
-              <div className={`absolute top-1 w-4 h-4 rounded-full bg-white shadow transition-transform duration-200 ${recurringForm.auto_assign ? "translate-x-6" : "translate-x-1"}`} />
+            <div className={`relative w-11 h-6 rounded-full flex-shrink-0 transition-colors ${recurringForm.auto_assign ? "bg-primary" : "bg-surface-container-high"}`}>
+              <div className={`absolute top-1 w-4 h-4 rounded-full bg-surface-container-lowest shadow transition-transform duration-200 ${recurringForm.auto_assign ? "translate-x-6" : "translate-x-1"}`} />
             </div>
             <div>
-              <p className={`text-sm font-medium ${recurringForm.auto_assign ? "text-violet-700" : "text-gray-500"}`}>
+              <p className={`text-sm font-medium ${recurringForm.auto_assign ? "text-primary" : "text-on-surface-variant"}`}>
                 {recurringForm.auto_assign ? "Activa" : "Desactivada"}
               </p>
               <p className="text-xs text-muted-foreground">
@@ -586,7 +586,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
 
         <div className="flex gap-2 pt-2">
           <Button variant="outline" className="flex-1" onClick={() => setView("main")}>Cancelar</Button>
-          <Button className="flex-1 bg-violet-600 hover:bg-violet-700" onClick={saveRecurring}
+          <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={saveRecurring}
             disabled={loading || !recurringForm.name.trim() || !recurringForm.amount || Number(recurringForm.amount) <= 0}>
             <Check className="w-4 h-4 mr-1" /> {loading ? "Guardando..." : editingRecurring ? "Actualizar" : "Guardar"}
           </Button>
@@ -607,13 +607,13 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
           const acc = accounts.find((a) => a.id === entry.account_id);
           const isPending = !entry.recurring_income_id && !!entry.period_key && entry.period_key > currentMonthStr();
           return (
-            <div key={entry.id} className="flex items-center justify-between bg-gray-50 rounded-xl px-3 py-2.5">
+            <div key={entry.id} className="flex items-center justify-between bg-surface rounded-xl px-3 py-2.5">
               <div className="flex items-center gap-2">
-                <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-lg">{acc ? acc.icon : "💵"}</div>
+                <div className="w-9 h-9 rounded-full bg-success-container flex items-center justify-center text-lg">{acc ? acc.icon : "💵"}</div>
                 <div>
                   <div className="flex items-center gap-1.5">
                     <p className="text-sm font-medium">{entry.description || "Ingreso"}</p>
-                    {isPending && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">Pendiente</span>}
+                    {isPending && <span className="text-xs bg-tertiary-container text-tertiary px-1.5 py-0.5 rounded-full font-medium">Pendiente</span>}
                   </div>
                   <p className="text-xs text-muted-foreground">
                     {fmtDate(entry.date)}{acc && <span> · {acc.name}</span>}
@@ -621,13 +621,13 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                 </div>
               </div>
               <div className="flex items-center gap-1">
-                <span className="text-sm font-semibold text-emerald-600">+{fmt(entry.amount)}</span>
+                <span className="text-sm font-semibold text-success">+{fmt(entry.amount)}</span>
                 {!entry.recurring_income_id && (
-                  <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground hover:text-violet-600" onClick={() => openEditIncome(entry)} disabled={deletingId === entry.id}>
+                  <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground hover:text-primary" onClick={() => openEditIncome(entry)} disabled={deletingId === entry.id}>
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
                 )}
-                <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => setConfirmDelete({ type: "income", entry })} disabled={deletingId === entry.id}>
+                <Button variant="ghost" size="icon" className="w-7 h-7 text-error" onClick={() => setConfirmDelete({ type: "income", entry })} disabled={deletingId === entry.id}>
                   <Trash2 className="w-3.5 h-3.5" />
                 </Button>
               </div>
@@ -645,10 +645,10 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
     <div className="space-y-6">
 
       {/* Disponible total */}
-      <div className="bg-gradient-to-r from-violet-600 to-indigo-600 text-white rounded-2xl px-5 py-5 text-center shadow-md">
-        <p className="text-violet-200 text-xs mb-1 uppercase tracking-wide">Disponible total</p>
-        <p className={`text-3xl font-bold ${disponible < 0 ? "text-red-300" : ""}`}>{fmt(disponible)}</p>
-        <p className="text-violet-300 text-xs mt-1">
+      <div className="bg-primary text-on-primary rounded-2xl px-5 py-5 text-center shadow-md">
+        <p className="text-on-primary/70 text-xs mb-1 uppercase tracking-wide">Disponible total</p>
+        <p className={`text-3xl font-bold ${disponible < 0 ? "text-error-container" : ""}`}>{fmt(disponible)}</p>
+        <p className="text-on-primary/60 text-xs mt-1">
           {unlinkedMonthTotal > 0
             ? `${fmt(totalBalance)} en cuentas − ${fmt(unlinkedMonthTotal)} sin cuenta`
             : "Saldo total en cuentas"}
@@ -659,13 +659,13 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
       <section>
         <div className="flex items-center justify-between mb-3">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Cuentas</h3>
-          <Button variant="ghost" size="sm" className="text-violet-600 h-7 text-xs px-2" onClick={openCreateAccount}>
+          <Button variant="ghost" size="sm" className="text-primary h-7 text-xs px-2" onClick={openCreateAccount}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Nueva
           </Button>
         </div>
 
         {accounts.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+          <div className="text-center py-8 bg-surface rounded-2xl border border-dashed border-outline-variant">
             <p className="text-2xl mb-2">🏦</p>
             <p className="text-sm text-muted-foreground mb-3">Agrega tu primera cuenta bancaria</p>
             <Button variant="outline" size="sm" onClick={openCreateAccount}>
@@ -675,13 +675,13 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
         ) : (
           <div className="space-y-2">
             {accounts.map((acc) => (
-              <div key={acc.id} className="flex items-center justify-between bg-white border rounded-2xl px-4 py-3 shadow-sm">
+              <div key={acc.id} className="flex items-center justify-between bg-surface-container-lowest border rounded-2xl px-4 py-3 shadow-sm">
                 <div className="flex items-center gap-3">
                   <div className="w-11 h-11 rounded-full flex items-center justify-center text-2xl flex-shrink-0" style={{ backgroundColor: acc.color + "22" }}>
                     {acc.icon}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-gray-800">{acc.name}</p>
+                    <p className="text-sm font-semibold text-on-surface">{acc.name}</p>
                     <p className="text-lg font-bold leading-tight" style={{ color: acc.color }}>{fmt(Number(acc.balance) - futureSporadicByAccount(acc.id))}</p>
                   </div>
                 </div>
@@ -689,7 +689,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                   <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground" aria-label="Editar cuenta" onClick={() => openEditAccount(acc)}>
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="w-8 h-8 text-red-400" aria-label="Eliminar cuenta" onClick={() => setConfirmDelete({ type: "account", id: acc.id })} disabled={deletingId === acc.id}>
+                  <Button variant="ghost" size="icon" className="w-8 h-8 text-error" aria-label="Eliminar cuenta" onClick={() => setConfirmDelete({ type: "account", id: acc.id })} disabled={deletingId === acc.id}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
@@ -703,18 +703,18 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
       <section>
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ingresos recurrentes</h3>
-          <Button variant="ghost" size="sm" className="text-violet-600 h-7 text-xs px-2" onClick={openCreateRecurring}>
+          <Button variant="ghost" size="sm" className="text-primary h-7 text-xs px-2" onClick={openCreateRecurring}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Agregar
           </Button>
         </div>
         <p className="text-xs text-muted-foreground mb-3">Salario, arriendos cobrados, pensiones… ingresos que recibes cada mes o quincena.</p>
 
         {recurringIncome.length === 0 ? (
-          <div className="text-center py-8 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+          <div className="text-center py-8 bg-surface rounded-2xl border border-dashed border-outline-variant">
             <p className="text-2xl mb-2">💼</p>
-            <p className="text-sm font-semibold text-gray-700 mb-1">Sin ingresos recurrentes</p>
+            <p className="text-sm font-semibold text-on-surface mb-1">Sin ingresos recurrentes</p>
             <p className="text-xs text-muted-foreground mb-3 px-4">Registra tu salario u otros ingresos fijos para que la app pueda calcular tu presupuesto disponible.</p>
-            <Button variant="outline" size="sm" className="text-violet-600 border-violet-200" onClick={openCreateRecurring}>
+            <Button variant="outline" size="sm" className="text-primary border-primary/30" onClick={openCreateRecurring}>
               <RefreshCw className="w-3.5 h-3.5 mr-1" /> Agregar ingreso recurrente
             </Button>
           </div>
@@ -731,15 +731,15 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                   : null;
 
               return (
-                <div key={r.id} className="bg-white border rounded-2xl overflow-hidden shadow-sm">
+                <div key={r.id} className="bg-surface-container-lowest border rounded-2xl overflow-hidden shadow-sm">
                   {/* Header del card */}
                   <div className="px-4 pt-3.5 pb-2 flex items-start justify-between">
                     <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-full bg-violet-100 flex items-center justify-center text-xl flex-shrink-0">
+                      <div className="w-10 h-10 rounded-full bg-primary-container flex items-center justify-center text-xl flex-shrink-0">
                         {acc ? acc.icon : "💰"}
                       </div>
                       <div>
-                        <p className="text-sm font-semibold text-gray-800">{r.name}</p>
+                        <p className="text-sm font-semibold text-on-surface">{r.name}</p>
                         <p className="text-xs text-muted-foreground">
                           {FREQ_LABELS[r.frequency]}
                           {r.start_date && (
@@ -753,7 +753,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                       <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" onClick={() => openEditRecurring(r)}>
                         <Pencil className="w-3 h-3" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => setConfirmDelete({ type: "recurring", id: r.id })} disabled={deletingId === r.id}>
+                      <Button variant="ghost" size="icon" className="w-7 h-7 text-error" onClick={() => setConfirmDelete({ type: "recurring", id: r.id })} disabled={deletingId === r.id}>
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
@@ -761,15 +761,15 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
 
                   {/* Monto + badges */}
                   <div className="px-4 pb-2 flex items-center gap-2 flex-wrap">
-                    <span className="text-lg font-bold text-gray-900">{fmt(r.amount)}</span>
+                    <span className="text-lg font-bold text-on-surface">{fmt(r.amount)}</span>
                     {r.is_salary && (
-                      <span className="text-[10px] font-medium bg-indigo-100 text-indigo-600 px-2 py-0.5 rounded-full">💼 salario</span>
+                      <span className="text-[10px] font-medium bg-tertiary-container text-tertiary px-2 py-0.5 rounded-full">💼 salario</span>
                     )}
                     {r.auto_assign && (
-                      <span className="text-[10px] font-medium bg-violet-100 text-violet-600 px-2 py-0.5 rounded-full">⚡ auto</span>
+                      <span className="text-[10px] font-medium bg-primary-container text-primary px-2 py-0.5 rounded-full">⚡ auto</span>
                     )}
                     {received && (
-                      <span className="text-[10px] font-medium bg-emerald-100 text-emerald-600 px-2 py-0.5 rounded-full">✓ recibido</span>
+                      <span className="text-[10px] font-medium bg-success-container text-success px-2 py-0.5 rounded-full">✓ recibido</span>
                     )}
                   </div>
 
@@ -777,20 +777,20 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                   {nextDate && (
                     <div className="px-4 pb-3 text-xs text-muted-foreground">
                       {!started
-                        ? <span>Inicia: <span className="font-medium text-gray-700">{fmtDate(nextDate)}</span></span>
+                        ? <span>Inicia: <span className="font-medium text-on-surface">{fmtDate(nextDate)}</span></span>
                         : received
                           ? <span>Próxima fecha: {fmtDate(nextDate)}</span>
-                          : <span>Pago esperado: <span className="font-medium text-gray-700">{fmtDate(nextDate)}</span></span>
+                          : <span>Pago esperado: <span className="font-medium text-on-surface">{fmtDate(nextDate)}</span></span>
                       }
                     </div>
                   )}
 
                   {/* Botón recibir — solo si el ingreso ya inició y no se ha recibido este período */}
                   {started && !received && (
-                    <div className="border-t bg-gray-50 px-4 py-2.5">
+                    <div className="border-t bg-surface px-4 py-2.5">
                       <Button
                         size="sm"
-                        className="w-full bg-emerald-600 hover:bg-emerald-700 h-8 text-xs"
+                        className="w-full bg-success hover:bg-success/90 h-8 text-xs"
                         onClick={() => receiveRecurring(r)}
                         disabled={receivingId === r.id}
                       >
@@ -810,14 +810,14 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
       <section>
         <div className="flex items-center justify-between mb-1">
           <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wider">Ingresos esporádicos</h3>
-          <Button variant="ghost" size="sm" className="text-emerald-600 h-7 text-xs px-2" onClick={() => setView("income-form")}>
+          <Button variant="ghost" size="sm" className="text-success h-7 text-xs px-2" onClick={() => setView("income-form")}>
             <Plus className="w-3.5 h-3.5 mr-1" /> Registrar
           </Button>
         </div>
         <p className="text-xs text-muted-foreground mb-3">Ventas, bonos, comisiones… ingresos puntuales que no se repiten cada mes.</p>
 
         {recentIncome.length === 0 ? (
-          <div className="text-center py-5 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+          <div className="text-center py-5 bg-surface rounded-2xl border border-dashed border-outline-variant">
             <p className="text-sm text-muted-foreground">Sin ingresos esporádicos registrados.</p>
           </div>
         ) : (
@@ -826,15 +826,15 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
               const acc = accounts.find((a) => a.id === entry.account_id);
               const isPending = !entry.recurring_income_id && !!entry.period_key && entry.period_key > currentMonthStr();
               return (
-                <div key={entry.id} className="flex items-center justify-between bg-white border rounded-xl px-3 py-2.5 shadow-sm">
+                <div key={entry.id} className="flex items-center justify-between bg-surface-container-lowest border rounded-xl px-3 py-2.5 shadow-sm">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-9 h-9 rounded-full bg-emerald-100 flex items-center justify-center text-lg flex-shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-success-container flex items-center justify-center text-lg flex-shrink-0">
                       {acc ? acc.icon : "💵"}
                     </div>
                     <div>
                       <div className="flex items-center gap-1.5">
-                        <p className="text-sm font-medium text-gray-800">{entry.description || "Ingreso"}</p>
-                        {isPending && <span className="text-xs bg-amber-100 text-amber-700 px-1.5 py-0.5 rounded-full font-medium">Pendiente</span>}
+                        <p className="text-sm font-medium text-on-surface">{entry.description || "Ingreso"}</p>
+                        {isPending && <span className="text-xs bg-tertiary-container text-tertiary px-1.5 py-0.5 rounded-full font-medium">Pendiente</span>}
                       </div>
                       <p className="text-xs text-muted-foreground">
                         {fmtDate(entry.date)}{acc && <span> · {acc.name}</span>}
@@ -842,11 +842,11 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                     </div>
                   </div>
                   <div className="flex items-center gap-1">
-                    <span className="text-sm font-semibold text-emerald-600">+{fmt(entry.amount)}</span>
-                    <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground hover:text-violet-600" onClick={() => openEditIncome(entry)} disabled={deletingId === entry.id}>
+                    <span className="text-sm font-semibold text-success">+{fmt(entry.amount)}</span>
+                    <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground hover:text-primary" onClick={() => openEditIncome(entry)} disabled={deletingId === entry.id}>
                       <Pencil className="w-3.5 h-3.5" />
                     </Button>
-                    <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" onClick={() => setConfirmDelete({ type: "income", entry })} disabled={deletingId === entry.id}>
+                    <Button variant="ghost" size="icon" className="w-7 h-7 text-error" onClick={() => setConfirmDelete({ type: "income", entry })} disabled={deletingId === entry.id}>
                       <Trash2 className="w-3.5 h-3.5" />
                     </Button>
                   </div>

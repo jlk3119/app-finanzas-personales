@@ -46,6 +46,13 @@ describe('ExpenseList', () => {
     expect(screen.getByText('Café')).toBeInTheDocument()
   })
 
+  it('renderiza todos los gastos con movimiento reducido (sin perder contenido)', () => {
+    render(<ExpenseList expenses={mockExpenses} categories={[cat]} accounts={[]} onRefresh={jest.fn()} />)
+    expect(screen.getByText('Supermercado')).toBeInTheDocument()
+    expect(screen.getByText('Bus')).toBeInTheDocument()
+    expect(screen.getByText('Café')).toBeInTheDocument()
+  })
+
   it('muestra "Hoy" para el gasto de hoy', () => {
     render(<ExpenseList expenses={[mockExpenses[0]]} categories={[cat]} accounts={[]} onRefresh={jest.fn()} />)
     expect(screen.getByText('Hoy')).toBeInTheDocument()

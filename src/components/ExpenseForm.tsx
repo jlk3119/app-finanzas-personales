@@ -151,7 +151,7 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
   return (
     <Sheet open onOpenChange={(open) => !open && onClose()}>
       <SheetContent side="bottom" className="rounded-t-2xl max-h-[92vh] flex flex-col gap-0 p-0 pb-8" showCloseButton={false}>
-        <SheetHeader className="sticky top-0 z-10 bg-white rounded-t-2xl flex-row items-center justify-between px-4 py-3 border-b mb-0 gap-0">
+        <SheetHeader className="sticky top-0 z-10 bg-surface-container-lowest rounded-t-2xl flex-row items-center justify-between px-4 py-3 border-b mb-0 gap-0">
           <SheetTitle className="text-base">{editing ? "Editar gasto" : "Nuevo gasto"}</SheetTitle>
           <Button variant="ghost" size="icon" className="w-8 h-8 text-muted-foreground" onClick={onClose}>
             <X className="w-4 h-4" />
@@ -190,8 +190,8 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
                         onClick={() => setAccountId(isSelected ? "" : acc.id)}
                         className={`flex items-center gap-2 px-3 py-2 rounded-xl border text-sm transition-all ${
                           isSelected
-                            ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
-                            : "border-gray-200 bg-white text-gray-700"
+                            ? "border-primary bg-primary-container text-primary font-medium"
+                            : "border-outline-variant bg-surface-container-lowest text-on-surface"
                         }`}
                       >
                         <span>{acc.icon}</span>
@@ -217,12 +217,12 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
                       onClick={() => handleSelectParent(cat.id)}
                       className={`flex flex-col items-center gap-0.5 p-2 rounded-xl border transition-all text-center ${
                         isSelected
-                          ? "border-violet-500 bg-violet-50"
-                          : "border-gray-200 bg-white active:bg-gray-50"
+                          ? "border-primary bg-primary-container"
+                          : "border-outline-variant bg-surface-container-lowest active:bg-surface"
                       }`}
                     >
                       <span className="text-2xl">{cat.icon}</span>
-                      <span className={`text-[9px] leading-tight font-medium line-clamp-2 ${isSelected ? "text-violet-700" : "text-gray-600"}`}>
+                      <span className={`text-[9px] leading-tight font-medium line-clamp-2 ${isSelected ? "text-primary" : "text-on-surface-variant"}`}>
                         {cat.name}{hasSubs ? " ›" : ""}
                       </span>
                     </button>
@@ -248,8 +248,8 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
                         onClick={() => setSubCategoryId(isSelected ? "" : sub.id)}
                         className={`flex items-center gap-1.5 px-3 py-2 rounded-full border text-sm transition-all ${
                           isSelected
-                            ? "border-violet-500 bg-violet-50 text-violet-700 font-medium"
-                            : "border-gray-200 bg-white text-gray-700"
+                            ? "border-primary bg-primary-container text-primary font-medium"
+                            : "border-outline-variant bg-surface-container-lowest text-on-surface"
                         }`}
                       >
                         {sub.icon} {sub.name}
@@ -293,22 +293,22 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
                 type="month"
                 value={budgetPeriod}
                 onChange={(e) => { setBudgetPeriod(e.target.value); setBudgetPeriodManual(true); }}
-                className={budgetPeriod !== date.slice(0, 7) ? "border-amber-400 bg-amber-50" : ""}
+                className={budgetPeriod !== date.slice(0, 7) ? "border-tertiary bg-tertiary-container" : ""}
               />
               {budgetPeriod !== date.slice(0, 7) && (
-                <p className="text-xs text-amber-600">
+                <p className="text-xs text-tertiary">
                   Este gasto contará en el presupuesto de {new Date(budgetPeriod + "-01T12:00:00").toLocaleDateString("es-CO", { month: "long", year: "numeric" })}, no en el de {new Date(date.slice(0, 7) + "-01T12:00:00").toLocaleDateString("es-CO", { month: "long", year: "numeric" })}.
                 </p>
               )}
             </div>
 
-            {error && <p className="text-sm text-red-500">{error}</p>}
+            {error && <p className="text-sm text-error">{error}</p>}
 
             <div className="flex gap-2 pt-1 pb-2">
               <Button type="button" variant="outline" className="flex-1" onClick={onClose}>
                 Cancelar
               </Button>
-              <Button type="submit" className="flex-1 bg-violet-600 hover:bg-violet-700" disabled={loading}>
+              <Button type="submit" className="flex-1 bg-primary hover:bg-primary/90" disabled={loading}>
                 {loading ? "Guardando..." : editing ? "Guardar cambios" : "Guardar gasto"}
               </Button>
             </div>

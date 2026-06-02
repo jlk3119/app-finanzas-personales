@@ -92,7 +92,7 @@ export default function LoginPage() {
   if (mode === "confirm-sent") {
     return (
       <Screen>
-        <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+        <CheckCircle2 className="w-12 h-12 text-success mx-auto" />
         <h2 className="text-lg font-semibold text-center">¡Revisa tu correo!</h2>
         <p className="text-sm text-muted-foreground text-center">
           Te enviamos un enlace de confirmación a <strong>{email}</strong>.
@@ -111,7 +111,7 @@ export default function LoginPage() {
   if (mode === "forgot-sent") {
     return (
       <Screen>
-        <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
+        <CheckCircle2 className="w-12 h-12 text-success mx-auto" />
         <h2 className="text-lg font-semibold text-center">Correo enviado</h2>
         <p className="text-sm text-muted-foreground text-center">
           Si existe una cuenta con <strong>{email}</strong>, recibirás instrucciones para restablecer tu contraseña.
@@ -141,8 +141,8 @@ export default function LoginPage() {
                 <Input id="email" type="email" placeholder="tu@correo.com"
                   value={email} onChange={(e) => setEmail(e.target.value)} required autoFocus />
               </div>
-              {message.text && <p className="text-sm text-red-500">{message.text}</p>}
-              <Button type="submit" className="w-full bg-violet-600 hover:bg-violet-700" disabled={loading}>
+              {message.text && <p className="text-sm text-error">{message.text}</p>}
+              <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={loading}>
                 {loading ? "Enviando…" : "Enviar instrucciones"}
               </Button>
             </form>
@@ -202,12 +202,12 @@ export default function LoginPage() {
             </div>
 
             {message.text && (
-              <p className={`text-sm ${message.type === "error" ? "text-red-500" : "text-muted-foreground"}`}>
+              <p className={`text-sm ${message.type === "error" ? "text-error" : "text-muted-foreground"}`}>
                 {message.text}
               </p>
             )}
 
-            <Button type="submit" className="w-full bg-violet-600 hover:bg-violet-700" disabled={loading}>
+            <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={loading}>
               {loading ? "Cargando…" : mode === "signin" ? "Entrar" : "Crear cuenta"}
             </Button>
           </form>
@@ -233,7 +233,7 @@ export default function LoginPage() {
 
 function Wrapper({ children }: { children: React.ReactNode }) {
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-primary-container p-4">
       {children}
     </div>
   );

@@ -156,3 +156,47 @@ jest.mock('@/components/ui/dialog', () => {
     DialogPortal: ({ children }: any) => React.createElement(React.Fragment, null, children),
   }
 })
+
+jest.mock('motion/react', () => {
+  const React = require('react')
+  // Props específicas de Motion que no deben llegar al DOM host
+  const MOTION_PROPS = new Set([
+    'initial', 'animate', 'exit', 'transition', 'variants', 'whileTap', 'whileHover',
+    'whileInView', 'whileFocus', 'whileDrag', 'layout', 'layoutId', 'drag', 'dragConstraints',
+    'viewport', 'custom', 'onAnimationStart', 'onAnimationComplete', 'style',
+  ])
+  const strip = (props: any) => {
+    const clean: any = {}
+    for (const k in props) if (!MOTION_PROPS.has(k)) clean[k] = props[k]
+    return clean
+  }
+  const motion: any = new Proxy(
+    {},
+    {
+      get: (_t, tag: string) => {
+        const Comp = ({ children, ...props }: any) =>
+          React.createElement(tag, strip(props), children)
+        Comp.displayName = `motion.${tag}`
+        return Comp
+      },
+    },
+  )
+  return {
+    motion,
+    AnimatePresence: ({ children }: any) => React.createElement(React.Fragment, null, children),
+    MotionConfig: ({ children }: any) => React.createElement(React.Fragment, null, children),
+    useReducedMotion: () => true,
+    useMotionValue: (v: any) => ({ get: () => v, set: () => {}, on: () => () => {} }),
+    useSpring: (v: any) => ({ get: () => v, set: () => {}, on: () => () => {} }),
+    useTransform: () => ({ get: () => 0, set: () => {}, on: () => () => {} }),
+    animate: () => ({ stop: () => {} }),
+  }
+})
+
+jest.mock('next-themes', () => {
+  const React = require('react')
+  return {
+    ThemeProvider: ({ children }: any) => React.createElement(React.Fragment, null, children),
+    useTheme: () => ({ theme: 'light', resolvedTheme: 'light', setTheme: jest.fn(), themes: ['light', 'dark'] }),
+  }
+})

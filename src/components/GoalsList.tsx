@@ -169,15 +169,15 @@ export default function GoalsList({ goals, categories, onRefresh }: Props) {
   return (
     <div className="space-y-4">
       {goals.length === 0 && !showForm && (
-        <div className="text-center py-8 space-y-3 bg-gray-50 rounded-2xl border border-dashed border-gray-200">
+        <div className="text-center py-8 space-y-3 bg-surface rounded-2xl border border-dashed border-outline-variant">
           <p className="text-4xl">🎯</p>
           <div className="px-4">
-            <p className="text-sm font-semibold text-gray-700">Sin metas financieras</p>
+            <p className="text-sm font-semibold text-on-surface">Sin metas financieras</p>
             <p className="text-xs text-muted-foreground mt-1">
               Define un objetivo de ahorro (viaje, fondo de emergencia, electrodoméstico…) y registra cuánto llevas acumulado.
             </p>
           </div>
-          <Button size="sm" className="bg-violet-600 hover:bg-violet-700" onClick={openCreate}>
+          <Button size="sm" className="bg-primary hover:bg-primary/90" onClick={openCreate}>
             <Plus className="w-4 h-4 mr-1" /> Crear primera meta
           </Button>
         </div>
@@ -188,7 +188,7 @@ export default function GoalsList({ goals, categories, onRefresh }: Props) {
         const remaining = goal.target_amount - goal.current_amount;
         const isAdding = addingToGoal?.id === goal.id;
         return (
-          <Card key={goal.id} className={goal.completed ? "border-green-200 bg-green-50" : ""}>
+          <Card key={goal.id} className={goal.completed ? "border-success/30 bg-success-container" : ""}>
             <CardContent className="pt-4 space-y-3">
               <div className="flex justify-between items-start">
                 <div className="flex items-center gap-2">
@@ -208,11 +208,11 @@ export default function GoalsList({ goals, categories, onRefresh }: Props) {
                   </div>
                 </div>
                 <div className="flex items-center gap-0.5">
-                  {goal.completed && <Badge className="bg-green-500 text-xs mr-1">Completada</Badge>}
+                  {goal.completed && <Badge className="bg-success text-xs mr-1">Completada</Badge>}
                   <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" aria-label="Editar" onClick={() => openEdit(goal)}>
                     <Pencil className="w-3.5 h-3.5" />
                   </Button>
-                  <Button variant="ghost" size="icon" className="w-7 h-7 text-red-400" aria-label="Eliminar" onClick={() => setConfirmId(goal.id)}>
+                  <Button variant="ghost" size="icon" className="w-7 h-7 text-error" aria-label="Eliminar" onClick={() => setConfirmId(goal.id)}>
                     <Trash2 className="w-3.5 h-3.5" />
                   </Button>
                 </div>
@@ -255,7 +255,7 @@ export default function GoalsList({ goals, categories, onRefresh }: Props) {
                       </p>
                     )}
                     <div className="flex gap-2">
-                      <Button size="sm" className="bg-emerald-600 hover:bg-emerald-700 flex-1" onClick={handleAddAmount}>
+                      <Button size="sm" className="bg-success hover:bg-success/90 flex-1" onClick={handleAddAmount}>
                         <CheckCircle2 className="w-4 h-4 mr-1" /> Guardar ahorro
                       </Button>
                       <Button size="sm" variant="outline" className="shrink-0" onClick={closeAddSaving}>
@@ -284,7 +284,7 @@ export default function GoalsList({ goals, categories, onRefresh }: Props) {
               <div className="flex flex-wrap gap-1.5">
                 {ICONS.map((ic) => (
                   <button key={ic} type="button" onClick={() => setIcon(ic)}
-                    className={`text-xl p-1.5 rounded-lg transition-all ${icon === ic ? "bg-violet-100 ring-2 ring-violet-400 scale-110" : "hover:bg-gray-100"}`}>
+                    className={`text-xl p-1.5 rounded-lg transition-all ${icon === ic ? "bg-primary-container ring-2 ring-primary scale-110" : "hover:bg-surface-container"}`}>
                     {ic}
                   </button>
                 ))}
@@ -328,7 +328,7 @@ export default function GoalsList({ goals, categories, onRefresh }: Props) {
 
             <div className="flex gap-2">
               <Button variant="outline" className="flex-1" onClick={closeForm}>Cancelar</Button>
-              <Button className="flex-1 bg-violet-600 hover:bg-violet-700" onClick={handleSave}
+              <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={handleSave}
                 disabled={loading || !name || !target || Number(target) <= 0}>
                 {loading ? "Guardando..." : editingGoal ? "Guardar cambios" : "Crear meta"}
               </Button>

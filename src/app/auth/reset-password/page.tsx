@@ -47,7 +47,7 @@ export default function ResetPasswordPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-violet-50 to-indigo-100 p-4">
+    <div className="min-h-screen flex items-center justify-center bg-primary-container p-4">
       <Card className="w-full max-w-sm">
         <CardHeader className="text-center">
           <div className="text-4xl mb-2">🔐</div>
@@ -57,8 +57,8 @@ export default function ResetPasswordPage() {
         <CardContent>
           {done ? (
             <div className="text-center space-y-3 py-4">
-              <CheckCircle2 className="w-12 h-12 text-emerald-500 mx-auto" />
-              <p className="font-semibold text-emerald-700">¡Contraseña actualizada!</p>
+              <CheckCircle2 className="w-12 h-12 text-success mx-auto" />
+              <p className="font-semibold text-success">¡Contraseña actualizada!</p>
               <p className="text-sm text-muted-foreground">Redirigiendo a la app…</p>
             </div>
           ) : !ready ? (
@@ -96,8 +96,8 @@ export default function ResetPasswordPage() {
                   required
                 />
               </div>
-              {error && <p className="text-sm text-red-500">{error}</p>}
-              <Button type="submit" className="w-full bg-violet-600 hover:bg-violet-700" disabled={loading}>
+              {error && <p className="text-sm text-error">{error}</p>}
+              <Button type="submit" className="w-full bg-primary hover:bg-primary/90" disabled={loading}>
                 {loading ? "Actualizando…" : "Guardar nueva contraseña"}
               </Button>
             </form>

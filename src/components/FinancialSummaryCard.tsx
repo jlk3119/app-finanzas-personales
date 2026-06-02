@@ -33,9 +33,9 @@ const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto
 const FREQ_LABEL: Record<string, string> = { monthly: "mensual", biweekly: "quincenal", weekly: "semanal" };
 
 const STATUS_CONFIG = {
-  good:     { emoji: "✅", bg: "bg-emerald-500", light: "bg-emerald-50", text: "text-emerald-700", border: "border-emerald-100" },
-  warning:  { emoji: "⚠️", bg: "bg-amber-400",  light: "bg-amber-50",   text: "text-amber-700",   border: "border-amber-100"   },
-  critical: { emoji: "🔴", bg: "bg-red-500",    light: "bg-red-50",     text: "text-red-700",     border: "border-red-100"     },
+  good:     { emoji: "✅", bg: "bg-success",   light: "bg-success-container", text: "text-success",   border: "border-outline-variant" },
+  warning:  { emoji: "⚠️", bg: "bg-tertiary",  light: "bg-tertiary-container", text: "text-tertiary", border: "border-outline-variant" },
+  critical: { emoji: "🔴", bg: "bg-error",     light: "bg-error-container",   text: "text-error",     border: "border-outline-variant" },
 };
 
 export default function FinancialSummaryCard({
@@ -193,7 +193,7 @@ export default function FinancialSummaryCard({
   return (
     <Card className="overflow-hidden border-0 shadow-md">
       {/* Header band */}
-      <div className={`${cfg?.bg ?? "bg-violet-500"} px-4 py-3 flex items-center justify-between transition-colors duration-500`}>
+      <div className={`${cfg?.bg ?? "bg-primary"} px-4 py-3 flex items-center justify-between transition-colors duration-500`}>
         <div className="flex items-center gap-2">
           <Sparkles className="w-4 h-4 text-white/80" />
           <span className="text-white text-xs font-medium tracking-wide uppercase">
@@ -216,16 +216,16 @@ export default function FinancialSummaryCard({
         {/* Loading skeleton */}
         {loading && (
           <div className="px-4 py-4 space-y-3 animate-pulse">
-            <div className="h-5 bg-gray-100 rounded-full w-1/2" />
-            <div className="h-3 bg-gray-100 rounded-full w-full" />
-            <div className="h-3 bg-gray-100 rounded-full w-4/5" />
-            <div className="h-8 bg-gray-100 rounded-xl w-full mt-1" />
+            <div className="h-5 bg-surface-container rounded-full w-1/2" />
+            <div className="h-3 bg-surface-container rounded-full w-full" />
+            <div className="h-3 bg-surface-container rounded-full w-4/5" />
+            <div className="h-8 bg-surface-container rounded-xl w-full mt-1" />
           </div>
         )}
 
         {/* Error */}
         {error && !loading && (
-          <div className="flex items-start gap-2 text-red-600 bg-red-50 mx-4 my-3 rounded-xl px-3 py-2.5">
+          <div className="flex items-start gap-2 text-error bg-error-container mx-4 my-3 rounded-xl px-3 py-2.5">
             <AlertCircle className="w-4 h-4 shrink-0 mt-0.5" />
             <p className="text-xs">{error}</p>
           </div>
@@ -233,7 +233,7 @@ export default function FinancialSummaryCard({
 
         {/* Result */}
         {summary && !loading && cfg && (
-          <div className="divide-y divide-gray-100">
+          <div className="divide-y divide-outline-variant">
             {/* Verdict */}
             <div className={`${cfg.light} px-4 py-3 flex items-center gap-2.5`}>
               <span className="text-xl">{cfg.emoji}</span>
@@ -242,18 +242,18 @@ export default function FinancialSummaryCard({
 
             {/* Insight */}
             <div className="px-4 py-3">
-              <p className="text-sm text-gray-700 leading-relaxed">{summary.insight}</p>
+              <p className="text-sm text-on-surface leading-relaxed">{summary.insight}</p>
             </div>
 
             {/* Action */}
-            <div className="px-4 py-3 bg-violet-50 flex items-start gap-2.5">
-              <Lightbulb className="w-4 h-4 text-violet-500 shrink-0 mt-0.5" />
-              <p className="text-sm text-violet-800 font-medium leading-relaxed">{summary.action}</p>
+            <div className="px-4 py-3 bg-primary-container flex items-start gap-2.5">
+              <Lightbulb className="w-4 h-4 text-primary shrink-0 mt-0.5" />
+              <p className="text-sm text-on-primary-container font-medium leading-relaxed">{summary.action}</p>
             </div>
           </div>
         )}
 
-        <p className="text-[10px] text-gray-400 text-right px-4 py-1.5">
+        <p className="text-[10px] text-on-surface-variant text-right px-4 py-1.5">
           Powered by Llama 3 · Solo datos del mes, sin identidad personal
         </p>
       </CardContent>
