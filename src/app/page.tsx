@@ -482,8 +482,10 @@ export default function Dashboard() {
     );
   }
 
+  const fabVisible = activeTab === "dashboard" || activeTab === "expenses";
+
   return (
-    <div className="min-h-screen pb-24">
+    <div className={`min-h-screen ${fabVisible ? "pb-40" : "pb-24"}`}>
       {/* Header */}
       <div className="bg-primary text-on-primary px-4 pt-10 pb-6 rounded-b-3xl shadow-e2">
         <div className="flex justify-between items-start mb-4">
@@ -838,7 +840,7 @@ export default function Dashboard() {
 
       {/* FAB — solo en Resumen y Gastos */}
       <AnimatePresence>
-        {(activeTab === "dashboard" || activeTab === "expenses") && (
+        {fabVisible && (
           <motion.div
             className="fixed bottom-[88px] right-4 z-50"
             initial={reduceMotion ? false : { scale: 0, opacity: 0 }}
