@@ -111,13 +111,13 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
 
   return (
     <div className="space-y-4">
-      {/* Filtro por categoría / subcategoría */}
+      {/* Filtro por categoría / subcategoría — fila deslizable (MD3 filter chips) */}
       <div className="space-y-2">
-        <div className="flex flex-wrap gap-1.5">
+        <div className="flex gap-1.5 overflow-x-auto pb-1 -mx-4 px-4 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
           <button
             type="button"
             onClick={() => selectFilterParent("")}
-            className={`px-3 py-1.5 rounded-full border text-xs transition-all ${
+            className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full border text-xs transition-all ${
               filterParentId === ""
                 ? "border-primary bg-primary-container text-primary font-medium"
                 : "border-outline-variant bg-surface-container-lowest text-on-surface"
@@ -132,7 +132,7 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
                 key={cat.id}
                 type="button"
                 onClick={() => selectFilterParent(cat.id)}
-                className={`flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs transition-all ${
+                className={`shrink-0 whitespace-nowrap flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs transition-all ${
                   isSelected
                     ? "border-primary bg-primary-container text-primary font-medium"
                     : "border-outline-variant bg-surface-container-lowest text-on-surface"
@@ -144,11 +144,11 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
           })}
         </div>
         {filterChildren.length > 0 && (
-          <div className="flex flex-wrap gap-1.5 pl-2 border-l-2 border-primary/30">
+          <div className="flex gap-1.5 overflow-x-auto pb-1 ml-2 pl-2 -mr-4 pr-4 border-l-2 border-primary/30 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <button
               type="button"
               onClick={() => setFilterSubId("")}
-              className={`px-3 py-1.5 rounded-full border text-xs transition-all ${
+              className={`shrink-0 whitespace-nowrap px-3 py-1.5 rounded-full border text-xs transition-all ${
                 filterSubId === ""
                   ? "border-primary bg-primary-container text-primary font-medium"
                   : "border-outline-variant bg-surface-container-lowest text-on-surface"
@@ -163,7 +163,7 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
                   key={sub.id}
                   type="button"
                   onClick={() => setFilterSubId(isSelected ? "" : sub.id)}
-                  className={`flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs transition-all ${
+                  className={`shrink-0 whitespace-nowrap flex items-center gap-1 px-3 py-1.5 rounded-full border text-xs transition-all ${
                     isSelected
                       ? "border-primary bg-primary-container text-primary font-medium"
                       : "border-outline-variant bg-surface-container-lowest text-on-surface"
