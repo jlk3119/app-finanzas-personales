@@ -17,7 +17,6 @@ import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import BudgetManager from "@/components/BudgetManager";
 import GoalsList from "@/components/GoalsList";
-import FinancialSummaryCard from "@/components/FinancialSummaryCard";
 import DebtManager from "@/components/DebtManager";
 import CategoryManager from "@/components/CategoryManager";
 import AccountsManager from "@/components/AccountsManager";
@@ -547,7 +546,7 @@ export default function Dashboard() {
 
       {/* Contenido por pestaña */}
       <div className="px-4 mt-4 space-y-4">
-        <div className={activeTab !== "dashboard" ? "hidden" : ""}>
+        <div className={`space-y-4 ${activeTab !== "dashboard" ? "hidden" : ""}`}>
             <div className="flex items-center justify-between">
               <Button variant="ghost" size="icon" onClick={goToPrevSummaryMonth} className="h-8 w-8">
                 <ChevronLeft className="w-4 h-4" />
@@ -738,19 +737,6 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             )}
-
-            <FinancialSummaryCard
-              expenses={dashboardExpenses}
-              budgets={budgets}
-              goals={goals}
-              debts={debts}
-              categories={categories}
-              accounts={accounts}
-              recurringIncome={recurringIncome}
-              currentMonth={summaryMonth}
-              currentYear={summaryYear}
-              dataLoaded={!loading}
-            />
         </div>
 
         {activeTab === "expenses" && (

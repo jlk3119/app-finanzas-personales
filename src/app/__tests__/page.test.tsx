@@ -6,10 +6,6 @@ import Dashboard from '../page'
 import { createClient } from '@/utils/supabase/client'
 
 jest.mock('@/utils/supabase/client', () => ({ createClient: jest.fn() }))
-jest.mock('@/components/FinancialSummaryCard', () => ({
-  __esModule: true,
-  default: () => null,
-}))
 
 const mockCreateClient = createClient as jest.MockedFunction<typeof createClient>
 
