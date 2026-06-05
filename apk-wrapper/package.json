@@ -1,0 +1,13 @@
+{
+  "name": "misfinanzas-apk",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Wrapper Capacitor (WebView) que empaqueta la PWA MisFinanzas como APK Android",
+  "devDependencies": {
+    "@capacitor/cli": "^7.0.0"
+  },
+  "dependencies": {
+    "@capacitor/core": "^7.0.0",
+    "@capacitor/android": "^7.0.0"
+  }
+}
