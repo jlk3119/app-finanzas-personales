@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, LogOut, Target, TrendingDown, Wallet, Settings, Landmark, Trophy, CheckCircle2, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { PlusCircle, Target, TrendingDown, Wallet, Settings, Landmark, Trophy, CheckCircle2, ChevronLeft, ChevronRight, Download, Eye, EyeOff } from "lucide-react";
 import { exportMonthlyCSV } from "@/utils/exportCSV";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
@@ -21,7 +21,8 @@ import DebtManager from "@/components/DebtManager";
 import CategoryManager from "@/components/CategoryManager";
 import AccountsManager from "@/components/AccountsManager";
 import MonthClosureCard from "@/components/MonthClosureCard";
-import { ThemeToggle } from "@/components/ThemeToggle";
+import SettingsSheet from "@/components/SettingsSheet";
+import { usePrivacy } from "@/components/PrivacyProvider";
 
 const MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -59,6 +60,7 @@ export default function Dashboard() {
   const [showForm, setShowForm] = useState(false);
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [showCategories, setShowCategories] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
   const [expenseMonth, setExpenseMonth] = useState(() => new Date().getMonth() + 1);
@@ -72,6 +74,7 @@ export default function Dashboard() {
   useBackButtonClose(showForm, () => setShowForm(false));
   useBackButtonClose(editingExpense !== null, () => setEditingExpense(null));
   useBackButtonClose(showCategories, () => setShowCategories(false));
+  useBackButtonClose(showSettings, () => setShowSettings(false));
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
@@ -469,7 +472,7 @@ export default function Dashboard() {
     })
     .filter((c) => c.total > 0);
 
-  const fmt = (n: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
+  const { hidden: amountsHidden, toggle: toggleAmounts, fmt } = usePrivacy();
 
   if (loading) {
     return (
@@ -494,12 +497,18 @@ export default function Dashboard() {
             <p className="text-on-primary/70 text-sm">{now.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</p>
           </div>
           <div className="flex gap-1">
-            <ThemeToggle className="text-on-primary hover:bg-on-primary/20" />
-            <Button variant="ghost" size="icon" onClick={() => setShowCategories(true)} className="text-on-primary hover:bg-on-primary/20">
-              <Settings className="w-5 h-5" />
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={amountsHidden ? "Mostrar montos" : "Ocultar montos"}
+              aria-pressed={amountsHidden}
+              onClick={toggleAmounts}
+              className="text-on-primary hover:bg-on-primary/20"
+            >
+              {amountsHidden ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
             </Button>
-            <Button variant="ghost" size="icon" onClick={signOut} className="text-on-primary hover:bg-on-primary/20">
-              <LogOut className="w-5 h-5" />
+            <Button variant="ghost" size="icon" aria-label="Configuración" onClick={() => setShowSettings(true)} className="text-on-primary hover:bg-on-primary/20">
+              <Settings className="w-5 h-5" />
             </Button>
           </div>
         </div>
@@ -901,6 +910,14 @@ export default function Dashboard() {
           categories={categories}
           onClose={() => setShowCategories(false)}
           onRefresh={fetchData}
+        />
+      )}
+
+      {showSettings && (
+        <SettingsSheet
+          onClose={() => setShowSettings(false)}
+          onManageCategories={() => setShowCategories(true)}
+          onSignOut={signOut}
         />
       )}
     </div>

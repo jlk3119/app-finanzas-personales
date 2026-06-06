@@ -1,5 +1,7 @@
 "use client";
 
+import { useMoney } from "@/components/PrivacyProvider";
+
 import { useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { createClient } from "@/utils/supabase/client";
@@ -16,9 +18,6 @@ type Props = {
   onEdit?: (expense: Expense) => void;
   compact?: boolean;
 };
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
 function groupByDate(expenses: Expense[]) {
   const groups: Record<string, Expense[]> = {};
@@ -41,6 +40,7 @@ function formatDate(dateStr: string) {
 }
 
 export default function ExpenseList({ expenses, categories, accounts, onRefresh, onEdit, compact }: Props) {
+  const fmt = useMoney();
   const supabase = createClient();
   const reduceMotion = useReducedMotion();
   const [deleting, setDeleting] = useState<string | null>(null);

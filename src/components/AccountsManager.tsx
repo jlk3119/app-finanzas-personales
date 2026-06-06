@@ -1,5 +1,7 @@
 "use client";
 
+import { useMoney } from "@/components/PrivacyProvider";
+
 import { useState } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
@@ -23,9 +25,6 @@ type Props = {
   unlinkedMonthTotal: number;
   onRefresh: () => void;
 };
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
 const fmtDate = (s: string) =>
   new Date(s + "T12:00:00").toLocaleDateString("es-CO", { day: "numeric", month: "short" });
@@ -72,6 +71,7 @@ const EMPTY_RECURRING: RecurringForm = {
 type View = "main" | "account-form" | "income-form" | "recurring-form" | "income-list";
 
 export default function AccountsManager({ accounts, income, recurringIncome, disponible, unlinkedMonthTotal, onRefresh }: Props) {
+  const fmt = useMoney();
   const supabase = createClient();
   const [view, setView] = useState<View>("main");
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);

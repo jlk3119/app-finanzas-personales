@@ -1,5 +1,7 @@
 "use client";
 
+import { useMoney } from "@/components/PrivacyProvider";
+
 import { useState } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
@@ -24,9 +26,6 @@ type Props = {
   currentYear: number;
 };
 
-const fmt = (n: number) =>
-  new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
-
 const MONTHS = ["Enero","Febrero","Marzo","Abril","Mayo","Junio","Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre"];
 
 function prevMonthOf(month: number, year: number) {
@@ -40,6 +39,7 @@ const FREQ_MULTIPLIER: Record<string, number> = { monthly: 1, biweekly: 2, weekl
 const FREQ_LABEL: Record<string, string> = { monthly: "mensual", biweekly: "quincenal ×2", weekly: "semanal ×4" };
 
 export default function BudgetManager({ budgets, categories, accounts, recurringIncome, income, onRefresh, onManageCategories, currentMonth, currentYear }: Props) {
+  const fmt = useMoney();
   const supabase = createClient();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);

@@ -1,5 +1,7 @@
 "use client";
 
+import { useMoney } from "@/components/PrivacyProvider";
+
 import { useState } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
@@ -14,9 +16,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Plus, Trash2, PlusCircle, CheckCircle2, Pencil, X } from "lucide-react";
 
 type Props = { goals: Goal[]; categories: Category[]; onRefresh: () => void };
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
 const toLocalDateStr = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
@@ -36,6 +35,7 @@ const ICONS = [
 ];
 
 export default function GoalsList({ goals, categories, onRefresh }: Props) {
+  const fmt = useMoney();
   const supabase = createClient();
   const [showForm, setShowForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
