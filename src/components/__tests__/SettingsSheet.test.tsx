@@ -68,10 +68,11 @@ describe("SettingsSheet", () => {
     expect(sw).toHaveAttribute("aria-checked", "true");
   });
 
-  it("abre la gestión de categorías", async () => {
-    const { onManageCategories } = renderSheet();
+  it("abre la gestión de categorías sin cerrar el menú (evita colisión del historial)", async () => {
+    const { onManageCategories, onClose } = renderSheet();
     await userEvent.click(screen.getByRole("button", { name: /categorías/i }));
     expect(onManageCategories).toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 
   it("cierra la sesión", async () => {
