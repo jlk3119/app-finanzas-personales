@@ -1,0 +1,16 @@
+# Dependencias (se reinstalan con `npm install`)
+node_modules/
+
+# Secretos y artefactos de firma — NUNCA subir a git
+keystore.properties
+*.keystore
+*.jks
+
+# APKs / artefactos de salida (se regeneran con build-apk.sh)
+*.apk
+*.apk.idsig
+*.aab
+dist/
+
+# Específico de la máquina
+android/local.properties
