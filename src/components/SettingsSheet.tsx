@@ -110,7 +110,7 @@ export default function SettingsSheet({ onClose, onManageCategories, onSignOut }
             <h3 className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">General</h3>
             <button
               type="button"
-              onClick={() => { onManageCategories(); onClose(); }}
+              onClick={onManageCategories}
               className="w-full flex items-center justify-between rounded-2xl border border-outline-variant px-4 py-3 min-h-[44px] hover:bg-surface-container transition-colors"
             >
               <span className="flex items-center gap-3">
