@@ -1,5 +1,7 @@
 "use client";
 
+import { useMoney } from "@/components/PrivacyProvider";
+
 import { useState } from "react";
 import { createClient } from "@/utils/supabase/client";
 import type { Expense, Category, Budget, Goal, Income } from "@/types";
@@ -12,9 +14,6 @@ const MONTH_NAMES = [
   "Enero","Febrero","Marzo","Abril","Mayo","Junio",
   "Julio","Agosto","Septiembre","Octubre","Noviembre","Diciembre",
 ];
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
 type Props = {
   prevYear: number;
@@ -32,6 +31,7 @@ type Props = {
 export default function MonthClosureCard({
   prevYear, prevMonth, budgetPeriod, expenses, categories, budgets, goals, income, onClose, onRefresh,
 }: Props) {
+  const fmt = useMoney();
   const supabase = createClient();
   const [showGoalPicker, setShowGoalPicker] = useState(false);
   const [transferring, setTransferring] = useState(false);

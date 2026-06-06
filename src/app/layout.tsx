@@ -2,6 +2,7 @@ import type { Metadata, Viewport } from "next";
 import { Geist } from "next/font/google";
 import "./globals.css";
 import { ThemeProvider } from "@/components/theme-provider";
+import { PrivacyProvider } from "@/components/PrivacyProvider";
 
 const geist = Geist({ subsets: ["latin"] });
 
@@ -27,7 +28,9 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es" suppressHydrationWarning>
       <body className={`${geist.className} antialiased`}>
-        <ThemeProvider>{children}</ThemeProvider>
+        <ThemeProvider>
+          <PrivacyProvider>{children}</PrivacyProvider>
+        </ThemeProvider>
       </body>
     </html>
   );

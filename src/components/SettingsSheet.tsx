@@ -3,9 +3,10 @@
 import { useEffect, useState } from "react";
 import { useTheme } from "next-themes";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
+import { usePrivacy } from "@/components/PrivacyProvider";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Monitor, Sun, Moon, Tags, LogOut, X, ChevronRight } from "lucide-react";
+import { Monitor, Sun, Moon, Tags, LogOut, X, ChevronRight, Eye, EyeOff } from "lucide-react";
 
 type Props = {
   onClose: () => void;
@@ -21,6 +22,7 @@ const THEME_OPTIONS = [
 
 export default function SettingsSheet({ onClose, onManageCategories, onSignOut }: Props) {
   const { theme, setTheme } = useTheme();
+  const { hidden: amountsHidden, toggle: toggleAmounts } = usePrivacy();
   const [mounted, setMounted] = useState(false);
 
   // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -71,6 +73,37 @@ export default function SettingsSheet({ onClose, onManageCategories, onSignOut }
             <p className="text-xs text-on-surface-variant">
               «Sistema» sigue la configuración de tu dispositivo.
             </p>
+          </section>
+
+          <section className="space-y-2">
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-on-surface-variant">Privacidad</h3>
+            <button
+              type="button"
+              role="switch"
+              aria-checked={amountsHidden}
+              aria-label="Ocultar montos"
+              onClick={toggleAmounts}
+              className="w-full flex items-center justify-between rounded-2xl border border-outline-variant px-4 py-3 min-h-[44px] hover:bg-surface-container transition-colors"
+            >
+              <span className="flex items-center gap-3">
+                {amountsHidden ? <EyeOff className="w-5 h-5 text-on-surface-variant" /> : <Eye className="w-5 h-5 text-on-surface-variant" />}
+                <span className="text-left">
+                  <span className="block text-sm font-medium text-on-surface">Ocultar montos</span>
+                  <span className="block text-xs text-on-surface-variant">Enmascara totales, saldos y gastos</span>
+                </span>
+              </span>
+              <span
+                className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                  amountsHidden ? "bg-primary" : "bg-outline-variant"
+                }`}
+              >
+                <span
+                  className={`inline-block h-5 w-5 transform rounded-full bg-surface-container-lowest transition-transform ${
+                    amountsHidden ? "translate-x-5" : "translate-x-0.5"
+                  }`}
+                />
+              </span>
+            </button>
           </section>
 
           <section className="space-y-2">

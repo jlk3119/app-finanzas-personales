@@ -11,7 +11,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Target, TrendingDown, Wallet, Settings, Landmark, Trophy, CheckCircle2, ChevronLeft, ChevronRight, Download } from "lucide-react";
+import { PlusCircle, Target, TrendingDown, Wallet, Settings, Landmark, Trophy, CheckCircle2, ChevronLeft, ChevronRight, Download, Eye, EyeOff } from "lucide-react";
 import { exportMonthlyCSV } from "@/utils/exportCSV";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
@@ -22,6 +22,7 @@ import CategoryManager from "@/components/CategoryManager";
 import AccountsManager from "@/components/AccountsManager";
 import MonthClosureCard from "@/components/MonthClosureCard";
 import SettingsSheet from "@/components/SettingsSheet";
+import { usePrivacy } from "@/components/PrivacyProvider";
 
 const MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
 
@@ -471,7 +472,7 @@ export default function Dashboard() {
     })
     .filter((c) => c.total > 0);
 
-  const fmt = (n: number) => new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
+  const { hidden: amountsHidden, toggle: toggleAmounts, fmt } = usePrivacy();
 
   if (loading) {
     return (
@@ -496,6 +497,16 @@ export default function Dashboard() {
             <p className="text-on-primary/70 text-sm">{now.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</p>
           </div>
           <div className="flex gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={amountsHidden ? "Mostrar montos" : "Ocultar montos"}
+              aria-pressed={amountsHidden}
+              onClick={toggleAmounts}
+              className="text-on-primary hover:bg-on-primary/20"
+            >
+              {amountsHidden ? <EyeOff className="w-5 h-5" /> : <Eye className="w-5 h-5" />}
+            </Button>
             <Button variant="ghost" size="icon" aria-label="Configuración" onClick={() => setShowSettings(true)} className="text-on-primary hover:bg-on-primary/20">
               <Settings className="w-5 h-5" />
             </Button>

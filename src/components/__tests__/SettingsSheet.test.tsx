@@ -1,6 +1,7 @@
 import { render, screen } from "@testing-library/react";
 import userEvent from "@testing-library/user-event";
 import SettingsSheet from "../SettingsSheet";
+import { PrivacyProvider } from "../PrivacyProvider";
 
 const setThemeMock = jest.fn();
 let mockTheme = "system";
@@ -16,13 +17,18 @@ function renderSheet(overrides: Partial<React.ComponentProps<typeof SettingsShee
     onSignOut: jest.fn(),
     ...overrides,
   };
-  render(<SettingsSheet {...props} />);
+  render(
+    <PrivacyProvider>
+      <SettingsSheet {...props} />
+    </PrivacyProvider>,
+  );
   return props;
 }
 
 beforeEach(() => {
   setThemeMock.mockClear();
   mockTheme = "system";
+  try { window.localStorage.clear(); } catch { /* noop */ }
 });
 
 describe("SettingsSheet", () => {
@@ -52,6 +58,14 @@ describe("SettingsSheet", () => {
     renderSheet();
     expect(screen.getByRole("radio", { name: /oscuro/i })).toHaveAttribute("aria-checked", "true");
     expect(screen.getByRole("radio", { name: /claro/i })).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("oculta los montos por privacidad", async () => {
+    renderSheet();
+    const sw = screen.getByRole("switch", { name: /ocultar montos/i });
+    expect(sw).toHaveAttribute("aria-checked", "false");
+    await userEvent.click(sw);
+    expect(sw).toHaveAttribute("aria-checked", "true");
   });
 
   it("abre la gestión de categorías", async () => {

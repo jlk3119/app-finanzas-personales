@@ -1,5 +1,7 @@
 "use client";
 
+import { useMoney } from "@/components/PrivacyProvider";
+
 import { useState } from "react";
 import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { createClient } from "@/utils/supabase/client";
@@ -14,9 +16,6 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Plus, Trash2, Pencil, X, CreditCard, CheckCircle2 } from "lucide-react";
 
 type Props = { debts: Debt[]; onRefresh: () => void };
-
-const fmt = (n: number) =>
-  new Intl.NumberFormat("es-CO", { style: "currency", currency: "COP", maximumFractionDigits: 0 }).format(n);
 
 const ICONS = [
   "💳","🏦","🏠","🚗","📱","💻","🎓","🏥","💊","🛒",
@@ -35,6 +34,7 @@ const SORT_OPTIONS: { value: SortBy; label: string }[] = [
 ];
 
 export default function DebtManager({ debts, onRefresh }: Props) {
+  const fmt = useMoney();
   const supabase = createClient();
 
   const [view, setView] = useState<View>("list");
