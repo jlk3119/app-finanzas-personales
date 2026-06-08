@@ -11,7 +11,6 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Eye, EyeOff, CheckCircle2 } from "lucide-react";
 
 export default function ResetPasswordPage() {
-  const supabase = createClient();
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [showPwd, setShowPwd] = useState(false);
@@ -21,14 +20,13 @@ export default function ResetPasswordPage() {
   const [error, setError] = useState("");
 
   useEffect(() => {
-    // Supabase pone el code en el hash o como query param; el cliente lo procesa solo
+    const supabase = createClient();
     const { data: { subscription } } = supabase.auth.onAuthStateChange((event) => {
       if (event === "PASSWORD_RECOVERY") setReady(true);
     });
-    // Si ya hay sesión activa (redirect desde callback) también mostramos el form
     supabase.auth.getUser().then(({ data: { user } }) => { if (user) setReady(true); });
     return () => subscription.unsubscribe();
-  }, [supabase]);
+  }, []);
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -36,6 +34,7 @@ export default function ResetPasswordPage() {
     if (password !== confirm) { setError("Las contraseñas no coinciden."); return; }
     setLoading(true);
     setError("");
+    const supabase = createClient();
     const { error: err } = await supabase.auth.updateUser({ password });
     if (err) {
       setError("No se pudo actualizar la contraseña. Intenta solicitar un nuevo enlace.");

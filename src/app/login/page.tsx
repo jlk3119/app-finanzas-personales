@@ -30,7 +30,6 @@ function translateError(raw: string): string {
 }
 
 export default function LoginPage() {
-  const supabase = createClient();
   const [mode, setMode] = useState<Mode>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -52,6 +51,7 @@ export default function LoginPage() {
     e.preventDefault();
     setLoading(true);
     setMessage({ text: "", type: "info" });
+    const supabase = createClient();
 
     if (mode === "signin") {
       const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -79,6 +79,7 @@ export default function LoginPage() {
   const handleForgot = async (e: React.FormEvent) => {
     e.preventDefault();
     setLoading(true);
+    const supabase = createClient();
     await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${location.origin}/auth/reset-password`,
     });
