@@ -186,4 +186,49 @@ describe('ExpenseForm', () => {
     expect(screen.getByRole('button', { name: /guardando/i })).toBeDisabled()
     resolveInsert({ data: null, error: null })
   })
+
+  describe('entrada por lenguaje natural', () => {
+    afterEach(() => { delete (global as any).fetch })
+
+    it('interpreta el texto y prellena monto, descripción y categoría', async () => {
+      ;(global as any).fetch = jest.fn().mockResolvedValue({
+        ok: true,
+        json: async () => ({ amount: 20000, description: 'Almuerzo', categoryName: 'Restaurante', date: '2026-06-06' }),
+      })
+      const user = userEvent.setup()
+      render(<ExpenseForm categories={mockCategories} accounts={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
+
+      await user.type(screen.getByLabelText(/escríbelo con tus palabras/i), 'almuerzo 20 mil ayer')
+      await user.click(screen.getByRole('button', { name: /interpretar/i }))
+
+      await waitFor(() => expect((screen.getByLabelText(/monto/i) as HTMLInputElement).value).toBe('20000'))
+      expect((screen.getByLabelText(/descripción/i) as HTMLInputElement).value).toBe('Almuerzo')
+      expect((screen.getByLabelText(/fecha/i) as HTMLInputElement).value).toBe('2026-06-06')
+      // La subcategoría "Restaurante" preselecciona a su padre "Alimentación" y se muestra
+      expect(screen.getByText(/restaurante/i)).toBeInTheDocument()
+    })
+
+    it('muestra un mensaje amable cuando la interpretación falla', async () => {
+      ;(global as any).fetch = jest.fn().mockResolvedValue({
+        ok: false,
+        json: async () => ({ error: 'El análisis con IA alcanzó su límite por ahora.' }),
+      })
+      const user = userEvent.setup()
+      render(<ExpenseForm categories={mockCategories} accounts={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
+
+      await user.type(screen.getByLabelText(/escríbelo con tus palabras/i), 'algo')
+      await user.click(screen.getByRole('button', { name: /interpretar/i }))
+
+      await waitFor(() => expect(screen.getByText(/alcanzó su límite/i)).toBeInTheDocument())
+    })
+
+    it('no muestra la entrada por lenguaje natural en modo edición', () => {
+      const expense: Expense = {
+        id: 'e1', user_id: 'u1', category_id: null, account_id: null,
+        amount: 75000, description: 'Almuerzo', date: '2026-05-10', created_at: '',
+      }
+      render(<ExpenseForm categories={mockCategories} accounts={[]} editingExpense={expense} onClose={jest.fn()} onSaved={jest.fn()} />)
+      expect(screen.queryByLabelText(/escríbelo con tus palabras/i)).not.toBeInTheDocument()
+    })
+  })
 })

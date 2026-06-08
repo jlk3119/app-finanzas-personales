@@ -7,7 +7,8 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import { X } from "lucide-react";
+import { matchCategory, type ParsedExpense } from "@/utils/parse-expense";
+import { Sparkles, Loader2, X } from "lucide-react";
 
 type Props = {
   categories: Category[];
@@ -57,6 +58,41 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
   );
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+
+  const [nlText, setNlText] = useState("");
+  const [nlLoading, setNlLoading] = useState(false);
+  const [nlError, setNlError] = useState("");
+
+  const handleInterpret = async () => {
+    const text = nlText.trim();
+    if (!text) return;
+    setNlLoading(true);
+    setNlError("");
+    try {
+      const res = await fetch("/api/parse-expense", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ text, categories: categories.map((c) => c.name), today: date }),
+      });
+      const data = await res.json();
+      if (!res.ok) { setNlError(data?.error ?? "No se pudo interpretar el gasto"); return; }
+
+      const parsed = data as ParsedExpense;
+      if (typeof parsed.amount === "number" && parsed.amount > 0) setAmount(String(parsed.amount));
+      if (parsed.description) setDescription(parsed.description);
+      if (typeof parsed.date === "string" && /^\d{4}-\d{2}-\d{2}$/.test(parsed.date)) {
+        setDate(parsed.date);
+        if (!budgetPeriodManual) setBudgetPeriod(parsed.date.slice(0, 7));
+      }
+      const { categoryId: cId, subCategoryId: sId } = matchCategory(parsed.categoryName, categories);
+      if (cId) setCategoryId(cId);
+      setSubCategoryId(sId ?? "");
+    } catch {
+      setNlError("No se pudo conectar. Revisa tu internet e inténtalo de nuevo.");
+    } finally {
+      setNlLoading(false);
+    }
+  };
 
   const parentCats = categories.filter((c) => !c.parent_id);
   const childrenOf = (pid: string) => categories.filter((c) => c.parent_id === pid);
@@ -160,6 +196,35 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
 
         <div className="overflow-y-auto flex-1 px-4 pt-4">
           <form onSubmit={handleSubmit} className="space-y-5">
+
+            {/* Lenguaje natural — solo al crear */}
+            {!editing && (
+              <div className="space-y-2 rounded-2xl border border-outline-variant bg-surface-container-low p-3">
+                <Label htmlFor="nl-input" className="flex items-center gap-1.5 text-primary">
+                  <Sparkles className="w-4 h-4" /> Escríbelo con tus palabras
+                </Label>
+                <div className="flex gap-2">
+                  <Input
+                    id="nl-input"
+                    placeholder="Ej: almuerzo 20 mil ayer"
+                    value={nlText}
+                    onChange={(e) => setNlText(e.target.value)}
+                    onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); handleInterpret(); } }}
+                    disabled={nlLoading}
+                  />
+                  <Button
+                    type="button"
+                    onClick={handleInterpret}
+                    disabled={nlLoading || !nlText.trim()}
+                    className="shrink-0 bg-primary hover:bg-primary/90"
+                  >
+                    {nlLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : "Interpretar"}
+                  </Button>
+                </div>
+                {nlError && <p className="text-sm text-error">{nlError}</p>}
+                <p className="text-xs text-muted-foreground">Rellena los campos automáticamente. Revísalos antes de guardar.</p>
+              </div>
+            )}
 
             {/* Monto */}
             <div className="space-y-1">
