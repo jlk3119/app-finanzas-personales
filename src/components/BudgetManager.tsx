@@ -38,7 +38,7 @@ function nextMonthOf(month: number, year: number) {
 const FREQ_MULTIPLIER: Record<string, number> = { monthly: 1, biweekly: 2, weekly: 4 };
 const FREQ_LABEL: Record<string, string> = { monthly: "mensual", biweekly: "quincenal ×2", weekly: "semanal ×4" };
 
-export default function BudgetManager({ budgets, categories, accounts, recurringIncome, income, onRefresh, onManageCategories, currentMonth, currentYear }: Props) {
+export default function BudgetManager({ budgets, categories, recurringIncome, income, onRefresh, onManageCategories, currentMonth, currentYear }: Props) {
   const fmt = useMoney();
   const supabase = createClient();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
@@ -64,7 +64,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const confirmBudgetCat = confirmBudget?.category_id ? categories.find((c) => c.id === confirmBudget.category_id) : null;
   const toggleCollapse = (id: string) => setCollapsedBudgets((prev) => {
     const next = new Set(prev);
-    next.has(id) ? next.delete(id) : next.add(id);
+    if (next.has(id)) next.delete(id); else next.add(id);
     return next;
   });
 
@@ -76,10 +76,8 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
   useBackButtonClose(showForm, closeForm);
 
-  // Build ordered list: parents first, then their children
   const topCats = categories.filter((c) => !c.parent_id);
   const subsOf = (pid: string) => categories.filter((c) => c.parent_id === pid);
-  const orderedCats = topCats.flatMap((c) => [c, ...subsOf(c.id)]);
 
   const subsOfSelected = categoryId !== "global" ? subsOf(categoryId) : [];
   const allSubsInForm = [...subsOfSelected, ...extraSubs];
