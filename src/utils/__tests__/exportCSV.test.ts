@@ -98,20 +98,52 @@ describe("buildMonthlyCSVContent", () => {
 });
 
 describe("exportMonthlyCSV", () => {
-  it("dispara la descarga sin errores", () => {
-    const mockCreateObjectURL = jest.fn(() => "blob:mock");
+  afterEach(() => {
+    jest.restoreAllMocks();
+    delete (window as unknown as { AndroidDownloader?: unknown }).AndroidDownloader;
+  });
+
+  it("descarga en el navegador adjuntando el enlace al DOM y liberando la URL después", async () => {
+    jest.useFakeTimers();
     const mockRevokeObjectURL = jest.fn();
     const mockClick = jest.fn();
-    const mockLink = { href: "", download: "", click: mockClick };
+    const mockLink = { href: "", download: "", rel: "", click: mockClick };
 
-    global.URL.createObjectURL = mockCreateObjectURL;
+    global.URL.createObjectURL = jest.fn(() => "blob:mock");
     global.URL.revokeObjectURL = mockRevokeObjectURL;
     jest.spyOn(document, "createElement").mockReturnValueOnce(mockLink as unknown as HTMLElement);
+    const appendSpy = jest.spyOn(document.body, "appendChild").mockImplementation((n) => n);
+    const removeSpy = jest.spyOn(document.body, "removeChild").mockImplementation((n) => n);
 
-    exportMonthlyCSV([expense], [budget], [baseCategory], 5, 2024);
+    await exportMonthlyCSV([expense], [budget], [baseCategory], 5, 2024);
 
     expect(mockClick).toHaveBeenCalledTimes(1);
     expect(mockLink.download).toBe("misfinanzas_2024-05.csv");
+    // El enlace debe estar en el DOM al hacer click (necesario en Firefox)
+    expect(appendSpy).toHaveBeenCalledWith(mockLink);
+    expect(removeSpy).toHaveBeenCalledWith(mockLink);
+    // La URL no se libera de inmediato (evita abortar la descarga)
+    expect(mockRevokeObjectURL).not.toHaveBeenCalled();
+    jest.runAllTimers();
     expect(mockRevokeObjectURL).toHaveBeenCalledWith("blob:mock");
+    jest.useRealTimers();
+  });
+
+  it("usa el puente nativo de Android cuando está disponible (APK)", async () => {
+    const saveBase64File = jest.fn();
+    (window as unknown as { AndroidDownloader: unknown }).AndroidDownloader = { saveBase64File };
+    const createObjectURL = jest.fn(() => "blob:mock");
+    global.URL.createObjectURL = createObjectURL;
+
+    await exportMonthlyCSV([expense], [budget], [baseCategory], 5, 2024);
+
+    expect(saveBase64File).toHaveBeenCalledTimes(1);
+    const [base64, filename, mime] = saveBase64File.mock.calls[0];
+    expect(typeof base64).toBe("string");
+    expect(base64.length).toBeGreaterThan(0);
+    expect(filename).toBe("misfinanzas_2024-05.csv");
+    expect(mime).toBe("text/csv");
+    // No debe usar la descarga por blob del navegador
+    expect(createObjectURL).not.toHaveBeenCalled();
   });
 });

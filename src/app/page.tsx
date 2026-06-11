@@ -777,7 +777,10 @@ export default function Dashboard() {
                   <Button
                     variant="ghost"
                     size="icon"
-                    onClick={() => exportMonthlyCSV(expenses, budgets, categories, expenseMonth, expenseYear)}
+                    onClick={() => {
+                      exportMonthlyCSV(expenses, budgets, categories, expenseMonth, expenseYear)
+                        .catch((e) => console.error("Error al exportar CSV:", e));
+                    }}
                     className="h-8 w-8 text-muted-foreground hover:text-primary"
                     title="Exportar CSV"
                   >
