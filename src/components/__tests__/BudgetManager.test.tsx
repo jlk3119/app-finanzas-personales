@@ -1,6 +1,6 @@
 /* eslint-disable @typescript-eslint/no-explicit-any */
 import React from 'react'
-import { render, screen, waitFor } from '@testing-library/react'
+import { render, screen, waitFor, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import BudgetManager from '../BudgetManager'
 import { createClient } from '@/utils/supabase/client'
@@ -224,6 +224,35 @@ describe('BudgetManager — campo Otros en formulario', () => {
     await user.selectOptions(selects[selects.length - 1] as HTMLSelectElement, 'cat-1')
     await user.click(screen.getByRole('button', { name: /agregar subcategor/i }))
     expect(screen.getByPlaceholderText(/nueva subcategor/i)).toBeInTheDocument()
+  })
+
+  it('elimina una subcategoría desde el panel de montos tras confirmar', async () => {
+    const onRefresh = jest.fn()
+    const deleteEq = jest.fn().mockResolvedValue({ data: null, error: null })
+    const deleteFn = jest.fn().mockReturnValue({ eq: deleteEq })
+    mockCreateClient.mockReturnValue({
+      auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user' } } }) },
+      from: jest.fn().mockReturnValue({
+        insert: jest.fn().mockResolvedValue({ data: null, error: null }),
+        upsert: jest.fn().mockResolvedValue({ data: null, error: null }),
+        update: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ data: null, error: null }) }),
+        delete: deleteFn,
+      }),
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    } as any)
+    const user = userEvent.setup()
+    render(<BudgetManager {...defaultProps} onRefresh={onRefresh} />)
+    await user.click(screen.getByRole('button', { name: /agregar presupuesto/i }))
+    const selects = screen.getAllByTestId('select')
+    await user.selectOptions(selects[selects.length - 1] as HTMLSelectElement, 'cat-1')
+    await user.click(screen.getByRole('button', { name: /eliminar subcategoría mercado/i }))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: /^eliminar$/i }))
+    await waitFor(() => {
+      expect(deleteFn).toHaveBeenCalled()
+      expect(deleteEq).toHaveBeenCalledWith('id', 'cat-1a')
+      expect(onRefresh).toHaveBeenCalled()
+    })
   })
 
   it('permite planear hasta diciembre del año en curso y bloquea el año siguiente', async () => {
