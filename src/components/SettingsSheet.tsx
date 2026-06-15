@@ -6,11 +6,12 @@ import { useBackButtonClose } from "@/hooks/useBackButtonClose";
 import { usePrivacy } from "@/components/PrivacyProvider";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { Button } from "@/components/ui/button";
-import { Monitor, Sun, Moon, Tags, LogOut, X, ChevronRight, Eye, EyeOff } from "lucide-react";
+import { Monitor, Sun, Moon, Tags, LogOut, X, ChevronRight, Eye, EyeOff, Lightbulb } from "lucide-react";
 
 type Props = {
   onClose: () => void;
   onManageCategories: () => void;
+  onOpenSuggestions: () => void;
   onSignOut: () => void;
 };
 
@@ -20,7 +21,7 @@ const THEME_OPTIONS = [
   { value: "dark", label: "Oscuro", Icon: Moon },
 ] as const;
 
-export default function SettingsSheet({ onClose, onManageCategories, onSignOut }: Props) {
+export default function SettingsSheet({ onClose, onManageCategories, onOpenSuggestions, onSignOut }: Props) {
   const { theme, setTheme } = useTheme();
   const { hidden: amountsHidden, toggle: toggleAmounts } = usePrivacy();
   const [mounted, setMounted] = useState(false);
@@ -116,6 +117,20 @@ export default function SettingsSheet({ onClose, onManageCategories, onSignOut }
               <span className="flex items-center gap-3">
                 <Tags className="w-5 h-5 text-on-surface-variant" />
                 <span className="text-sm font-medium text-on-surface">Categorías</span>
+              </span>
+              <ChevronRight className="w-4 h-4 text-on-surface-variant" />
+            </button>
+            <button
+              type="button"
+              onClick={onOpenSuggestions}
+              className="w-full flex items-center justify-between rounded-2xl border border-outline-variant px-4 py-3 min-h-[44px] hover:bg-surface-container transition-colors"
+            >
+              <span className="flex items-center gap-3">
+                <Lightbulb className="w-5 h-5 text-on-surface-variant" />
+                <span className="text-left">
+                  <span className="block text-sm font-medium text-on-surface">Sugerencias</span>
+                  <span className="block text-xs text-on-surface-variant">Propón nuevas funcionalidades</span>
+                </span>
               </span>
               <ChevronRight className="w-4 h-4 text-on-surface-variant" />
             </button>
