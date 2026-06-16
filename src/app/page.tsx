@@ -22,6 +22,7 @@ import CategoryManager from "@/components/CategoryManager";
 import AccountsManager from "@/components/AccountsManager";
 import MonthClosureCard from "@/components/MonthClosureCard";
 import SettingsSheet from "@/components/SettingsSheet";
+import SuggestionsSheet from "@/components/SuggestionsSheet";
 import { usePrivacy } from "@/components/PrivacyProvider";
 
 const MONTHS = ["Enero", "Febrero", "Marzo", "Abril", "Mayo", "Junio", "Julio", "Agosto", "Septiembre", "Octubre", "Noviembre", "Diciembre"];
@@ -61,6 +62,7 @@ export default function Dashboard() {
   const [editingExpense, setEditingExpense] = useState<Expense | null>(null);
   const [showCategories, setShowCategories] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showSuggestions, setShowSuggestions] = useState(false);
   const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<TabValue>("dashboard");
   const [expenseMonth, setExpenseMonth] = useState(() => new Date().getMonth() + 1);
@@ -75,6 +77,7 @@ export default function Dashboard() {
   useBackButtonClose(editingExpense !== null, () => setEditingExpense(null));
   useBackButtonClose(showCategories, () => setShowCategories(false));
   useBackButtonClose(showSettings, () => setShowSettings(false));
+  useBackButtonClose(showSuggestions, () => setShowSuggestions(false));
 
   const now = new Date();
   const currentMonth = now.getMonth() + 1;
@@ -920,8 +923,13 @@ export default function Dashboard() {
         <SettingsSheet
           onClose={() => setShowSettings(false)}
           onManageCategories={() => setShowCategories(true)}
+          onOpenSuggestions={() => { setShowSettings(false); setShowSuggestions(true); }}
           onSignOut={signOut}
         />
+      )}
+
+      {showSuggestions && (
+        <SuggestionsSheet onClose={() => setShowSuggestions(false)} />
       )}
     </div>
   );

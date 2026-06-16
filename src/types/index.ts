@@ -101,6 +101,16 @@ export type Debt = {
   created_at: string;
 };
 
+export type SuggestionStatus = "pending" | "planned" | "done" | "declined";
+
+export type Suggestion = {
+  id: string;
+  user_id: string;
+  text: string;
+  status: SuggestionStatus;
+  created_at: string;
+};
+
 export type MonthClosure = {
   id: string;
   user_id: string;

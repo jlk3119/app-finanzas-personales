@@ -14,6 +14,7 @@ function renderSheet(overrides: Partial<React.ComponentProps<typeof SettingsShee
   const props = {
     onClose: jest.fn(),
     onManageCategories: jest.fn(),
+    onOpenSuggestions: jest.fn(),
     onSignOut: jest.fn(),
     ...overrides,
   };
@@ -79,5 +80,11 @@ describe("SettingsSheet", () => {
     const { onSignOut } = renderSheet();
     await userEvent.click(screen.getByRole("button", { name: /cerrar sesión/i }));
     expect(onSignOut).toHaveBeenCalled();
+  });
+
+  it("abre la sección de sugerencias", async () => {
+    const { onOpenSuggestions } = renderSheet();
+    await userEvent.click(screen.getByRole("button", { name: /sugerencias/i }));
+    expect(onOpenSuggestions).toHaveBeenCalled();
   });
 });
