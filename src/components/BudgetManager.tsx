@@ -60,6 +60,8 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const [collapsedBudgets, setCollapsedBudgets] = useState<Set<string>>(new Set());
   const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null);
   const [deletingBudget, setDeletingBudget] = useState(false);
+  const [confirmDeleteSub, setConfirmDeleteSub] = useState<Category | null>(null);
+  const [deletingSub, setDeletingSub] = useState(false);
   const confirmBudget = confirmDeleteId ? budgets.find((b) => b.id === confirmDeleteId) : null;
   const confirmBudgetCat = confirmBudget?.category_id ? categories.find((c) => c.id === confirmBudget.category_id) : null;
   const toggleCollapse = (id: string) => setCollapsedBudgets((prev) => {
@@ -271,6 +273,25 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     }
     setShowAddSub(false); setNewSubName(""); setNewSubAmount("");
     setAddingSubLoading(false);
+  };
+
+  const handleDeleteSub = async (sub: Category) => {
+    setDeletingSub(true);
+    try {
+      const { error } = await supabase.from("categories").delete().eq("id", sub.id);
+      if (error) throw error;
+      setExtraSubs((prev) => prev.filter((s) => s.id !== sub.id));
+      setSubAmounts((prev) => {
+        const next = { ...prev };
+        delete next[sub.id];
+        return next;
+      });
+      onRefresh();
+    } catch (err) {
+      console.error("Error al eliminar subcategoría", err);
+    } finally {
+      setDeletingSub(false);
+    }
   };
 
   const copyFromPrevMonth = async () => {
@@ -557,7 +578,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                 <p className="text-xs font-semibold text-on-primary-container">Montos por subcategoría</p>
                 {allSubsInForm.map((sub) => (
                   <div key={sub.id} className="flex items-center gap-2">
-                    <span className="text-sm shrink-0 w-36 truncate text-muted-foreground">{sub.icon} {sub.name}</span>
+                    <span className="text-sm shrink-0 w-28 truncate text-muted-foreground">{sub.icon} {sub.name}</span>
                     <Input
                       type="number"
                       inputMode="decimal"
@@ -566,12 +587,20 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                       onChange={(e) => setSubAmounts((prev) => ({ ...prev, [sub.id]: e.target.value }))}
                       className="h-8 text-sm"
                     />
+                    <button
+                      type="button"
+                      onClick={() => setConfirmDeleteSub(sub)}
+                      aria-label={`Eliminar subcategoría ${sub.name}`}
+                      className="shrink-0 grid place-items-center w-8 h-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                    >
+                      <Trash2 className="w-4 h-4" />
+                    </button>
                   </div>
                 ))}
 
                 {/* Otros: monto adicional no asignado a ninguna subcategoría */}
                 <div className="flex items-center gap-2">
-                  <span className="text-sm shrink-0 w-36 truncate text-muted-foreground">📋 Otros</span>
+                  <span className="text-sm shrink-0 w-28 truncate text-muted-foreground">📋 Otros</span>
                   <Input
                     type="number"
                     inputMode="decimal"
@@ -580,6 +609,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
                     onChange={(e) => setOthersAmount(e.target.value)}
                     className="h-8 text-sm"
                   />
+                  <span className="shrink-0 w-8" aria-hidden />
                 </div>
 
                 {/* Agregar subcategoría inline */}
@@ -669,6 +699,14 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
         description={confirmBudget ? `${confirmBudgetCat ? `${confirmBudgetCat.icon} ${confirmBudgetCat.name}` : "Total general"} · ${fmt(Number(confirmBudget.amount))}. Esta acción no se puede deshacer.` : "Esta acción no se puede deshacer."}
         loading={deletingBudget}
         onConfirm={async () => { if (confirmDeleteId) await handleDelete(confirmDeleteId); }}
+      />
+      <ConfirmDialog
+        open={confirmDeleteSub !== null}
+        onOpenChange={(open) => !open && setConfirmDeleteSub(null)}
+        title="¿Eliminar esta subcategoría?"
+        description={confirmDeleteSub ? `${confirmDeleteSub.icon} ${confirmDeleteSub.name}. Se eliminará la subcategoría y sus presupuestos; los gastos asociados quedarán sin categoría. Esta acción no se puede deshacer.` : "Esta acción no se puede deshacer."}
+        loading={deletingSub}
+        onConfirm={async () => { if (confirmDeleteSub) await handleDeleteSub(confirmDeleteSub); }}
       />
     </div>
   );
