@@ -964,7 +964,7 @@ export default function Dashboard() {
         <SettingsSheet
           onClose={() => setShowSettings(false)}
           onManageCategories={() => setShowCategories(true)}
-          onOpenSuggestions={() => { setShowSettings(false); setShowSuggestions(true); }}
+          onOpenSuggestions={() => setShowSuggestions(true)}
           onSignOut={signOut}
         />
       )}
