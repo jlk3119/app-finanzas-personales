@@ -488,9 +488,46 @@ export default function Dashboard() {
   const fabVisible = activeTab === "dashboard" || activeTab === "expenses";
 
   return (
-    <div className={`min-h-screen ${fabVisible ? "pb-40" : "pb-24"}`}>
+    <div className="min-h-screen lg:flex lg:bg-surface-container-low">
+      {/* Sidebar de navegación — solo escritorio */}
+      <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:shrink-0 lg:sticky lg:top-0 lg:h-screen border-r border-outline-variant bg-surface px-3 py-6">
+        <div className="px-3 mb-6">
+          <h1 className="text-xl font-bold tracking-tight">💸 MisFinanzas</h1>
+        </div>
+        <nav aria-label="Navegación principal" className="flex flex-col gap-1">
+          {TABS.map(({ value, label, Icon }) => {
+            const active = activeTab === value;
+            return (
+              <button
+                key={value}
+                onClick={() => handleTabChange(value)}
+                aria-current={active ? "page" : undefined}
+                className={`flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${
+                  active
+                    ? "bg-secondary-container text-on-secondary-container"
+                    : "text-on-surface-variant hover:bg-surface-container"
+                }`}
+              >
+                <Icon className={`w-5 h-5 ${active ? "stroke-[2.2px]" : ""}`} />
+                {label}
+              </button>
+            );
+          })}
+        </nav>
+        <button
+          onClick={() => setShowSettings(true)}
+          className="mt-auto flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-on-surface-variant hover:bg-surface-container transition-colors"
+        >
+          <Settings className="w-5 h-5" />
+          Configuración
+        </button>
+      </aside>
+
+      {/* Columna principal */}
+      <div className={`flex-1 min-w-0 ${fabVisible ? "pb-40" : "pb-24"} lg:pb-10`}>
+        <div className="lg:max-w-5xl lg:mx-auto lg:px-6">
       {/* Header */}
-      <div className="bg-primary text-on-primary px-4 pt-10 pb-6 rounded-b-3xl shadow-e2">
+      <div className="bg-primary text-on-primary px-4 pt-10 pb-6 rounded-b-3xl shadow-e2 lg:rounded-3xl lg:mt-6">
         <div className="flex justify-between items-start mb-4">
           <div>
             <h1 className="text-3xl font-bold tracking-tight">💸 MisFinanzas</h1>
@@ -653,6 +690,7 @@ export default function Dashboard() {
                 </Card>
               );
             })()}
+            <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
             <Card>
               <CardHeader className="pb-2">
                 <CardTitle className="text-sm">Presupuesto del mes</CardTitle>
@@ -748,6 +786,7 @@ export default function Dashboard() {
                 </CardContent>
               </Card>
             )}
+            </div>
         </div>
 
         {activeTab === "expenses" && (
@@ -849,12 +888,14 @@ export default function Dashboard() {
           </motion.div>
         )}
       </div>
+        </div>
+      </div>
 
       {/* FAB — solo en Resumen y Gastos */}
       <AnimatePresence>
         {fabVisible && (
           <motion.div
-            className="fixed bottom-[88px] right-4 z-50"
+            className="fixed bottom-[88px] right-4 z-50 lg:bottom-8 lg:right-8"
             initial={reduceMotion ? false : { scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={reduceMotion ? { opacity: 0 } : { scale: 0, opacity: 0 }}
@@ -872,8 +913,8 @@ export default function Dashboard() {
         )}
       </AnimatePresence>
 
-      {/* Barra de navegación inferior — MD3 Navigation Bar */}
-      <nav className="fixed bottom-0 inset-x-0 z-40 bg-surface-container shadow-e2 flex h-20 pb-2">
+      {/* Barra de navegación inferior — MD3 Navigation Bar (solo móvil) */}
+      <nav aria-label="Navegación" className="fixed bottom-0 inset-x-0 z-40 bg-surface-container shadow-e2 flex h-20 pb-2 lg:hidden">
         {TABS.map(({ value, label, Icon }) => {
           const active = activeTab === value;
           return (
