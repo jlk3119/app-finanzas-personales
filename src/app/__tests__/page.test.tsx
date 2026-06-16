@@ -153,3 +153,26 @@ describe('Dashboard — Resumen por mes de presupuesto', () => {
     expect(screen.queryByText(/999\.?000/)).not.toBeInTheDocument()
   })
 })
+
+describe('Navegación de escritorio (sidebar)', () => {
+  it('renderiza el sidebar con los cinco tabs', async () => {
+    setupSupabase(baseTables([], []))
+    render(<Dashboard />)
+    await screen.findByText(new RegExp(`${MONTHS[curM - 1]} ${curY}`))
+    const sidebar = screen.getByRole('navigation', { name: /navegación principal/i })
+    for (const label of ['Resumen', 'Gastos', 'Presup.', 'Metas', 'Dinero']) {
+      expect(within(sidebar).getByRole('button', { name: new RegExp(label, 'i') })).toBeInTheDocument()
+    }
+  })
+
+  it('cambia de pestaña al hacer clic en un ítem del sidebar', async () => {
+    setupSupabase(baseTables([], []))
+    render(<Dashboard />)
+    await screen.findByText(new RegExp(`${MONTHS[curM - 1]} ${curY}`))
+    const sidebar = screen.getByRole('navigation', { name: /navegación principal/i })
+    const user = userEvent.setup()
+    await user.click(within(sidebar).getByRole('button', { name: /gastos/i }))
+    expect(within(sidebar).getByRole('button', { name: /gastos/i })).toHaveAttribute('aria-current', 'page')
+    expect(await screen.findByTitle(/exportar csv/i)).toBeInTheDocument()
+  })
+})
