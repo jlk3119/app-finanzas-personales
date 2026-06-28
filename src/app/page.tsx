@@ -425,7 +425,11 @@ export default function Dashboard() {
   const futureSporadicLinked = income
     .filter((i) => !i.recurring_income_id && !!i.period_key && i.period_key > currentMonthKey && !!i.account_id)
     .reduce((s, i) => s + Number(i.amount), 0);
-  const disponible = totalBalance - unlinkedMonthTotal - futureSporadicLinked;
+  // HARDCODE TEMPORAL: forzar disponible en 0 (saldo real agotado).
+  // Para revertir: descomentar la línea de abajo y borrar `const disponible = 0`.
+  const disponibleReal = totalBalance - unlinkedMonthTotal - futureSporadicLinked;
+  void disponibleReal;
+  const disponible = 0;
 
   const summaryMonthClosed = monthClosures.some((c) => c.year === summaryYear && c.month === summaryMonth);
   // Se puede cerrar cualquier mes no cerrado aún, incluso sin gastos ni presupuesto.
