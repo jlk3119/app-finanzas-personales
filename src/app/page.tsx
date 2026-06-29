@@ -399,12 +399,12 @@ export default function Dashboard() {
 
   const thisMonthExpenses = dashboardExpenses.filter((e) => e.budget_period === summaryMonthKey);
 
+  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
   const thisWeekExpenses = dashboardExpenses.filter((e) => {
     const d = new Date(e.date + "T12:00:00");
-    return getWeekNumber(d) === currentWeek && d.getFullYear() === currentYear;
+    return getWeekNumber(d) === currentWeek && d.getFullYear() === currentYear && e.date <= todayStr;
   });
-
-  const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
   const totalToday = dashboardExpenses.filter((e) => e.date === todayStr).reduce((s, e) => s + Number(e.amount), 0);
   const totalWeek = thisWeekExpenses.reduce((s, e) => s + Number(e.amount), 0);
   const totalMonth = thisMonthExpenses.reduce((s, e) => s + Number(e.amount), 0);
