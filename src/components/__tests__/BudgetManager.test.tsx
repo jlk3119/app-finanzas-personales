@@ -147,6 +147,74 @@ describe('BudgetManager', () => {
     })
   })
 
+  it('al editar un presupuesto con subcategorías, reinserta el padre con el nuevo monto', async () => {
+    const { mockInsert } = makeMock()
+    const budgetsWithSub: Budget[] = [
+      ...budgets,
+      { id: 'bud-3', user_id: 'u1', category_id: 'cat-1a', period: 'monthly', amount: 150_000, year: 2026, month: 5, week: null, created_at: '' },
+    ]
+    const user = userEvent.setup()
+    render(<BudgetManager {...defaultProps} budgets={budgetsWithSub} />)
+    const editButtons = screen.getAllByRole('button', { name: /editar/i })
+    await user.click(editButtons[0]) // editar Alimentación (cat-1)
+    const inputs = screen.getAllByPlaceholderText('0') as HTMLInputElement[]
+    const mercadoInput = inputs.find((i) => i.value === '150000')!
+    await user.clear(mercadoInput)
+    await user.type(mercadoInput, '200000')
+    await user.click(screen.getByRole('button', { name: /guardar/i }))
+    await waitFor(() => {
+      // El padre se persiste vía insert (no un update por id que se perdía).
+      // Monto = Mercado 200k + Otros precargado 150k = 350k
+      const parentInsert = mockInsert.mock.calls.find((c) => {
+        const arg = c[0]
+        return !Array.isArray(arg) && arg?.category_id === 'cat-1' && arg?.amount === 350_000
+      })
+      expect(parentInsert).toBeDefined()
+    })
+  })
+
+  it('al poner una subcategoría en 0, no la reinserta como sub-presupuesto', async () => {
+    const { mockInsert } = makeMock()
+    const budgetsWithSub: Budget[] = [
+      ...budgets,
+      { id: 'bud-3', user_id: 'u1', category_id: 'cat-1a', period: 'monthly', amount: 150_000, year: 2026, month: 5, week: null, created_at: '' },
+    ]
+    const user = userEvent.setup()
+    render(<BudgetManager {...defaultProps} budgets={budgetsWithSub} />)
+    const editButtons = screen.getAllByRole('button', { name: /editar/i })
+    await user.click(editButtons[0])
+    const inputs = screen.getAllByPlaceholderText('0') as HTMLInputElement[]
+    const mercadoInput = inputs.find((i) => i.value === '150000')!
+    await user.clear(mercadoInput) // Mercado → 0
+    // Dar un monto al padre vía "Otros" para que el total sea > 0
+    const othersInput = inputs.find((i) => i.value === '' && i !== mercadoInput)
+    if (othersInput) await user.type(othersInput, '100000')
+    await user.click(screen.getByRole('button', { name: /guardar/i }))
+    await waitFor(() => {
+      // Ningún insert debe contener un sub-presupuesto para cat-1a (quedó en 0)
+      const reinsertedSub = mockInsert.mock.calls.some((c) => {
+        const arg = c[0]
+        const rows = Array.isArray(arg) ? arg : [arg]
+        return rows.some((r: { category_id?: string }) => r?.category_id === 'cat-1a')
+      })
+      expect(reinsertedSub).toBe(false)
+    })
+  })
+
+  it('edita en línea: muestra un único formulario (no duplica el del fondo)', async () => {
+    const budgetsWithSub: Budget[] = [
+      ...budgets,
+      { id: 'bud-3', user_id: 'u1', category_id: 'cat-1a', period: 'monthly', amount: 150_000, year: 2026, month: 5, week: null, created_at: '' },
+    ]
+    const user = userEvent.setup()
+    render(<BudgetManager {...defaultProps} budgets={budgetsWithSub} />)
+    const editButtons = screen.getAllByRole('button', { name: /editar/i })
+    await user.click(editButtons[0]) // editar Alimentación (cat-1)
+    expect(screen.getByText(/editar presupuesto/i)).toBeInTheDocument()
+    // Solo un formulario abierto → un solo botón "Guardar"
+    expect(screen.getAllByRole('button', { name: /^guardar$/i })).toHaveLength(1)
+  })
+
   it('llama a onManageCategories al hacer clic en "Gestionar categorías"', async () => {
     const onManageCategories = jest.fn()
     const user = userEvent.setup()
@@ -238,7 +306,7 @@ describe('BudgetManager — campo Otros en formulario', () => {
         update: jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ data: null, error: null }) }),
         delete: deleteFn,
       }),
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+     
     } as any)
     const user = userEvent.setup()
     render(<BudgetManager {...defaultProps} onRefresh={onRefresh} />)
