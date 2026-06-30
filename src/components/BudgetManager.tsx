@@ -47,6 +47,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const [categoryId, setCategoryId] = useState("global");
   const [amount, setAmount] = useState("");
   const [loading, setLoading] = useState(false);
+  const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [copying, setCopying] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [showCajaInfo, setShowCajaInfo] = useState(false);
@@ -73,7 +74,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const closeForm = () => {
     setShowForm(false); setEditingId(null); setAmount(""); setSubAmounts({});
     setCategoryId("global"); setExtraSubs([]); setShowAddSub(false);
-    setNewSubName(""); setNewSubAmount(""); setOthersAmount("");
+    setNewSubName(""); setNewSubAmount(""); setOthersAmount(""); setErrorMsg(null);
   };
 
   useBackButtonClose(showForm, closeForm);
@@ -160,66 +161,75 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     const finalAmount = hasSubcategories ? subTotal + (Number(othersAmount) || 0) : Number(amount);
     if (finalAmount <= 0) return;
     setLoading(true);
+    setErrorMsg(null);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No hay sesión activa");
 
-    const baseRow = {
-      user_id: user.id,
-      period: "monthly" as const,
-      category_id: categoryId === "global" ? null : categoryId,
-      amount: finalAmount,
-      year: selectedYear,
-      month: selectedMonth,
-      week: null,
-    };
+      const catId = categoryId === "global" ? null : categoryId;
 
-    if (editingId) {
-      await supabase.from("budgets").update({ amount: finalAmount }).eq("id", editingId);
-    } else {
-      // Delete any existing record first (upsert with NULL keys is unreliable in PostgreSQL)
+      // Padre/global: borrar e insertar (update por id no limpia filas duplicadas,
+      // y el upsert con week=NULL es poco fiable en PostgreSQL).
       let delParent = supabase.from("budgets").delete()
         .eq("user_id", user.id)
         .eq("period", "monthly")
         .eq("year", selectedYear)
         .eq("month", selectedMonth)
         .is("week", null);
-      if (baseRow.category_id) delParent = delParent.eq("category_id", baseRow.category_id);
-      else delParent = delParent.is("category_id", null);
-      await delParent;
-      await supabase.from("budgets").insert(baseRow);
+      delParent = catId ? delParent.eq("category_id", catId) : delParent.is("category_id", null);
+      const { error: delParentErr } = await delParent;
+      if (delParentErr) throw delParentErr;
+
+      const { error: insParentErr } = await supabase.from("budgets").insert({
+        user_id: user.id,
+        period: "monthly" as const,
+        category_id: catId,
+        amount: finalAmount,
+        year: selectedYear,
+        month: selectedMonth,
+        week: null,
+      });
+      if (insParentErr) throw insParentErr;
+
+      // Sub-presupuestos: borrar TODAS las subcategorías del formulario (incluidas las
+      // que quedaron en 0, para no dejar montos huérfanos) y reinsertar solo las > 0.
+      if (hasSubcategories) {
+        const subCatIds = allSubsInForm.map((s) => s.id);
+        const { error: delSubErr } = await supabase.from("budgets").delete()
+          .in("category_id", subCatIds)
+          .eq("user_id", user.id)
+          .eq("period", "monthly")
+          .eq("year", selectedYear)
+          .eq("month", selectedMonth)
+          .is("week", null);
+        if (delSubErr) throw delSubErr;
+
+        const subRows = allSubsInForm
+          .filter((s) => Number(subAmounts[s.id]) > 0)
+          .map((s) => ({
+            user_id: user.id,
+            period: "monthly" as const,
+            category_id: s.id,
+            amount: Number(subAmounts[s.id]),
+            year: selectedYear,
+            month: selectedMonth,
+            week: null,
+          }));
+        if (subRows.length > 0) {
+          const { error: insSubErr } = await supabase.from("budgets").insert(subRows);
+          if (insSubErr) throw insSubErr;
+        }
+      }
+
+      closeForm();
+      onRefresh();
+    } catch (err) {
+      console.error("Error al guardar presupuesto", err);
+      setErrorMsg("No se pudo guardar el presupuesto. Intenta de nuevo.");
+    } finally {
+      setLoading(false);
     }
-
-    // Save sub-budgets: delete existing then insert fresh to avoid NULL-key upsert duplicates
-    const subEntries = Object.entries(subAmounts).filter(([, v]) => Number(v) > 0);
-    if (subEntries.length > 0) {
-      const subCatIds = subEntries.map(([id]) => id);
-      await supabase.from("budgets").delete()
-        .in("category_id", subCatIds)
-        .eq("user_id", user.id)
-        .eq("period", "monthly")
-        .eq("year", selectedYear)
-        .eq("month", selectedMonth)
-        .is("week", null);
-
-      await supabase.from("budgets").insert(
-        subEntries.map(([subCatId, subAmt]) => ({
-          user_id: user.id,
-          period: "monthly" as const,
-          category_id: subCatId,
-          amount: Number(subAmt),
-          year: selectedYear,
-          month: selectedMonth,
-          week: null,
-        }))
-      );
-    }
-
-    setShowForm(false); setAmount(""); setCategoryId("global"); setSubAmounts({});
-    setEditingId(null); setExtraSubs([]); setShowAddSub(false);
-    setNewSubName(""); setNewSubAmount(""); setOthersAmount("");
-    setLoading(false);
-    onRefresh();
   };
 
   const handleDelete = async (id: string) => {
@@ -298,25 +308,39 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     if (prevBudgets.length === 0) return;
     setCopying(true);
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setCopying(false); return; }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) throw new Error("No hay sesión activa");
 
-    const newBudgets = prevBudgets.map((b) => ({
-      user_id: user.id,
-      period: "monthly" as const,
-      category_id: b.category_id,
-      amount: b.amount,
-      year: selectedYear,
-      month: selectedMonth,
-      week: null,
-    }));
+      const newBudgets = prevBudgets.map((b) => ({
+        user_id: user.id,
+        period: "monthly" as const,
+        category_id: b.category_id,
+        amount: b.amount,
+        year: selectedYear,
+        month: selectedMonth,
+        week: null,
+      }));
 
-    await supabase.from("budgets").upsert(newBudgets, {
-      onConflict: "user_id,category_id,period,year,month,week",
-    });
+      // Borrar lo existente del mes destino antes de insertar: el upsert con week=NULL
+      // no detecta conflictos (NULL ≠ NULL) y duplicaría filas.
+      const { error: delErr } = await supabase.from("budgets").delete()
+        .eq("user_id", user.id)
+        .eq("period", "monthly")
+        .eq("year", selectedYear)
+        .eq("month", selectedMonth)
+        .is("week", null);
+      if (delErr) throw delErr;
 
-    setCopying(false);
-    onRefresh();
+      const { error: insErr } = await supabase.from("budgets").insert(newBudgets);
+      if (insErr) throw insErr;
+
+      onRefresh();
+    } catch (err) {
+      console.error("Error al copiar presupuesto del mes anterior", err);
+    } finally {
+      setCopying(false);
+    }
   };
 
   const BudgetRow = ({ b, isChild = false, displayAmount, hasChildren = false, isCollapsed = false, onToggle }: { b: Budget; isChild?: boolean; displayAmount?: number; hasChildren?: boolean; isCollapsed?: boolean; onToggle?: () => void }) => {
@@ -349,6 +373,161 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
     );
   };
 
+  const renderForm = () => (
+    <Card>
+      <CardHeader className="pb-2">
+        <CardTitle className="text-sm">{editingId ? "Editar" : "Nuevo"} presupuesto</CardTitle>
+      </CardHeader>
+      <CardContent className="space-y-3">
+        <div className="space-y-1">
+          <div className="flex items-center justify-between">
+            <Label>Categoría</Label>
+            <button type="button" onClick={onManageCategories} className="text-xs text-primary flex items-center gap-1 hover:underline">
+              <Settings2 className="w-3 h-3" /> Gestionar categorías
+            </button>
+          </div>
+          <Select value={categoryId} onValueChange={(v) => handleCategoryChange(v ?? "global")} items={categoryItems}>
+            <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="global">🌐 Total general</SelectItem>
+              {topCats.map((cat) => (
+                <SelectItem key={cat.id} value={cat.id}>
+                  {cat.icon} {cat.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+        {allSubsInForm.length === 0 && (
+          <div className="space-y-1">
+            <Label>Monto límite</Label>
+            <Input
+              type="number"
+              inputMode="decimal"
+              placeholder="0"
+              value={amount}
+              onChange={(e) => setAmount(e.target.value)}
+              className="h-11"
+              autoFocus
+            />
+          </div>
+        )}
+
+        {allSubsInForm.length > 0 && (
+          <div className="space-y-2 rounded-xl border border-dashed border-primary/30 bg-primary-container/50 p-3">
+            <p className="text-xs font-semibold text-on-primary-container">Montos por subcategoría</p>
+            {allSubsInForm.map((sub) => (
+              <div key={sub.id} className="flex items-center gap-2">
+                <span className="text-sm shrink-0 w-28 truncate text-muted-foreground">{sub.icon} {sub.name}</span>
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={subAmounts[sub.id] ?? ""}
+                  onChange={(e) => setSubAmounts((prev) => ({ ...prev, [sub.id]: e.target.value }))}
+                  className="h-8 text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setConfirmDeleteSub(sub)}
+                  aria-label={`Eliminar subcategoría ${sub.name}`}
+                  className="shrink-0 grid place-items-center w-8 h-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
+                >
+                  <Trash2 className="w-4 h-4" />
+                </button>
+              </div>
+            ))}
+
+            {/* Otros: monto adicional no asignado a ninguna subcategoría */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm shrink-0 w-28 truncate text-muted-foreground">📋 Otros</span>
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="0"
+                value={othersAmount}
+                onChange={(e) => setOthersAmount(e.target.value)}
+                className="h-8 text-sm"
+              />
+              <span className="shrink-0 w-8" aria-hidden />
+            </div>
+
+            {/* Agregar subcategoría inline */}
+            {!showAddSub ? (
+              <button
+                type="button"
+                onClick={() => setShowAddSub(true)}
+                className="flex items-center gap-1.5 text-xs text-primary hover:text-on-primary-container font-medium py-0.5"
+              >
+                <Plus className="w-3.5 h-3.5" /> Agregar subcategoría
+              </button>
+            ) : (
+              <div className="flex items-center gap-1.5 pt-1">
+                <Input
+                  placeholder="Nueva subcategoría"
+                  value={newSubName}
+                  onChange={(e) => setNewSubName(e.target.value)}
+                  className="h-8 text-sm flex-1"
+                  autoFocus
+                  onKeyDown={(e) => { if (e.key === "Enter") handleAddSub(); if (e.key === "Escape") { setShowAddSub(false); setNewSubName(""); setNewSubAmount(""); } }}
+                />
+                <Input
+                  type="number"
+                  inputMode="decimal"
+                  placeholder="0"
+                  value={newSubAmount}
+                  onChange={(e) => setNewSubAmount(e.target.value)}
+                  className="h-8 text-sm w-24"
+                />
+                <button
+                  type="button"
+                  onClick={handleAddSub}
+                  disabled={!newSubName.trim() || addingSubLoading}
+                  className="p-1.5 rounded-lg bg-primary text-on-primary disabled:opacity-40"
+                >
+                  <Check className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => { setShowAddSub(false); setNewSubName(""); setNewSubAmount(""); }}
+                  className="p-1.5 rounded-lg border text-muted-foreground"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center pt-1.5 border-t border-primary/30">
+              <span className="text-xs font-semibold text-on-primary-container">Total</span>
+              <span className="text-sm font-bold text-on-primary-container">
+                {fmt(Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0) + (Number(othersAmount) || 0))}
+              </span>
+            </div>
+          </div>
+        )}
+
+        {errorMsg && (
+          <p className="text-xs text-error bg-error-container rounded-lg px-3 py-2" role="alert">
+            {errorMsg}
+          </p>
+        )}
+
+        <div className="flex gap-2">
+          <Button variant="outline" className="flex-1" onClick={closeForm}>
+            Cancelar
+          </Button>
+          <Button
+            className="flex-1 bg-primary hover:bg-primary/90"
+            onClick={handleSave}
+            disabled={loading || (allSubsInForm.length === 0 ? !amount || Number(amount) <= 0 : Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0) + (Number(othersAmount) || 0) <= 0)}
+          >
+            {loading ? "Guardando..." : "Guardar"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  );
+
   const renderBudgetList = (bList: Budget[]) => {
     const parentBudgets = bList.filter((b) => {
       if (!b.category_id) return true;
@@ -371,6 +550,10 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           })
         : [];
       children.forEach((c) => renderedChildIds.add(c.id));
+      // Edición en línea: reemplaza la fila (y sus hijos) por el formulario en su lugar
+      if (showForm && editingId === parent.id) {
+        return [<div key={`form-${parent.id}`}>{renderForm()}</div>];
+      }
       const childrenTotal = children.reduce((s, c) => s + Number(c.amount), 0);
       const othersAmt = children.length > 0 ? Number(parent.amount) - childrenTotal : 0;
       const hasChildren = children.length > 0 || othersAmt > 0;
@@ -533,154 +716,8 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           {renderBudgetList(monthlyBudgets)}
       </div>
 
-      {showForm && (
-        <Card>
-          <CardHeader className="pb-2">
-            <CardTitle className="text-sm">{editingId ? "Editar" : "Nuevo"} presupuesto</CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-3">
-            <div className="space-y-1">
-              <div className="flex items-center justify-between">
-                <Label>Categoría</Label>
-                <button type="button" onClick={onManageCategories} className="text-xs text-primary flex items-center gap-1 hover:underline">
-                  <Settings2 className="w-3 h-3" /> Gestionar categorías
-                </button>
-              </div>
-              <Select value={categoryId} onValueChange={(v) => handleCategoryChange(v ?? "global")} items={categoryItems}>
-                <SelectTrigger className="w-full"><SelectValue /></SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="global">🌐 Total general</SelectItem>
-                  {topCats.map((cat) => (
-                    <SelectItem key={cat.id} value={cat.id}>
-                      {cat.icon} {cat.name}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            {allSubsInForm.length === 0 && (
-              <div className="space-y-1">
-                <Label>Monto límite</Label>
-                <Input
-                  type="number"
-                  inputMode="decimal"
-                  placeholder="0"
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className="h-11"
-                  autoFocus
-                />
-              </div>
-            )}
-
-            {allSubsInForm.length > 0 && (
-              <div className="space-y-2 rounded-xl border border-dashed border-primary/30 bg-primary-container/50 p-3">
-                <p className="text-xs font-semibold text-on-primary-container">Montos por subcategoría</p>
-                {allSubsInForm.map((sub) => (
-                  <div key={sub.id} className="flex items-center gap-2">
-                    <span className="text-sm shrink-0 w-28 truncate text-muted-foreground">{sub.icon} {sub.name}</span>
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={subAmounts[sub.id] ?? ""}
-                      onChange={(e) => setSubAmounts((prev) => ({ ...prev, [sub.id]: e.target.value }))}
-                      className="h-8 text-sm"
-                    />
-                    <button
-                      type="button"
-                      onClick={() => setConfirmDeleteSub(sub)}
-                      aria-label={`Eliminar subcategoría ${sub.name}`}
-                      className="shrink-0 grid place-items-center w-8 h-8 rounded-lg text-muted-foreground hover:text-destructive hover:bg-destructive/10"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                    </button>
-                  </div>
-                ))}
-
-                {/* Otros: monto adicional no asignado a ninguna subcategoría */}
-                <div className="flex items-center gap-2">
-                  <span className="text-sm shrink-0 w-28 truncate text-muted-foreground">📋 Otros</span>
-                  <Input
-                    type="number"
-                    inputMode="decimal"
-                    placeholder="0"
-                    value={othersAmount}
-                    onChange={(e) => setOthersAmount(e.target.value)}
-                    className="h-8 text-sm"
-                  />
-                  <span className="shrink-0 w-8" aria-hidden />
-                </div>
-
-                {/* Agregar subcategoría inline */}
-                {!showAddSub ? (
-                  <button
-                    type="button"
-                    onClick={() => setShowAddSub(true)}
-                    className="flex items-center gap-1.5 text-xs text-primary hover:text-on-primary-container font-medium py-0.5"
-                  >
-                    <Plus className="w-3.5 h-3.5" /> Agregar subcategoría
-                  </button>
-                ) : (
-                  <div className="flex items-center gap-1.5 pt-1">
-                    <Input
-                      placeholder="Nueva subcategoría"
-                      value={newSubName}
-                      onChange={(e) => setNewSubName(e.target.value)}
-                      className="h-8 text-sm flex-1"
-                      autoFocus
-                      onKeyDown={(e) => { if (e.key === "Enter") handleAddSub(); if (e.key === "Escape") { setShowAddSub(false); setNewSubName(""); setNewSubAmount(""); } }}
-                    />
-                    <Input
-                      type="number"
-                      inputMode="decimal"
-                      placeholder="0"
-                      value={newSubAmount}
-                      onChange={(e) => setNewSubAmount(e.target.value)}
-                      className="h-8 text-sm w-24"
-                    />
-                    <button
-                      type="button"
-                      onClick={handleAddSub}
-                      disabled={!newSubName.trim() || addingSubLoading}
-                      className="p-1.5 rounded-lg bg-primary text-on-primary disabled:opacity-40"
-                    >
-                      <Check className="w-3.5 h-3.5" />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => { setShowAddSub(false); setNewSubName(""); setNewSubAmount(""); }}
-                      className="p-1.5 rounded-lg border text-muted-foreground"
-                    >
-                      <X className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                )}
-
-                <div className="flex justify-between items-center pt-1.5 border-t border-primary/30">
-                  <span className="text-xs font-semibold text-on-primary-container">Total</span>
-                  <span className="text-sm font-bold text-on-primary-container">
-                    {fmt(Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0) + (Number(othersAmount) || 0))}
-                  </span>
-                </div>
-              </div>
-            )}
-
-            <div className="flex gap-2">
-              <Button variant="outline" className="flex-1" onClick={closeForm}>
-                Cancelar
-              </Button>
-              <Button
-                className="flex-1 bg-primary hover:bg-primary/90"
-                onClick={handleSave}
-                disabled={loading || (allSubsInForm.length === 0 ? !amount || Number(amount) <= 0 : Object.values(subAmounts).reduce((s, v) => s + (Number(v) || 0), 0) + (Number(othersAmount) || 0) <= 0)}
-              >
-                {loading ? "Guardando..." : "Guardar"}
-              </Button>
-            </div>
-          </CardContent>
-        </Card>
-      )}
+      {/* Nuevo presupuesto: el formulario de edición se muestra en línea dentro de la lista */}
+      {showForm && editingId === null && renderForm()}
 
       {!showForm && (
         <div className="flex gap-2">

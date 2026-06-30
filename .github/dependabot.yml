@@ -1,0 +1,30 @@
+version: 2
+updates:
+  # Dependencias de npm: una revisión semanal, agrupada para no saturar de PRs
+  - package-ecosystem: npm
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+      time: "06:00"
+      timezone: America/Bogota
+    open-pull-requests-limit: 5
+    labels:
+      - dependencias
+    groups:
+      # Parches y minors no críticos van en un solo PR semanal
+      menores:
+        update-types:
+          - minor
+          - patch
+    commit-message:
+      prefix: chore(deps)
+
+  # Actualiza las propias GitHub Actions usadas en los workflows
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: chore(ci)
