@@ -65,6 +65,15 @@ describe('CategoryManager', () => {
     expect(screen.getByText(/nueva categoría/i, { selector: 'h2' })).toBeInTheDocument()
   })
 
+  it('agrupa los iconos por categoría temática en el selector', async () => {
+    const user = userEvent.setup()
+    render(<CategoryManager categories={categories} onClose={jest.fn()} onRefresh={jest.fn()} />)
+    await user.click(screen.getByRole('button', { name: /nueva categoría/i }))
+    expect(screen.getByText('Comida y bebida')).toBeInTheDocument()
+    expect(screen.getByText('Transporte')).toBeInTheDocument()
+    expect(screen.getByText('Finanzas')).toBeInTheDocument()
+  })
+
   it('el botón Crear está deshabilitado con nombre vacío', async () => {
     const user = userEvent.setup()
     render(<CategoryManager categories={categories} onClose={jest.fn()} onRefresh={jest.fn()} />)

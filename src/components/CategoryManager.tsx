@@ -17,19 +17,22 @@ type Props = {
   onRefresh: () => void;
 };
 
-const ICONS = [
-  "🍽️","☕","🍔","🍕","🍜","🥗","🍺","🧃","🍰","🛒",
-  "🚌","🚗","🚕","✈️","🚇","🛵","⛽","🅿️",
-  "🏠","🛋️","🔧","🚿","⚡","📦","🧹","🔑",
-  "💊","🏥","🧴","🏋️","🧘","💉","🦷","👁️",
-  "🎬","🎮","🎵","🎭","📺","🎲","🎯","🎪",
-  "👕","👟","💅","💍","👜","🕶️","💄",
-  "📚","🎓","💻","📱","🖊️","📐","🔬","📊",
-  "🐶","🐱","🐾","🦮","🐠","🐰",
-  "👶","🎁","🎂","💐","❤️","👨‍👩‍👧",
-  "💰","💳","🏦","📈","🏆",
-  "🛡️","⛑️","🚨","🧯","🆘",
-  "🌿","⚽","🏖️","🌍","🔖",
+const ICON_GROUPS: { label: string; icons: string[] }[] = [
+  { label: "Comida y bebida", icons: ["🍽️","☕","🍔","🍕","🍜","🥗","🍣","🌮","🥪","🍱","🍗","🥡","🍰","🍩","🍦","🍫","🥤","🍷","🍺","🧃","🍎","🥑","🧀","🥖","🛒"] },
+  { label: "Transporte", icons: ["🚗","🚕","🚙","🚌","🛵","🏍️","🚲","🚇","🚆","✈️","⛽","🅿️","🚖","🛺","🚢","🚁","🛞"] },
+  { label: "Hogar y servicios", icons: ["🏠","🏡","🛋️","🛏️","🪑","🚪","🖼️","🚿","🛁","🚽","🧹","🧺","🔧","🧰","🪛","🔑","📦","⚡","💡","🔌","💧","🔥","📶","🌐","📞","🗑️"] },
+  { label: "Salud", icons: ["💊","🏥","🩺","💉","🦷","👁️","🩹","🌡️","🩻","🫀","🧠","🧑‍⚕️","♿","🩼"] },
+  { label: "Deporte y fitness", icons: ["🏋️","🤸","🏃","🚴","🧗","⚽","🏀","🏈","⚾","🎾","🏐","🏓","🏸","🥊","🏊","⛳","🛹","🏆"] },
+  { label: "Cuidado personal y belleza", icons: ["🧘","🧖","💆","💇","💅","💄","🧴","🧼","🪒","🛀","🪮","🌸"] },
+  { label: "Ropa y accesorios", icons: ["👕","👖","👗","🧥","🩳","🧦","🧢","👟","👞","👢","🥾","👜","👛","🕶️","💍","👠","👒","🧤","🧣"] },
+  { label: "Ocio y entretenimiento", icons: ["🎬","🎮","🎵","🎭","📺","🎲","🎯","🎪","🎤","🎸","🎧","🎟️","🎢","🎨","🃏","🎰","🎳","🍿","📷"] },
+  { label: "Educación y trabajo", icons: ["📚","🎓","💻","📱","🖥️","⌨️","🖱️","🖊️","✏️","📝","📐","🔬","📊","📒","🗂️","💼","📎","🖨️","🧮"] },
+  { label: "Mascotas", icons: ["🐶","🐱","🐾","🦮","🐕","🐈","🐠","🐟","🐰","🐹","🐦","🦜","🐢","🦴"] },
+  { label: "Familia y regalos", icons: ["👶","🍼","👨‍👩‍👧","👪","👫","🎁","🎂","🎉","🎈","💐","🌷","❤️","💝","🎀","🧸"] },
+  { label: "Finanzas", icons: ["💰","💳","🏦","🏧","💵","🪙","💸","🧾","📈","📉","🤑","💲","💴","💶","💷"] },
+  { label: "Viajes y vacaciones", icons: ["🏖️","🏝️","🌴","🌍","🗺️","🧳","🏕️","⛺","🏔️","🗽","🛳️","🏨","🛎️","📸"] },
+  { label: "Seguros y emergencias", icons: ["🛡️","⛑️","🚨","🧯","🆘","🔒","🔐","🪪","📋","🚑","🚒","🚓","👮"] },
+  { label: "Otros", icons: ["🌿","🌱","🔖","🏷️","⭐","🌟","✨","📌","📍","🗓️","🔔","♻️","🌎"] },
 ];
 const AUTO_COLORS = ["#f59e0b","#3b82f6","#8b5cf6","#ef4444","#ec4899","#14b8a6","#f97316","#6b7280","#10b981","#06b6d4","#84cc16","#a855f7"];
 
@@ -245,12 +248,19 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
 
               <div className="space-y-2">
                 <Label>Icono</Label>
-                <div className="flex flex-wrap gap-2">
-                  {ICONS.map((ic) => (
-                    <button key={ic} type="button" onClick={() => setForm({ ...form, icon: ic })}
-                      className={`text-2xl p-1.5 rounded-xl transition-all ${form.icon === ic ? "ring-2 ring-primary bg-primary-container scale-110" : "hover:bg-surface-container"}`}>
-                      {ic}
-                    </button>
+                <div className="space-y-3">
+                  {ICON_GROUPS.map((group) => (
+                    <div key={group.label} className="space-y-1.5">
+                      <p className="text-xs font-medium text-muted-foreground">{group.label}</p>
+                      <div className="flex flex-wrap gap-2">
+                        {group.icons.map((ic) => (
+                          <button key={group.label + ic} type="button" onClick={() => setForm({ ...form, icon: ic })}
+                            className={`text-2xl p-1.5 rounded-xl transition-all ${form.icon === ic ? "ring-2 ring-primary bg-primary-container scale-110" : "hover:bg-surface-container"}`}>
+                            {ic}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               </div>
