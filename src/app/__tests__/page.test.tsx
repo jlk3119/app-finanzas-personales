@@ -132,7 +132,7 @@ describe('Dashboard — Resumen por mes de presupuesto', () => {
     ]
     const tables = baseTables([], expenses)
     tables.recurring_income = [
-      { id: 'r1', user_id: 'u1', account_id: null, name: 'Salario', amount: 100_000, frequency: 'monthly', day_of_month: null, is_salary: true, auto_assign: false, start_date: null, created_at: '' },
+      { id: 'r1', user_id: 'u1', account_id: null, name: 'Salario', amount: 100_000, frequency: 'monthly', day_of_month: null, is_salary: true, auto_assign: false, start_date: null, end_date: null, created_at: '' },
     ]
     setupSupabase(tables)
     render(<Dashboard />)

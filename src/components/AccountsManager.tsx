@@ -58,6 +58,7 @@ type RecurringForm = {
   is_salary: boolean;
   day_of_month: string; account_id: string; auto_assign: boolean;
   start_month: string; // "YYYY-MM"
+  end_month: string; // "YYYY-MM" — vacío = sin fin
 };
 const currentMonthStr = () => {
   const n = new Date();
@@ -65,7 +66,7 @@ const currentMonthStr = () => {
 };
 const EMPTY_RECURRING: RecurringForm = {
   name: "", amount: "", frequency: "monthly", is_salary: false,
-  day_of_month: "", account_id: "", auto_assign: true, start_month: currentMonthStr(),
+  day_of_month: "", account_id: "", auto_assign: true, start_month: currentMonthStr(), end_month: "",
 };
 
 type View = "main" | "account-form" | "income-form" | "recurring-form" | "income-list";
@@ -126,6 +127,9 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
   /* ── Helpers ── */
   const isStarted = (r: RecurringIncome): boolean =>
     !r.start_date || r.start_date.slice(0, 7) <= currentMonthKey;
+
+  const isEnded = (r: RecurringIncome): boolean =>
+    !!r.end_date && r.end_date.slice(0, 7) < currentMonthKey;
 
   const getActivePeriod = (r: RecurringIncome) => {
     const today = new Date();
@@ -253,12 +257,17 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
       is_salary: r.is_salary,
       day_of_month: r.day_of_month ? String(r.day_of_month) : "",
       account_id: r.account_id ?? "", auto_assign: r.auto_assign, start_month: sm,
+      end_month: r.end_date ? r.end_date.slice(0, 7) : "",
     });
     setView("recurring-form");
   };
 
+  const endBeforeStart =
+    !!recurringForm.end_month && recurringForm.end_month < recurringForm.start_month;
+
   const saveRecurring = async () => {
     if (!recurringForm.name.trim() || !recurringForm.amount || Number(recurringForm.amount) <= 0) return;
+    if (endBeforeStart) return;
     setLoading(true);
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) { setLoading(false); return; }
@@ -273,6 +282,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
       account_id: recurringForm.account_id || null,
       auto_assign: recurringForm.auto_assign,
       start_date: recurringForm.start_month ? `${recurringForm.start_month}-01` : null,
+      end_date: recurringForm.end_month ? `${recurringForm.end_month}-01` : null,
     };
     if (editingRecurring) {
       await supabase.from("recurring_income").update(payload).eq("id", editingRecurring.id);
@@ -549,6 +559,38 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
           </p>
         </div>
 
+        {/* Vigente hasta */}
+        <div className="space-y-1.5">
+          <Label>Vigente hasta (opcional)</Label>
+          <div className="flex items-center gap-2">
+            <Input
+              type="month"
+              value={recurringForm.end_month}
+              min={recurringForm.start_month}
+              onChange={(e) => setRecurringForm({ ...recurringForm, end_month: e.target.value })}
+              className="h-11"
+            />
+            {recurringForm.end_month && (
+              <Button
+                variant="ghost"
+                size="icon"
+                className="w-9 h-9 flex-shrink-0 text-muted-foreground"
+                aria-label="Quitar fecha de finalización"
+                onClick={() => setRecurringForm({ ...recurringForm, end_month: "" })}
+              >
+                <X className="w-4 h-4" />
+              </Button>
+            )}
+          </div>
+          {endBeforeStart ? (
+            <p className="text-xs text-error">La fecha de finalización no puede ser anterior al inicio.</p>
+          ) : (
+            <p className="text-xs text-muted-foreground">
+              Déjalo vacío si no tiene fin. Este será el último mes que se cuente (inclusive).
+            </p>
+          )}
+        </div>
+
         {/* Toggle asignación automática */}
         <div className="space-y-1.5">
           <Label>Asignación automática</Label>
@@ -587,7 +629,7 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
         <div className="flex gap-2 pt-2">
           <Button variant="outline" className="flex-1" onClick={() => setView("main")}>Cancelar</Button>
           <Button className="flex-1 bg-primary hover:bg-primary/90" onClick={saveRecurring}
-            disabled={loading || !recurringForm.name.trim() || !recurringForm.amount || Number(recurringForm.amount) <= 0}>
+            disabled={loading || !recurringForm.name.trim() || !recurringForm.amount || Number(recurringForm.amount) <= 0 || endBeforeStart}>
             <Check className="w-4 h-4 mr-1" /> {loading ? "Guardando..." : editingRecurring ? "Actualizar" : "Guardar"}
           </Button>
         </div>
@@ -723,7 +765,8 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
             {recurringIncome.map((r) => {
               const acc = accounts.find((a) => a.id === r.account_id);
               const started = isStarted(r);
-              const received = started && isReceivedThisPeriod(r);
+              const ended = isEnded(r);
+              const received = started && !ended && isReceivedThisPeriod(r);
               const nextDate = r.is_salary
                 ? getNextPayDate(r.frequency, new Date())
                 : r.day_of_month
@@ -745,15 +788,18 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                           {r.start_date && (
                             <span> · desde {new Date(r.start_date + "T12:00:00").toLocaleDateString("es-CO", { month: "short", year: "numeric" })}</span>
                           )}
+                          {r.end_date && (
+                            <span> · hasta {new Date(r.end_date + "T12:00:00").toLocaleDateString("es-CO", { month: "short", year: "numeric" })}</span>
+                          )}
                           {acc && <span> → {acc.name}</span>}
                         </p>
                       </div>
                     </div>
                     <div className="flex items-center gap-1">
-                      <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" onClick={() => openEditRecurring(r)}>
+                      <Button variant="ghost" size="icon" className="w-7 h-7 text-muted-foreground" aria-label="Editar ingreso recurrente" onClick={() => openEditRecurring(r)}>
                         <Pencil className="w-3 h-3" />
                       </Button>
-                      <Button variant="ghost" size="icon" className="w-7 h-7 text-error" onClick={() => setConfirmDelete({ type: "recurring", id: r.id })} disabled={deletingId === r.id}>
+                      <Button variant="ghost" size="icon" className="w-7 h-7 text-error" aria-label="Eliminar ingreso recurrente" onClick={() => setConfirmDelete({ type: "recurring", id: r.id })} disabled={deletingId === r.id}>
                         <Trash2 className="w-3 h-3" />
                       </Button>
                     </div>
@@ -771,10 +817,13 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                     {received && (
                       <span className="text-[10px] font-medium bg-success-container text-success px-2 py-0.5 rounded-full">✓ recibido</span>
                     )}
+                    {ended && (
+                      <span className="text-[10px] font-medium bg-surface-container-high text-muted-foreground px-2 py-0.5 rounded-full">🏁 finalizado</span>
+                    )}
                   </div>
 
                   {/* Próximo pago */}
-                  {nextDate && (
+                  {nextDate && !ended && (
                     <div className="px-4 pb-3 text-xs text-muted-foreground">
                       {!started
                         ? <span>Inicia: <span className="font-medium text-on-surface">{fmtDate(nextDate)}</span></span>
@@ -785,8 +834,8 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
                     </div>
                   )}
 
-                  {/* Botón recibir — solo si el ingreso ya inició y no se ha recibido este período */}
-                  {started && !received && (
+                  {/* Botón recibir — solo si el ingreso ya inició, no ha finalizado y no se ha recibido este período */}
+                  {started && !ended && !received && (
                     <div className="border-t bg-surface px-4 py-2.5">
                       <Button
                         size="sm"

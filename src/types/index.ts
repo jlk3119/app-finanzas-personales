@@ -57,6 +57,7 @@ export type RecurringIncome = {
   is_salary: boolean;
   auto_assign: boolean;
   start_date: string | null;
+  end_date: string | null;
   created_at: string;
   accounts?: Account;
 };

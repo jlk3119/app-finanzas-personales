@@ -99,6 +99,7 @@ export default function Dashboard() {
     const todayYM = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}`;
     const toAssign = recurData.filter((r) => {
       if (!r.auto_assign) return false;
+      if (r.end_date && r.end_date.slice(0, 7) < todayYM) return false;
       if (!r.start_date) return true;
       return r.start_date.slice(0, 7) <= todayYM;
     });
@@ -433,6 +434,10 @@ export default function Dashboard() {
 
   const FREQ_MULT: Record<string, number> = { monthly: 1, biweekly: 2, weekly: 4 };
   const activeRecurring = recurringIncome.filter((r) => {
+    if (r.end_date) {
+      const [ey, em] = r.end_date.split("-").map(Number);
+      if (summaryYear > ey || (summaryYear === ey && summaryMonth > em)) return false;
+    }
     if (!r.start_date) return true;
     const [sy, sm] = r.start_date.split("-").map(Number);
     return summaryYear > sy || (summaryYear === sy && summaryMonth >= sm);

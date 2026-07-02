@@ -614,6 +614,10 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           {monthlyBudgets.length > 0 && (() => {
             const totalBudget = monthlyBudgets.filter(isRootBudget).reduce((s, b) => s + Number(b.amount), 0);
             const activeRecurring = recurringIncome.filter((r) => {
+              if (r.end_date) {
+                const [ey, em] = r.end_date.split("-").map(Number);
+                if (selectedYear > ey || (selectedYear === ey && selectedMonth > em)) return false;
+              }
               if (!r.start_date) return true;
               const [sy, sm] = r.start_date.split("-").map(Number);
               return selectedYear > sy || (selectedYear === sy && selectedMonth >= sm);

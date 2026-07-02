@@ -16,6 +16,12 @@ const makeAccount = (id: string, name: string, balance: number): Account => ({
 const acc1 = makeAccount('acc-1', 'Lulobank', 500_000)
 const acc2 = makeAccount('acc-2', 'Bancolombia', 300_000)
 
+const makeRecurring = (over: Partial<RecurringIncome> = {}): RecurringIncome => ({
+  id: 'r1', user_id: 'u1', account_id: 'acc-1', name: 'Salario', amount: 2_000_000,
+  frequency: 'monthly', day_of_month: null, is_salary: true, auto_assign: true,
+  start_date: null, end_date: null, created_at: '', ...over,
+})
+
 const defaultProps = {
   accounts: [acc1],
   income: [] as Income[],
@@ -134,5 +140,39 @@ describe('AccountsManager — ingresos recurrentes', () => {
     // Two buttons match /agregar/i: the header button and the empty-state button — take the first
     await user.click(screen.getAllByRole('button', { name: /agregar/i })[0])
     expect(screen.getByRole('heading', { name: /nuevo ingreso recurrente/i })).toBeInTheDocument()
+  })
+})
+
+describe('AccountsManager — fecha de finalización de recurrentes', () => {
+  it('muestra "hasta" en la tarjeta cuando el ingreso tiene fecha de fin', () => {
+    render(<AccountsManager {...defaultProps} recurringIncome={[makeRecurring({ end_date: '2999-12-01' })]} />)
+    expect(screen.getByText(/hasta/i)).toBeInTheDocument()
+  })
+
+  it('marca como finalizado y oculta el botón recibir cuando ya terminó', () => {
+    render(<AccountsManager {...defaultProps} recurringIncome={[makeRecurring({ end_date: '2020-01-01' })]} />)
+    expect(screen.getByText(/finalizado/i)).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /recibir/i })).not.toBeInTheDocument()
+  })
+
+  it('muestra el botón recibir mientras el ingreso siga vigente', () => {
+    render(<AccountsManager {...defaultProps} recurringIncome={[makeRecurring({ end_date: '2999-12-01' })]} />)
+    expect(screen.getByRole('button', { name: /recibir/i })).toBeInTheDocument()
+    expect(screen.queryByText(/finalizado/i)).not.toBeInTheDocument()
+  })
+
+  it('deshabilita guardar si la fecha de fin es anterior al inicio', async () => {
+    const user = userEvent.setup()
+    render(<AccountsManager {...defaultProps} recurringIncome={[makeRecurring({ start_date: '2026-06-01', end_date: '2026-03-01' })]} />)
+    await user.click(screen.getByRole('button', { name: /editar ingreso recurrente/i }))
+    expect(screen.getByText(/no puede ser anterior al inicio/i)).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: /actualizar/i })).toBeDisabled()
+  })
+
+  it('precarga la fecha de fin al editar', async () => {
+    const user = userEvent.setup()
+    render(<AccountsManager {...defaultProps} recurringIncome={[makeRecurring({ end_date: '2027-05-01' })]} />)
+    await user.click(screen.getByRole('button', { name: /editar ingreso recurrente/i }))
+    expect(screen.getByDisplayValue('2027-05')).toBeInTheDocument()
   })
 })
