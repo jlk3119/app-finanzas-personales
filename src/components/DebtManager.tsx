@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Plus, Trash2, Pencil, X, CreditCard, CheckCircle2 } from "lucide-react";
+import { useSnackbar } from "@/components/SnackbarProvider";
 
 type Props = { debts: Debt[]; onRefresh: () => void };
 
@@ -36,6 +37,7 @@ const SORT_OPTIONS: { value: SortBy; label: string }[] = [
 export default function DebtManager({ debts, onRefresh }: Props) {
   const fmt = useMoney();
   const supabase = createClient();
+  const snackbar = useSnackbar();
 
   const [view, setView] = useState<View>("list");
   const [editingDebt, setEditingDebt] = useState<Debt | null>(null);
@@ -113,40 +115,64 @@ export default function DebtManager({ debts, onRefresh }: Props) {
     const total = Number(totalAmount);
     const paid = Math.min(Number(paidAmount) || 0, total);
 
-    if (editingDebt) {
-      await supabase.from("debts").update({
-        name, entity, total_amount: total, paid_amount: paid,
-        notes: notes || null, icon,
-      }).eq("id", editingDebt.id);
-    } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-      await supabase.from("debts").insert({
-        user_id: user.id, name, entity,
-        total_amount: total, paid_amount: paid,
-        notes: notes || null, icon,
-      });
+    try {
+      if (editingDebt) {
+        const { error } = await supabase.from("debts").update({
+          name, entity, total_amount: total, paid_amount: paid,
+          notes: notes || null, icon,
+        }).eq("id", editingDebt.id);
+        if (error) throw error;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { error } = await supabase.from("debts").insert({
+          user_id: user.id, name, entity,
+          total_amount: total, paid_amount: paid,
+          notes: notes || null, icon,
+        });
+        if (error) throw error;
+      }
+      snackbar(editingDebt ? "Deuda actualizada" : "Deuda creada", "success");
+      closeForm();
+      onRefresh();
+    } catch (err) {
+      console.error("Error al guardar deuda:", err);
+      snackbar("No se pudo guardar la deuda", "error");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    closeForm();
-    onRefresh();
   };
 
   const handlePay = async () => {
     if (!payingDebt) return;
     const n = Number(payAmount);
     if (!n || n <= 0) return;
-    const newPaid = Math.min(Number(payingDebt.paid_amount) + n, Number(payingDebt.total_amount));
-    await supabase.from("debts").update({ paid_amount: newPaid }).eq("id", payingDebt.id);
-    closePay();
-    onRefresh();
+    try {
+      const newPaid = Math.min(Number(payingDebt.paid_amount) + n, Number(payingDebt.total_amount));
+      const { error } = await supabase.from("debts").update({ paid_amount: newPaid }).eq("id", payingDebt.id);
+      if (error) throw error;
+      snackbar("Pago registrado", "success");
+      closePay();
+      onRefresh();
+    } catch (err) {
+      console.error("Error al registrar pago:", err);
+      snackbar("No se pudo registrar el pago", "error");
+    }
   };
 
   const handleDelete = async (id: string) => {
     setDeletingDebt(true);
-    await supabase.from("debts").delete().eq("id", id);
-    setDeletingDebt(false);
-    onRefresh();
+    try {
+      const { error } = await supabase.from("debts").delete().eq("id", id);
+      if (error) throw error;
+      snackbar("Deuda eliminada", "success");
+      onRefresh();
+    } catch (err) {
+      console.error("Error al eliminar deuda:", err);
+      snackbar("No se pudo eliminar la deuda", "error");
+    } finally {
+      setDeletingDebt(false);
+    }
   };
 
   if (view === "form") {

@@ -90,7 +90,6 @@ export default function Dashboard() {
   const checkAutoAssign = useCallback(async (
     recurData: RecurringIncome[],
     incData: Income[],
-    accData: Account[],
   ): Promise<boolean> => {
     const { data: { user } } = await supabase.auth.getUser();
     if (!user) return false;
@@ -105,7 +104,6 @@ export default function Dashboard() {
     });
     if (toAssign.length === 0) return false;
     let anyAssigned = false;
-    const balanceDelta = new Map<string, number>();
 
     for (const r of toAssign) {
       const period = r.is_salary
@@ -133,17 +131,33 @@ export default function Dashboard() {
       if (!error) {
         anyAssigned = true;
         if (r.account_id) {
-          balanceDelta.set(r.account_id, (balanceDelta.get(r.account_id) ?? 0) + Number(r.amount));
+          const { error: balErr } = await supabase.rpc("increment_balance", {
+            p_account_id: r.account_id, p_delta: Number(r.amount), p_clamp_zero: false,
+          });
+          if (balErr) console.error("Error al actualizar saldo en auto-asignación:", balErr);
         }
       }
     }
 
-    for (const [accId, delta] of balanceDelta) {
-      const acc = accData.find((a) => a.id === accId);
-      if (acc) await supabase.from("accounts").update({ balance: Number(acc.balance) + delta }).eq("id", accId);
-    }
-
     return anyAssigned;
+  }, [supabase]);
+
+  // Ref con el mes visible en Gastos: permite que fetchData lo lea sin depender de él
+  // (así cambiar de mes no re-consulta las 10 tablas, solo los gastos).
+  const expenseMonthRef = useRef({ month: expenseMonth, year: expenseYear });
+
+  const fetchExpensesForMonth = useCallback(async (month: number, year: number): Promise<Expense[]> => {
+    const key = `${year}-${String(month).padStart(2, "0")}`;
+    const { data, error } = await supabase
+      .from("expenses").select("*, categories(*), accounts(*)")
+      .eq("budget_period", key).order("date", { ascending: false });
+    if (error) {
+      console.error("Error al cargar gastos del mes:", error);
+      return [];
+    }
+    const exp = (data ?? []) as Expense[];
+    setExpenses(exp);
+    return exp;
   }, [supabase]);
 
   const fetchData = useCallback(async () => {
@@ -156,10 +170,10 @@ export default function Dashboard() {
     const windowStartKey = `${windowStart.getFullYear()}-${String(windowStart.getMonth() + 1).padStart(2, "0")}`;
     const startOfWindowStr = `${windowStartKey}-01`;
 
-    const expMonthKey = `${expenseYear}-${String(expenseMonth).padStart(2, "0")}`;
+    const { month: expM, year: expY } = expenseMonthRef.current;
 
-    const [expRes, dashExpRes, budRes, catRes, goalRes, accRes, incRes, recurRes, closuresRes, debtRes] = await Promise.all([
-      supabase.from("expenses").select("*, categories(*), accounts(*)").eq("budget_period", expMonthKey).order("date", { ascending: false }),
+    const [expData, dashExpRes, budRes, catRes, goalRes, accRes, incRes, recurRes, closuresRes, debtRes] = await Promise.all([
+      fetchExpensesForMonth(expM, expY),
       supabase.from("expenses").select("*, categories(*), accounts(*)").gte("budget_period", windowStartKey).order("date", { ascending: false }),
       supabase.from("budgets").select("*, categories(*)"),
       supabase.from("categories").select("*").order("name"),
@@ -171,7 +185,6 @@ export default function Dashboard() {
       supabase.from("debts").select("*").order("created_at", { ascending: false }),
     ]);
 
-    const expData = (expRes.data ?? []) as Expense[];
     const dashExpData = (dashExpRes.data ?? []) as Expense[];
     const budData = (budRes.data ?? []) as Budget[];
     const accData = (accRes.data ?? []) as Account[];
@@ -181,7 +194,6 @@ export default function Dashboard() {
     const closuresData = (closuresRes.data ?? []) as MonthClosure[];
     const debtData = (debtRes.data ?? []) as Debt[];
 
-    setExpenses(expData);
     setDashboardExpenses(dashExpData);
     setBudgets(budData);
 
@@ -214,7 +226,7 @@ export default function Dashboard() {
     let finalAccData = accData;
     let finalIncData = incData;
 
-    const assigned = await checkAutoAssign(recurData, incData, accData);
+    const assigned = await checkAutoAssign(recurData, incData);
     if (assigned) {
       const [accRefresh, incRefresh] = await Promise.all([
         supabase.from("accounts").select("*").order("created_at"),
@@ -254,7 +266,7 @@ export default function Dashboard() {
     }
 
     setLoading(false);
-  }, [supabase, checkAutoAssign, expenseMonth, expenseYear]);
+  }, [supabase, checkAutoAssign, fetchExpensesForMonth]);
 
   /* eslint-disable react-hooks/set-state-in-effect */
   // Restore cache on mount to support offline rendering
@@ -283,8 +295,18 @@ export default function Dashboard() {
   }, []);
   /* eslint-enable react-hooks/set-state-in-effect */
 
-  // eslint-disable-next-line react-hooks/set-state-in-effect
   useEffect(() => { fetchData(); }, [fetchData]);
+
+  // Al cambiar el mes visible en Gastos solo se re-consultan los gastos de ese mes.
+  const expenseMonthMountedRef = useRef(false);
+  useEffect(() => {
+    expenseMonthRef.current = { month: expenseMonth, year: expenseYear };
+    if (!expenseMonthMountedRef.current) {
+      expenseMonthMountedRef.current = true;
+      return;
+    }
+    fetchExpensesForMonth(expenseMonth, expenseYear);
+  }, [expenseMonth, expenseYear, fetchExpensesForMonth]);
 
   // Mes por defecto del Resumen = mes no cerrado más reciente. Se aplica una sola vez
   // tras el primer fetch real y nunca pisa la navegación manual del usuario.
@@ -398,9 +420,10 @@ export default function Dashboard() {
     location.href = "/login";
   };
 
-  const thisMonthExpenses = dashboardExpenses.filter((e) => e.budget_period === summaryMonthKey);
-
   const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+  // Derivadas sin useMemo manual: el React Compiler las memoiza automáticamente.
+  const thisMonthExpenses = dashboardExpenses.filter((e) => e.budget_period === summaryMonthKey);
 
   const thisWeekExpenses = dashboardExpenses.filter((e) => {
     const d = new Date(e.date + "T12:00:00");
@@ -500,7 +523,7 @@ export default function Dashboard() {
       {/* Sidebar de navegación — solo escritorio */}
       <aside className="hidden lg:flex lg:flex-col lg:w-64 lg:shrink-0 lg:sticky lg:top-0 lg:h-screen border-r border-outline-variant bg-surface px-3 py-6">
         <div className="px-3 mb-6">
-          <h1 className="text-xl font-bold tracking-tight">💸 MisFinanzas</h1>
+          <h1 className="font-display text-xl font-bold tracking-tight">💸 MisFinanzas</h1>
         </div>
         <nav aria-label="Navegación principal" className="flex flex-col gap-1">
           {TABS.map(({ value, label, Icon }) => {
@@ -534,12 +557,18 @@ export default function Dashboard() {
       {/* Columna principal */}
       <div className={`flex-1 min-w-0 ${fabVisible ? "pb-40" : "pb-24"} lg:pb-10`}>
         <div className="lg:max-w-5xl lg:mx-auto lg:px-6">
-      {/* Header */}
-      <div className="bg-primary text-on-primary px-4 pt-10 pb-6 rounded-b-3xl shadow-e2 lg:rounded-3xl lg:mt-6">
-        <div className="flex justify-between items-start mb-4">
+      {/* Header — hero esmeralda */}
+      <div className="relative overflow-hidden bg-primary text-on-primary px-5 pt-11 pb-7 rounded-b-[2.5rem] shadow-e2 lg:rounded-[2rem] lg:mt-6">
+        {/* Halos decorativos sutiles */}
+        <div aria-hidden className="absolute -top-20 -right-16 w-60 h-60 rounded-full bg-on-primary/10 blur-2xl" />
+        <div aria-hidden className="absolute -bottom-28 -left-12 w-72 h-72 rounded-full bg-on-primary/5 blur-3xl" />
+
+        <div className="relative flex justify-between items-start">
           <div>
-            <h1 className="text-3xl font-bold tracking-tight">💸 MisFinanzas</h1>
-            <p className="text-on-primary/70 text-sm">{now.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}</p>
+            <p className="text-on-primary/60 text-[11px] font-medium uppercase tracking-[0.14em]">
+              {now.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}
+            </p>
+            <h1 className="font-display text-xl font-bold tracking-tight mt-0.5">💸 MisFinanzas</h1>
           </div>
           <div className="flex gap-1">
             <Button
@@ -558,44 +587,45 @@ export default function Dashboard() {
           </div>
         </div>
 
-        <div className="grid grid-cols-3 gap-2 mt-2">
-          <div className="bg-on-primary/15 rounded-2xl p-3 text-center">
-            <p className="text-xs text-on-primary/70">Hoy</p>
-            <p className="font-bold text-sm">{fmt(totalToday)}</p>
-          </div>
-          <div className="bg-on-primary/15 rounded-2xl p-3 text-center">
-            <p className="text-xs text-on-primary/70">Semana</p>
-            <p className="font-bold text-sm">{fmt(totalWeek)}</p>
-            {weekBudget && <p className="text-xs text-on-primary/60">/ {fmt(weekBudget.amount)}</p>}
-          </div>
-          <div className="bg-on-primary/15 rounded-2xl p-3 text-center">
-            <p className="text-xs text-on-primary/70">{isLiveMonth ? "Mes" : `Mes · ${MONTHS[summaryMonth - 1].slice(0, 3)}`}</p>
-            <p className="font-bold text-sm">{fmt(totalMonth)}</p>
-            {monthBudget && <p className="text-xs text-on-primary/60">/ {fmt(monthBudget.amount)}</p>}
-          </div>
-        </div>
-
+        {/* Número hero: disponible total */}
         {accounts.length > 0 && (
-          <div className={`mt-2 rounded-2xl px-4 py-2.5 flex items-center justify-between ${disponible >= 0 ? "bg-on-primary/10" : "bg-error/40"}`}>
-            <div>
-              <p className="text-xs text-on-primary/70">Disponible total</p>
-              <p className="text-[10px] text-on-primary/60">
-                {unlinkedMonthTotal > 0
-                  ? `saldo en cuentas − ${fmt(unlinkedMonthTotal)} sin cuenta`
-                  : "saldo real en cuentas"}
-              </p>
-            </div>
-            <p className={`font-bold text-base ${disponible < 0 ? "text-on-error-container" : "text-on-primary"}`}>{fmt(disponible)}</p>
+          <div className="relative mt-4">
+            <p className="text-on-primary/70 text-xs">Disponible total</p>
+            <p className={`font-display text-[2.6rem] leading-none font-bold tracking-tight tabular-nums mt-1 ${disponible < 0 ? "text-error-container" : ""}`}>
+              {fmt(disponible)}
+            </p>
+            <p className="text-on-primary/55 text-[11px] mt-1.5">
+              {unlinkedMonthTotal > 0
+                ? `saldo en cuentas − ${fmt(unlinkedMonthTotal)} sin cuenta`
+                : "saldo real en cuentas"}
+            </p>
           </div>
         )}
 
+        <div className="relative grid grid-cols-3 gap-2 mt-5">
+          <div className="bg-on-primary/12 backdrop-blur rounded-2xl p-3 text-center">
+            <p className="text-[11px] text-on-primary/65">Hoy</p>
+            <p className="font-semibold text-sm tabular-nums">{fmt(totalToday)}</p>
+          </div>
+          <div className="bg-on-primary/12 backdrop-blur rounded-2xl p-3 text-center">
+            <p className="text-[11px] text-on-primary/65">Semana</p>
+            <p className="font-semibold text-sm tabular-nums">{fmt(totalWeek)}</p>
+            {weekBudget && <p className="text-[11px] text-on-primary/55 tabular-nums">/ {fmt(weekBudget.amount)}</p>}
+          </div>
+          <div className="bg-on-primary/12 backdrop-blur rounded-2xl p-3 text-center">
+            <p className="text-[11px] text-on-primary/65">{isLiveMonth ? "Mes" : `Mes · ${MONTHS[summaryMonth - 1].slice(0, 3)}`}</p>
+            <p className="font-semibold text-sm tabular-nums">{fmt(totalMonth)}</p>
+            {monthBudget && <p className="text-[11px] text-on-primary/55 tabular-nums">/ {fmt(monthBudget.amount)}</p>}
+          </div>
+        </div>
+
         {monthBudget && (
-          <div className="mt-3">
-            <div className="flex justify-between text-xs text-on-primary/70 mb-1">
+          <div className="relative mt-4">
+            <div className="flex justify-between text-xs text-on-primary/70 mb-1.5">
               <span>Presupuesto mensual</span>
-              <span>{Math.round((totalMonth / monthBudget.amount) * 100)}%</span>
+              <span className="tabular-nums">{Math.round((totalMonth / monthBudget.amount) * 100)}%</span>
             </div>
-            <Progress value={Math.min((totalMonth / monthBudget.amount) * 100, 100)} className="h-2 bg-on-primary/30" />
+            <Progress value={Math.min((totalMonth / monthBudget.amount) * 100, 100)} className="h-2 bg-on-primary/25 [&>div]:bg-tertiary-container" />
           </div>
         )}
       </div>
@@ -701,7 +731,7 @@ export default function Dashboard() {
             <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
             <Card>
               <CardHeader className="pb-2">
-                <CardTitle className="text-sm">Presupuesto del mes</CardTitle>
+                <CardTitle className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Presupuesto del mes</CardTitle>
               </CardHeader>
               <CardContent className="space-y-3">
                 {categorySpend.length === 0 && (
@@ -760,7 +790,7 @@ export default function Dashboard() {
             {expectedIncome > 0 && budgetAllocation.length > 0 && (
               <Card>
                 <CardHeader className="pb-2">
-                  <CardTitle className="text-sm">Distribución del presupuesto</CardTitle>
+                  <CardTitle className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Distribución del presupuesto</CardTitle>
                 </CardHeader>
                 <CardContent>
                   <div className="space-y-2">
@@ -835,7 +865,7 @@ export default function Dashboard() {
                   </Button>
                 </div>
               </div>
-              <ExpenseList expenses={expenses} categories={categories} accounts={accounts} onRefresh={fetchData} onEdit={setEditingExpense} />
+              <ExpenseList expenses={expenses} categories={categories} onRefresh={fetchData} onEdit={setEditingExpense} />
             </CardContent>
           </Card>
           </motion.div>
@@ -910,7 +940,7 @@ export default function Dashboard() {
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
           >
             <motion.button
-              className="flex items-center gap-2 bg-primary-container text-on-primary-container rounded-2xl pl-4 pr-5 py-4 shadow-e3"
+              className="flex items-center gap-2 bg-tertiary-container text-on-tertiary-container rounded-2xl pl-4 pr-5 py-4 shadow-e3"
               whileTap={{ scale: 0.94, borderRadius: 28 }}
               onClick={() => setShowForm(true)}
             >

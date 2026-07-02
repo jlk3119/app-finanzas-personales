@@ -12,6 +12,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pencil, Trash2, Plus, Check, X, ChevronRight, Download, RefreshCw } from "lucide-react";
+import { useSnackbar } from "@/components/SnackbarProvider";
 import {
   getCurrentPayPeriod, getNextPayDate,
   getCustomPayPeriod, getNextCustomPayDate,
@@ -74,6 +75,7 @@ type View = "main" | "account-form" | "income-form" | "recurring-form" | "income
 export default function AccountsManager({ accounts, income, recurringIncome, disponible, unlinkedMonthTotal, onRefresh }: Props) {
   const fmt = useMoney();
   const supabase = createClient();
+  const snackbar = useSnackbar();
   const [view, setView] = useState<View>("main");
   const [editingAccount, setEditingAccount] = useState<Account | null>(null);
   const [editingRecurring, setEditingRecurring] = useState<RecurringIncome | null>(null);
@@ -152,29 +154,55 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
     setView("account-form");
   };
 
+  const adjustBalance = async (accountId: string, delta: number, clampZero: boolean) => {
+    const { error } = await supabase.rpc("increment_balance", {
+      p_account_id: accountId, p_delta: delta, p_clamp_zero: clampZero,
+    });
+    if (error) throw error;
+  };
+
   const saveAccount = async () => {
     if (!accountForm.name.trim()) return;
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
-    if (editingAccount) {
-      await supabase.from("accounts").update({
-        name: accountForm.name.trim(), icon: accountForm.icon,
-        color: accountForm.color, balance: Number(accountForm.balance) || 0,
-      }).eq("id", editingAccount.id);
-    } else {
-      await supabase.from("accounts").insert({
-        user_id: user.id, name: accountForm.name.trim(),
-        icon: accountForm.icon, color: accountForm.color, balance: Number(accountForm.balance) || 0,
-      });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      if (editingAccount) {
+        const { error } = await supabase.from("accounts").update({
+          name: accountForm.name.trim(), icon: accountForm.icon,
+          color: accountForm.color, balance: Number(accountForm.balance) || 0,
+        }).eq("id", editingAccount.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("accounts").insert({
+          user_id: user.id, name: accountForm.name.trim(),
+          icon: accountForm.icon, color: accountForm.color, balance: Number(accountForm.balance) || 0,
+        });
+        if (error) throw error;
+      }
+      snackbar(editingAccount ? "Cuenta actualizada" : "Cuenta creada", "success");
+      setView("main"); onRefresh();
+    } catch (err) {
+      console.error("Error al guardar cuenta:", err);
+      snackbar("No se pudo guardar la cuenta", "error");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false); setView("main"); onRefresh();
   };
 
   const deleteAccount = async (id: string) => {
     setDeletingId(id);
-    await supabase.from("accounts").delete().eq("id", id);
-    setDeletingId(null); onRefresh();
+    try {
+      const { error } = await supabase.from("accounts").delete().eq("id", id);
+      if (error) throw error;
+      snackbar("Cuenta eliminada", "success");
+      onRefresh();
+    } catch (err) {
+      console.error("Error al eliminar cuenta:", err);
+      snackbar("No se pudo eliminar la cuenta", "error");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   /* ── Sporadic income ── */
@@ -193,56 +221,62 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
   const saveIncome = async () => {
     if (!incomeForm.amount || Number(incomeForm.amount) <= 0) return;
     setLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
-    const amount = Number(incomeForm.amount);
-    const account_id = incomeForm.account_id || null;
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const amount = Number(incomeForm.amount);
+      const account_id = incomeForm.account_id || null;
 
-    if (editingIncome) {
-      await supabase.from("income").update({
-        amount, description: incomeForm.description || null,
-        date: incomeForm.date, account_id,
-        period_key: incomeForm.budget_month || null,
-      }).eq("id", editingIncome.id);
+      if (editingIncome) {
+        const { error } = await supabase.from("income").update({
+          amount, description: incomeForm.description || null,
+          date: incomeForm.date, account_id,
+          period_key: incomeForm.budget_month || null,
+        }).eq("id", editingIncome.id);
+        if (error) throw error;
 
-      const oldAccountId = editingIncome.account_id ?? null;
-      const oldAmount = Number(editingIncome.amount);
-      if (oldAccountId === account_id && account_id) {
-        const acc = accounts.find((a) => a.id === account_id);
-        if (acc) await supabase.from("accounts").update({ balance: Number(acc.balance) + amount - oldAmount }).eq("id", account_id);
+        const oldAccountId = editingIncome.account_id ?? null;
+        const oldAmount = Number(editingIncome.amount);
+        if (oldAccountId === account_id && account_id) {
+          if (amount !== oldAmount) await adjustBalance(account_id, amount - oldAmount, false);
+        } else {
+          if (oldAccountId) await adjustBalance(oldAccountId, -oldAmount, true);
+          if (account_id) await adjustBalance(account_id, amount, false);
+        }
+        setEditingIncome(null);
       } else {
-        if (oldAccountId) {
-          const oa = accounts.find((a) => a.id === oldAccountId);
-          if (oa) await supabase.from("accounts").update({ balance: Math.max(0, Number(oa.balance) - oldAmount) }).eq("id", oldAccountId);
-        }
-        if (account_id) {
-          const na = accounts.find((a) => a.id === account_id);
-          if (na) await supabase.from("accounts").update({ balance: Number(na.balance) + amount }).eq("id", account_id);
-        }
+        const { error } = await supabase.from("income").insert({
+          user_id: user.id, account_id, amount,
+          description: incomeForm.description || null, date: incomeForm.date,
+          period_key: incomeForm.budget_month || null,
+        });
+        if (error) throw error;
+        if (account_id) await adjustBalance(account_id, amount, false);
       }
-      setEditingIncome(null);
-    } else {
-      await supabase.from("income").insert({
-        user_id: user.id, account_id, amount,
-        description: incomeForm.description || null, date: incomeForm.date,
-        period_key: incomeForm.budget_month || null,
-      });
-      if (account_id) {
-        const acc = accounts.find((a) => a.id === account_id);
-        if (acc) await supabase.from("accounts").update({ balance: Number(acc.balance) + amount }).eq("id", account_id);
-      }
+      snackbar(editingIncome ? "Ingreso actualizado" : "Ingreso registrado", "success");
+      setView("main"); onRefresh();
+    } catch (err) {
+      console.error("Error al guardar ingreso:", err);
+      snackbar("No se pudo guardar el ingreso", "error");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false); setView("main"); onRefresh();
   };
 
   const deleteIncome = async (entry: Income) => {
     setDeletingId(entry.id);
-    await supabase.from("income").delete().eq("id", entry.id);
-    if (entry.account_id) {
-      const acc = accounts.find((a) => a.id === entry.account_id);
-      if (acc) await supabase.from("accounts").update({ balance: Math.max(0, Number(acc.balance) - Number(entry.amount)) }).eq("id", entry.account_id);
+    try {
+      const { error } = await supabase.from("income").delete().eq("id", entry.id);
+      if (error) throw error;
+      if (entry.account_id) await adjustBalance(entry.account_id, -Number(entry.amount), true);
+      snackbar("Ingreso eliminado", "success");
+      onRefresh();
+    } catch (err) {
+      console.error("Error al eliminar ingreso:", err);
+      snackbar("No se pudo eliminar el ingreso", "error");
+    } finally {
+      setDeletingId(null);
     }
-    setDeletingId(null); onRefresh();
   };
 
   /* ── Recurring income ── */
@@ -284,44 +318,70 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
       start_date: recurringForm.start_month ? `${recurringForm.start_month}-01` : null,
       end_date: recurringForm.end_month ? `${recurringForm.end_month}-01` : null,
     };
-    if (editingRecurring) {
-      await supabase.from("recurring_income").update(payload).eq("id", editingRecurring.id);
-    } else {
-      await supabase.from("recurring_income").insert({ ...payload, user_id: user.id });
+    try {
+      if (editingRecurring) {
+        const { error } = await supabase.from("recurring_income").update(payload).eq("id", editingRecurring.id);
+        if (error) throw error;
+      } else {
+        const { error } = await supabase.from("recurring_income").insert({ ...payload, user_id: user.id });
+        if (error) throw error;
+      }
+      snackbar(editingRecurring ? "Ingreso recurrente actualizado" : "Ingreso recurrente creado", "success");
+      setView("main"); onRefresh();
+    } catch (err) {
+      console.error("Error al guardar ingreso recurrente:", err);
+      snackbar("No se pudo guardar el ingreso recurrente", "error");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false); setView("main"); onRefresh();
   };
 
   const deleteRecurring = async (id: string) => {
     setDeletingId(id);
-    await supabase.from("recurring_income").delete().eq("id", id);
-    setDeletingId(null); onRefresh();
+    try {
+      const { error } = await supabase.from("recurring_income").delete().eq("id", id);
+      if (error) throw error;
+      snackbar("Ingreso recurrente eliminado", "success");
+      onRefresh();
+    } catch (err) {
+      console.error("Error al eliminar ingreso recurrente:", err);
+      snackbar("No se pudo eliminar el ingreso recurrente", "error");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const receiveRecurring = async (r: RecurringIncome) => {
     setReceivingId(r.id);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setReceivingId(null); return; }
-    const today = new Date();
-    const period = r.is_salary
-      ? getCurrentPayPeriod(r.frequency, today)
-      : r.day_of_month
-        ? getCustomPayPeriod(r.frequency, today, r.day_of_month)
-        : null;
-    await supabase.from("income").insert({
-      user_id: user.id,
-      account_id: r.account_id,
-      amount: r.amount,
-      description: r.name,
-      date: today.toISOString().split("T")[0],
-      recurring_income_id: r.id,
-      period_key: period?.periodKey ?? null,
-    });
-    if (r.account_id) {
-      const acc = accounts.find((a) => a.id === r.account_id);
-      if (acc) await supabase.from("accounts").update({ balance: Number(acc.balance) + Number(r.amount) }).eq("id", r.account_id);
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const today = new Date();
+      const period = r.is_salary
+        ? getCurrentPayPeriod(r.frequency, today)
+        : r.day_of_month
+          ? getCustomPayPeriod(r.frequency, today, r.day_of_month)
+          : null;
+      const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
+      const { error } = await supabase.from("income").insert({
+        user_id: user.id,
+        account_id: r.account_id,
+        amount: r.amount,
+        description: r.name,
+        date: todayStr,
+        recurring_income_id: r.id,
+        period_key: period?.periodKey ?? null,
+      });
+      if (error) throw error;
+      if (r.account_id) await adjustBalance(r.account_id, Number(r.amount), false);
+      snackbar(`${r.name} recibido`, "success");
+      onRefresh();
+    } catch (err) {
+      console.error("Error al recibir ingreso:", err);
+      snackbar("No se pudo registrar el ingreso", "error");
+    } finally {
+      setReceivingId(null);
     }
-    setReceivingId(null); onRefresh();
   };
 
   /* ══ VISTAS ══ */
@@ -687,9 +747,10 @@ export default function AccountsManager({ accounts, income, recurringIncome, dis
     <div className="space-y-6">
 
       {/* Disponible total */}
-      <div className="bg-primary text-on-primary rounded-2xl px-5 py-5 text-center shadow-md">
-        <p className="text-on-primary/70 text-xs mb-1 uppercase tracking-wide">Disponible total</p>
-        <p className={`text-3xl font-bold ${disponible < 0 ? "text-error-container" : ""}`}>{fmt(disponible)}</p>
+      <div className="relative overflow-hidden bg-primary text-on-primary rounded-3xl px-5 py-5 text-center shadow-e2">
+        <div aria-hidden className="absolute -top-14 -right-10 w-40 h-40 rounded-full bg-on-primary/10 blur-2xl" />
+        <p className="text-on-primary/70 text-xs mb-1 uppercase tracking-[0.14em]">Disponible total</p>
+        <p className={`relative font-display text-3xl font-bold tracking-tight ${disponible < 0 ? "text-error-container" : ""}`}>{fmt(disponible)}</p>
         <p className="text-on-primary/60 text-xs mt-1">
           {unlinkedMonthTotal > 0
             ? `${fmt(totalBalance)} en cuentas − ${fmt(unlinkedMonthTotal)} sin cuenta`

@@ -19,14 +19,16 @@ const mockCategories: Category[] = [
 
 function makeMock(insertResult = { data: null, error: null }) {
   const mockInsert = jest.fn().mockResolvedValue(insertResult)
+  const mockRpc = jest.fn().mockResolvedValue({ data: null, error: null })
   const chainable: any = {}
   ;['eq'].forEach((m) => { chainable[m] = jest.fn().mockResolvedValue({ data: null, error: null }) })
   const supabase = {
     auth: { getUser: jest.fn().mockResolvedValue({ data: { user: { id: 'test-user' } } }) },
     from: jest.fn().mockReturnValue({ insert: mockInsert, update: jest.fn().mockReturnValue(chainable) }),
+    rpc: mockRpc,
   }
   mockCreateClient.mockReturnValue(supabase as any)
-  return { mockInsert, supabase }
+  return { mockInsert, mockRpc, supabase }
 }
 
 beforeEach(() => makeMock())
@@ -93,7 +95,7 @@ describe('ExpenseForm', () => {
     render(<ExpenseForm categories={[]} accounts={[]} onClose={jest.fn()} onSaved={jest.fn()} />)
     await user.type(screen.getByLabelText(/monto/i), '50000')
     await user.click(screen.getByRole('button', { name: /guardar gasto/i }))
-    await waitFor(() => expect(screen.getByText(/error de conexión/i)).toBeInTheDocument())
+    await waitFor(() => expect(screen.getByText(/no se pudo guardar el gasto/i)).toBeInTheDocument())
   })
 
   it('llama a onClose al presionar Cancelar', async () => {
@@ -132,18 +134,15 @@ describe('ExpenseForm', () => {
 
   it('descuenta el gasto del saldo de la cuenta seleccionada', async () => {
     const mockAccount: Account = { id: 'acc-1', user_id: 'u1', name: 'Nequi', balance: 300000, icon: '📱', color: '#6366f1', created_at: '' }
-    const { supabase } = makeMock()
-    const mockUpdate = jest.fn().mockReturnValue({ eq: jest.fn().mockResolvedValue({ data: null, error: null }) })
-    ;(supabase.from as jest.Mock).mockImplementation((table: string) => {
-      if (table === 'accounts') return { update: mockUpdate }
-      return { insert: jest.fn().mockResolvedValue({ data: null, error: null }) }
-    })
+    const { mockRpc } = makeMock()
     const user = userEvent.setup()
     render(<ExpenseForm categories={[]} accounts={[mockAccount]} onClose={jest.fn()} onSaved={jest.fn()} />)
     await user.type(screen.getByLabelText(/monto/i), '50000')
     // Nequi es la única cuenta — se pre-selecciona automáticamente
     await user.click(screen.getByRole('button', { name: /guardar gasto/i }))
-    await waitFor(() => expect(mockUpdate).toHaveBeenCalledWith({ balance: 250000 }))
+    await waitFor(() => expect(mockRpc).toHaveBeenCalledWith('increment_balance', {
+      p_account_id: 'acc-1', p_delta: -50000, p_clamp_zero: true,
+    }))
   })
 
   it('en modo edición muestra el título "Editar gasto" y pre-llena los campos', () => {

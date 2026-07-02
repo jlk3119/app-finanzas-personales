@@ -11,8 +11,8 @@ App web PWA de finanzas personales, optimizada para móvil, desplegada en Vercel
 |---|---|
 | Framework | Next.js 16 (App Router), React 19 |
 | Base de datos / Auth | Supabase (PostgreSQL + Row Level Security) |
-| UI | shadcn/ui + Tailwind CSS v4 |
-| Gráficas | Recharts |
+| UI | shadcn/ui + Tailwind CSS v4 (tema M3 Expressive, seed esmeralda hue 178 / oro hue 82) |
+| Tipografía | Geist (cuerpo) + Bricolage Grotesque (display, montos) |
 | Iconos | Lucide React |
 | Lenguaje | TypeScript estricto |
 
@@ -222,7 +222,8 @@ npm run build
 ## Gestión de errores
 
 - Toda operación async contra Supabase debe tener `try/catch` con manejo explícito del error.
-- Mostrar feedback al usuario: usar `toast` (shadcn/ui) para operaciones CRUD, mensajes inline para errores de validación.
+- Mostrar feedback al usuario: usar `useSnackbar()` (`src/components/SnackbarProvider.tsx`) para operaciones CRUD, mensajes inline para errores de validación.
+- Los saldos de cuentas se actualizan SOLO con la RPC atómica `increment_balance(p_account_id, p_delta, p_clamp_zero)` — nunca con `update({ balance })` calculado en el cliente (salvo asignación absoluta al crear/editar la cuenta).
 - Nunca silenciar errores con `catch(() => {})` vacío.
 - Loguear errores con `console.error` en desarrollo; no exponer mensajes técnicos al usuario.
 

@@ -5,15 +5,15 @@ import { useMoney } from "@/components/PrivacyProvider";
 import { useState } from "react";
 import { motion, useReducedMotion } from "motion/react";
 import { createClient } from "@/utils/supabase/client";
-import type { Account, Expense, Category } from "@/types";
+import type { Expense, Category } from "@/types";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pencil, Trash2 } from "lucide-react";
+import { useSnackbar } from "@/components/SnackbarProvider";
 
 type Props = {
   expenses: Expense[];
   categories: Category[];
-  accounts: Account[];
   onRefresh: () => void;
   onEdit?: (expense: Expense) => void;
   compact?: boolean;
@@ -39,9 +39,10 @@ function formatDate(dateStr: string) {
   return d.toLocaleDateString("es-CO", { weekday: "short", day: "numeric", month: "short" });
 }
 
-export default function ExpenseList({ expenses, categories, accounts, onRefresh, onEdit, compact }: Props) {
+export default function ExpenseList({ expenses, categories, onRefresh, onEdit, compact }: Props) {
   const fmt = useMoney();
   const supabase = createClient();
+  const snackbar = useSnackbar();
   const reduceMotion = useReducedMotion();
   const [deleting, setDeleting] = useState<string | null>(null);
   const [confirmId, setConfirmId] = useState<string | null>(null);
@@ -67,18 +68,24 @@ export default function ExpenseList({ expenses, categories, accounts, onRefresh,
 
   const handleDelete = async (id: string) => {
     setDeleting(id);
-    const expense = expenses.find((e) => e.id === id);
-    await supabase.from("expenses").delete().eq("id", id);
-    if (expense?.account_id) {
-      const acc = accounts.find((a) => a.id === expense.account_id);
-      if (acc) {
-        await supabase.from("accounts").update({
-          balance: Number(acc.balance) + Number(expense.amount),
-        }).eq("id", acc.id);
+    try {
+      const expense = expenses.find((e) => e.id === id);
+      const { error } = await supabase.from("expenses").delete().eq("id", id);
+      if (error) throw error;
+      if (expense?.account_id) {
+        const { error: balErr } = await supabase.rpc("increment_balance", {
+          p_account_id: expense.account_id, p_delta: Number(expense.amount), p_clamp_zero: false,
+        });
+        if (balErr) throw balErr;
       }
+      snackbar("Gasto eliminado", "success");
+      onRefresh();
+    } catch (err) {
+      console.error("Error al eliminar gasto:", err);
+      snackbar("No se pudo eliminar el gasto", "error");
+    } finally {
+      setDeleting(null);
     }
-    onRefresh();
-    setDeleting(null);
   };
 
   if (expenses.length === 0) {

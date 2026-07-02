@@ -9,6 +9,7 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Progress } from "@/components/ui/progress";
 import { TrendingUp, TrendingDown, Minus, ChevronDown, ChevronUp } from "lucide-react";
+import { useSnackbar } from "@/components/SnackbarProvider";
 
 const MONTH_NAMES = [
   "Enero","Febrero","Marzo","Abril","Mayo","Junio",
@@ -33,6 +34,7 @@ export default function MonthClosureCard({
 }: Props) {
   const fmt = useMoney();
   const supabase = createClient();
+  const snackbar = useSnackbar();
   const [showGoalPicker, setShowGoalPicker] = useState(false);
   const [transferring, setTransferring] = useState(false);
   const [dismissing, setDismissing] = useState(false);
@@ -115,26 +117,43 @@ export default function MonthClosureCard({
 
   const handleDismiss = async () => {
     setDismissing(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from("month_closures").upsert({ user_id: user.id, year: prevYear, month: prevMonth });
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error } = await supabase.from("month_closures").upsert({ user_id: user.id, year: prevYear, month: prevMonth });
+        if (error) throw error;
+      }
+      snackbar("Mes cerrado", "success");
+      onClose();
+    } catch (err) {
+      console.error("Error al cerrar mes:", err);
+      snackbar("No se pudo cerrar el mes", "error");
+      setDismissing(false);
     }
-    onClose();
   };
 
   const handleMoveToGoal = async (goal: Goal) => {
     setTransferring(true);
-    const newAmt = Math.min(goal.current_amount + surplus, goal.target_amount);
-    await supabase.from("goals").update({
-      current_amount: newAmt,
-      completed: newAmt >= goal.target_amount,
-    }).eq("id", goal.id);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (user) {
-      await supabase.from("month_closures").upsert({ user_id: user.id, year: prevYear, month: prevMonth });
+    try {
+      const newAmt = Math.min(goal.current_amount + surplus, goal.target_amount);
+      const { error } = await supabase.from("goals").update({
+        current_amount: newAmt,
+        completed: newAmt >= goal.target_amount,
+      }).eq("id", goal.id);
+      if (error) throw error;
+      const { data: { user } } = await supabase.auth.getUser();
+      if (user) {
+        const { error: closureErr } = await supabase.from("month_closures").upsert({ user_id: user.id, year: prevYear, month: prevMonth });
+        if (closureErr) throw closureErr;
+      }
+      snackbar(`Excedente transferido a ${goal.name}`, "success");
+      onRefresh();
+      onClose();
+    } catch (err) {
+      console.error("Error al transferir excedente:", err);
+      snackbar("No se pudo transferir el excedente", "error");
+      setTransferring(false);
     }
-    onRefresh();
-    onClose();
   };
 
   const activeGoals = goals.filter((g) => !g.completed);
