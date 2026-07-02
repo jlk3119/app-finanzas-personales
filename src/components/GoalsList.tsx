@@ -14,6 +14,7 @@ import { Progress } from "@/components/ui/progress";
 import { Badge } from "@/components/ui/badge";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Plus, Trash2, PlusCircle, CheckCircle2, Pencil, X } from "lucide-react";
+import { useSnackbar } from "@/components/SnackbarProvider";
 
 type Props = { goals: Goal[]; categories: Category[]; onRefresh: () => void };
 
@@ -37,6 +38,7 @@ const ICONS = [
 export default function GoalsList({ goals, categories, onRefresh }: Props) {
   const fmt = useMoney();
   const supabase = createClient();
+  const snackbar = useSnackbar();
   const [showForm, setShowForm] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
   const [name, setName] = useState("");
@@ -98,35 +100,44 @@ export default function GoalsList({ goals, categories, onRefresh }: Props) {
   const handleSave = async () => {
     if (!name || !target || Number(target) <= 0) return;
     setLoading(true);
-    const currentAmt = Number(current) || 0;
-    const targetAmt = Number(target);
-    const categoryId = formCategoryId || null;
+    try {
+      const currentAmt = Number(current) || 0;
+      const targetAmt = Number(target);
+      const categoryId = formCategoryId || null;
 
-    if (editingGoal) {
-      await supabase.from("goals").update({
-        name,
-        target_amount: targetAmt,
-        current_amount: Math.min(currentAmt, targetAmt),
-        deadline: deadline || null,
-        icon,
-        category_id: categoryId,
-        completed: currentAmt >= targetAmt,
-      }).eq("id", editingGoal.id);
-    } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-      await supabase.from("goals").insert({
-        user_id: user.id, name, icon,
-        target_amount: targetAmt,
-        current_amount: Math.min(currentAmt, targetAmt),
-        deadline: deadline || null,
-        category_id: categoryId,
-        completed: currentAmt >= targetAmt,
-      });
+      if (editingGoal) {
+        const { error } = await supabase.from("goals").update({
+          name,
+          target_amount: targetAmt,
+          current_amount: Math.min(currentAmt, targetAmt),
+          deadline: deadline || null,
+          icon,
+          category_id: categoryId,
+          completed: currentAmt >= targetAmt,
+        }).eq("id", editingGoal.id);
+        if (error) throw error;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { error } = await supabase.from("goals").insert({
+          user_id: user.id, name, icon,
+          target_amount: targetAmt,
+          current_amount: Math.min(currentAmt, targetAmt),
+          deadline: deadline || null,
+          category_id: categoryId,
+          completed: currentAmt >= targetAmt,
+        });
+        if (error) throw error;
+      }
+      snackbar(editingGoal ? "Meta actualizada" : "Meta creada", "success");
+      closeForm();
+      onRefresh();
+    } catch (err) {
+      console.error("Error al guardar meta:", err);
+      snackbar("No se pudo guardar la meta", "error");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    closeForm();
-    onRefresh();
   };
 
   const handleAddAmount = async () => {
@@ -135,35 +146,51 @@ export default function GoalsList({ goals, categories, onRefresh }: Props) {
     const n = Number(addAmount);
     if (!n || n <= 0) return;
 
-    const newAmt = Math.min(goal.current_amount + n, goal.target_amount);
-    await supabase.from("goals").update({
-      current_amount: newAmt,
-      completed: newAmt >= goal.target_amount,
-    }).eq("id", goal.id);
+    try {
+      const newAmt = Math.min(goal.current_amount + n, goal.target_amount);
+      const { error } = await supabase.from("goals").update({
+        current_amount: newAmt,
+        completed: newAmt >= goal.target_amount,
+      }).eq("id", goal.id);
+      if (error) throw error;
 
-    // If a source category is selected, also record it as an expense so the budget reflects it
-    if (addCategoryId) {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (user) {
-        await supabase.from("expenses").insert({
-          user_id: user.id,
-          category_id: addCategoryId,
-          amount: n,
-          description: `Ahorro: ${goal.name}`,
-          date: toLocalDateStr(new Date()),
-        });
+      // If a source category is selected, also record it as an expense so the budget reflects it
+      if (addCategoryId) {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (user) {
+          const { error: expErr } = await supabase.from("expenses").insert({
+            user_id: user.id,
+            category_id: addCategoryId,
+            amount: n,
+            description: `Ahorro: ${goal.name}`,
+            date: toLocalDateStr(new Date()),
+          });
+          if (expErr) throw expErr;
+        }
       }
-    }
 
-    closeAddSaving();
-    onRefresh();
+      snackbar("Ahorro registrado", "success");
+      closeAddSaving();
+      onRefresh();
+    } catch (err) {
+      console.error("Error al registrar ahorro:", err);
+      snackbar("No se pudo registrar el ahorro", "error");
+    }
   };
 
   const handleDelete = async (id: string) => {
     setDeletingGoal(true);
-    await supabase.from("goals").delete().eq("id", id);
-    setDeletingGoal(false);
-    onRefresh();
+    try {
+      const { error } = await supabase.from("goals").delete().eq("id", id);
+      if (error) throw error;
+      snackbar("Meta eliminada", "success");
+      onRefresh();
+    } catch (err) {
+      console.error("Error al eliminar meta:", err);
+      snackbar("No se pudo eliminar la meta", "error");
+    } finally {
+      setDeletingGoal(false);
+    }
   };
 
   return (

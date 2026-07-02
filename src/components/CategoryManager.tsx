@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Pencil, Trash2, Plus, Check, X, ChevronLeft, Lock } from "lucide-react";
+import { useSnackbar } from "@/components/SnackbarProvider";
 
 type Props = {
   categories: Category[];
@@ -41,6 +42,7 @@ const EMPTY: FormState = { name: "", icon: "📦", color: "#6b7280", parent_id: 
 
 export default function CategoryManager({ categories, onClose, onRefresh }: Props) {
   const supabase = createClient();
+  const snackbar = useSnackbar();
   const [showForm, setShowForm] = useState(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [form, setForm] = useState<FormState>(EMPTY);
@@ -76,29 +78,46 @@ export default function CategoryManager({ categories, onClose, onRefresh }: Prop
   const handleSave = async () => {
     if (!form.name.trim()) return;
     setLoading(true);
-    if (editingId) {
-      await supabase.from("categories").update({
-        name: form.name.trim(), icon: form.icon, color: form.color,
-      }).eq("id", editingId);
-    } else {
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) { setLoading(false); return; }
-      await supabase.from("categories").insert({
-        name: form.name.trim(), icon: form.icon, color: form.color,
-        user_id: user.id,
-        parent_id: form.parent_id || null,
-      });
+    try {
+      if (editingId) {
+        const { error } = await supabase.from("categories").update({
+          name: form.name.trim(), icon: form.icon, color: form.color,
+        }).eq("id", editingId);
+        if (error) throw error;
+      } else {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) return;
+        const { error } = await supabase.from("categories").insert({
+          name: form.name.trim(), icon: form.icon, color: form.color,
+          user_id: user.id,
+          parent_id: form.parent_id || null,
+        });
+        if (error) throw error;
+      }
+      snackbar(editingId ? "Categoría actualizada" : "Categoría creada", "success");
+      cancel();
+      onRefresh();
+    } catch (err) {
+      console.error("Error al guardar categoría:", err);
+      snackbar("No se pudo guardar la categoría", "error");
+    } finally {
+      setLoading(false);
     }
-    setLoading(false);
-    cancel();
-    onRefresh();
   };
 
   const handleDelete = async (id: string) => {
     setDeletingId(id);
-    await supabase.from("categories").delete().eq("id", id);
-    setDeletingId(null);
-    onRefresh();
+    try {
+      const { error } = await supabase.from("categories").delete().eq("id", id);
+      if (error) throw error;
+      snackbar("Categoría eliminada", "success");
+      onRefresh();
+    } catch (err) {
+      console.error("Error al eliminar categoría:", err);
+      snackbar("No se pudo eliminar la categoría", "error");
+    } finally {
+      setDeletingId(null);
+    }
   };
 
   const selectedParentCat = form.parent_id ? categories.find((c) => c.id === form.parent_id) : null;

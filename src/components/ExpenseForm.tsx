@@ -8,6 +8,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { X } from "lucide-react";
+import { useSnackbar } from "@/components/SnackbarProvider";
 
 type Props = {
   categories: Category[];
@@ -19,6 +20,7 @@ type Props = {
 
 export default function ExpenseForm({ categories, accounts, editingExpense, onClose, onSaved }: Props) {
   const supabase = createClient();
+  const snackbar = useSnackbar();
   const editing = editingExpense != null;
 
   const [amount, setAmount] = useState(editing ? String(editingExpense.amount) : "");
@@ -73,79 +75,63 @@ export default function ExpenseForm({ categories, accounts, editingExpense, onCl
     setLoading(true);
     setError("");
 
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setLoading(false); return; }
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) { setLoading(false); return; }
 
-    const finalCategoryId = subCategoryId || categoryId || null;
-    const finalAccountId = accountId || null;
-    const newAmount = Number(amount);
+      const finalCategoryId = subCategoryId || categoryId || null;
+      const finalAccountId = accountId || null;
+      const newAmount = Number(amount);
 
-    if (editing) {
-      const { error: err } = await supabase.from("expenses").update({
-        amount: newAmount,
-        description: description || null,
-        category_id: finalCategoryId,
-        account_id: finalAccountId,
-        date,
-        budget_period: budgetPeriod,
-      }).eq("id", editingExpense.id);
-      if (err) { setError(err.message); setLoading(false); return; }
+      const adjustBalance = async (accountId: string, delta: number, clampZero: boolean) => {
+        const { error: balErr } = await supabase.rpc("increment_balance", {
+          p_account_id: accountId, p_delta: delta, p_clamp_zero: clampZero,
+        });
+        if (balErr) throw balErr;
+      };
 
-      // Adjust account balances for the edit
-      const oldAccountId = editingExpense.account_id ?? null;
-      const oldAmount = Number(editingExpense.amount);
+      if (editing) {
+        const { error: err } = await supabase.from("expenses").update({
+          amount: newAmount,
+          description: description || null,
+          category_id: finalCategoryId,
+          account_id: finalAccountId,
+          date,
+          budget_period: budgetPeriod,
+        }).eq("id", editingExpense.id);
+        if (err) throw err;
 
-      if (oldAccountId === finalAccountId && finalAccountId !== null) {
-        // Same account: apply delta
-        const acc = accounts.find((a) => a.id === finalAccountId);
-        if (acc) {
-          await supabase.from("accounts").update({
-            balance: Math.max(0, Number(acc.balance) - newAmount + oldAmount),
-          }).eq("id", finalAccountId);
+        const oldAccountId = editingExpense.account_id ?? null;
+        const oldAmount = Number(editingExpense.amount);
+
+        if (oldAccountId === finalAccountId && finalAccountId !== null) {
+          if (oldAmount !== newAmount) await adjustBalance(finalAccountId, oldAmount - newAmount, true);
+        } else {
+          if (oldAccountId) await adjustBalance(oldAccountId, oldAmount, false);
+          if (finalAccountId) await adjustBalance(finalAccountId, -newAmount, true);
         }
       } else {
-        // Restore old account
-        if (oldAccountId) {
-          const oldAcc = accounts.find((a) => a.id === oldAccountId);
-          if (oldAcc) {
-            await supabase.from("accounts").update({
-              balance: Number(oldAcc.balance) + oldAmount,
-            }).eq("id", oldAccountId);
-          }
-        }
-        // Deduct from new account
-        if (finalAccountId) {
-          const newAcc = accounts.find((a) => a.id === finalAccountId);
-          if (newAcc) {
-            await supabase.from("accounts").update({
-              balance: Math.max(0, Number(newAcc.balance) - newAmount),
-            }).eq("id", finalAccountId);
-          }
-        }
-      }
-    } else {
-      const { error: err } = await supabase.from("expenses").insert({
-        amount: newAmount,
-        description: description || null,
-        category_id: finalCategoryId,
-        account_id: finalAccountId,
-        date,
-        budget_period: budgetPeriod,
-        user_id: user.id,
-      });
-      if (err) { setError(err.message); setLoading(false); return; }
+        const { error: err } = await supabase.from("expenses").insert({
+          amount: newAmount,
+          description: description || null,
+          category_id: finalCategoryId,
+          account_id: finalAccountId,
+          date,
+          budget_period: budgetPeriod,
+          user_id: user.id,
+        });
+        if (err) throw err;
 
-      if (finalAccountId) {
-        const acc = accounts.find((a) => a.id === finalAccountId);
-        if (acc) {
-          await supabase.from("accounts").update({
-            balance: Math.max(0, Number(acc.balance) - newAmount),
-          }).eq("id", finalAccountId);
-        }
+        if (finalAccountId) await adjustBalance(finalAccountId, -newAmount, true);
       }
+
+      snackbar(editing ? "Gasto actualizado" : "Gasto registrado", "success");
+      onSaved();
+    } catch (err) {
+      console.error("Error al guardar gasto:", err);
+      setError("No se pudo guardar el gasto. Revisa tu conexión e intenta de nuevo.");
+      setLoading(false);
     }
-
-    onSaved();
   };
 
   return (

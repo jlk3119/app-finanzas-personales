@@ -13,6 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Pencil, Trash2, Plus, Settings2, ChevronLeft, ChevronRight, ChevronDown, Copy, Info, Check, X } from "lucide-react";
+import { useSnackbar } from "@/components/SnackbarProvider";
 
 type Props = {
   budgets: Budget[];
@@ -41,6 +42,7 @@ const FREQ_LABEL: Record<string, string> = { monthly: "mensual", biweekly: "quin
 export default function BudgetManager({ budgets, categories, accounts, recurringIncome, income, onRefresh, onManageCategories, currentMonth, currentYear }: Props) {
   const fmt = useMoney();
   const supabase = createClient();
+  const snackbar = useSnackbar();
   const [selectedMonth, setSelectedMonth] = useState(currentMonth);
   const [selectedYear, setSelectedYear] = useState(currentYear);
   const [showForm, setShowForm] = useState(false);
@@ -222,6 +224,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
         }
       }
 
+      snackbar("Presupuesto guardado", "success");
       closeForm();
       onRefresh();
     } catch (err) {
@@ -234,9 +237,17 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
 
   const handleDelete = async (id: string) => {
     setDeletingBudget(true);
-    await supabase.from("budgets").delete().eq("id", id);
-    setDeletingBudget(false);
-    onRefresh();
+    try {
+      const { error } = await supabase.from("budgets").delete().eq("id", id);
+      if (error) throw error;
+      snackbar("Presupuesto eliminado", "success");
+      onRefresh();
+    } catch (err) {
+      console.error("Error al eliminar presupuesto:", err);
+      snackbar("No se pudo eliminar el presupuesto", "error");
+    } finally {
+      setDeletingBudget(false);
+    }
   };
 
   const startEdit = (b: Budget) => {
@@ -269,20 +280,27 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
   const handleAddSub = async () => {
     if (!newSubName.trim()) return;
     setAddingSubLoading(true);
-    const { data: { user } } = await supabase.auth.getUser();
-    if (!user) { setAddingSubLoading(false); return; }
-    const parentCat = categories.find((c) => c.id === categoryId);
-    const { data: newCat, error } = await supabase
-      .from("categories")
-      .insert({ user_id: user.id, name: newSubName.trim(), icon: parentCat?.icon ?? "📂", color: parentCat?.color ?? "#6b7280", is_system: false, parent_id: categoryId })
-      .select()
-      .single();
-    if (!error && newCat) {
-      setExtraSubs((prev) => [...prev, newCat as Category]);
-      if (newSubAmount) setSubAmounts((prev) => ({ ...prev, [(newCat as Category).id]: newSubAmount }));
+    try {
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user) return;
+      const parentCat = categories.find((c) => c.id === categoryId);
+      const { data: newCat, error } = await supabase
+        .from("categories")
+        .insert({ user_id: user.id, name: newSubName.trim(), icon: parentCat?.icon ?? "📂", color: parentCat?.color ?? "#6b7280", is_system: false, parent_id: categoryId })
+        .select()
+        .single();
+      if (error) throw error;
+      if (newCat) {
+        setExtraSubs((prev) => [...prev, newCat as Category]);
+        if (newSubAmount) setSubAmounts((prev) => ({ ...prev, [(newCat as Category).id]: newSubAmount }));
+      }
+      setShowAddSub(false); setNewSubName(""); setNewSubAmount("");
+    } catch (err) {
+      console.error("Error al crear subcategoría:", err);
+      snackbar("No se pudo crear la subcategoría", "error");
+    } finally {
+      setAddingSubLoading(false);
     }
-    setShowAddSub(false); setNewSubName(""); setNewSubAmount("");
-    setAddingSubLoading(false);
   };
 
   const handleDeleteSub = async (sub: Category) => {
@@ -299,6 +317,7 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
       onRefresh();
     } catch (err) {
       console.error("Error al eliminar subcategoría", err);
+      snackbar("No se pudo eliminar la subcategoría", "error");
     } finally {
       setDeletingSub(false);
     }
@@ -335,9 +354,11 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
       const { error: insErr } = await supabase.from("budgets").insert(newBudgets);
       if (insErr) throw insErr;
 
+      snackbar("Presupuesto copiado del mes anterior", "success");
       onRefresh();
     } catch (err) {
       console.error("Error al copiar presupuesto del mes anterior", err);
+      snackbar("No se pudo copiar el presupuesto", "error");
     } finally {
       setCopying(false);
     }
@@ -614,6 +635,10 @@ export default function BudgetManager({ budgets, categories, accounts, recurring
           {monthlyBudgets.length > 0 && (() => {
             const totalBudget = monthlyBudgets.filter(isRootBudget).reduce((s, b) => s + Number(b.amount), 0);
             const activeRecurring = recurringIncome.filter((r) => {
+              if (r.end_date) {
+                const [ey, em] = r.end_date.split("-").map(Number);
+                if (selectedYear > ey || (selectedYear === ey && selectedMonth > em)) return false;
+              }
               if (!r.start_date) return true;
               const [sy, sm] = r.start_date.split("-").map(Number);
               return selectedYear > sy || (selectedYear === sy && selectedMonth >= sm);
