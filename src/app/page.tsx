@@ -555,22 +555,17 @@ export default function Dashboard() {
       </aside>
 
       {/* Columna principal */}
-      <div className={`flex-1 min-w-0 ${fabVisible ? "pb-40" : "pb-24"} lg:pb-10`}>
+      <div className={`flex-1 min-w-0 ${fabVisible ? "pb-32" : "pb-20"} lg:pb-10`}>
         <div className="lg:max-w-5xl lg:mx-auto lg:px-6">
-      {/* Header — hero esmeralda */}
-      <div className="relative overflow-hidden bg-primary text-on-primary px-5 pt-11 pb-7 rounded-b-[2.5rem] shadow-e2 lg:rounded-[2rem] lg:mt-6">
+      {/* Header — hero esmeralda compacto */}
+      <div className="relative overflow-hidden bg-primary text-on-primary px-4 pt-4 pb-5 rounded-b-3xl shadow-e2 lg:rounded-[2rem] lg:mt-6 lg:px-6">
         {/* Halos decorativos sutiles */}
         <div aria-hidden className="absolute -top-20 -right-16 w-60 h-60 rounded-full bg-on-primary/10 blur-2xl" />
         <div aria-hidden className="absolute -bottom-28 -left-12 w-72 h-72 rounded-full bg-on-primary/5 blur-3xl" />
 
-        <div className="relative flex justify-between items-start">
-          <div>
-            <p className="text-on-primary/60 text-[11px] font-medium uppercase tracking-[0.14em]">
-              {now.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}
-            </p>
-            <h1 className="font-display text-xl font-bold tracking-tight mt-0.5">💸 MisFinanzas</h1>
-          </div>
-          <div className="flex gap-1">
+        <div className="relative flex justify-between items-center">
+          <h1 className="font-display text-base font-bold tracking-tight">💸 MisFinanzas</h1>
+          <div className="flex">
             <Button
               variant="ghost"
               size="icon"
@@ -588,51 +583,57 @@ export default function Dashboard() {
         </div>
 
         {/* Número hero: disponible total */}
-        {accounts.length > 0 && (
-          <div className="relative mt-4">
-            <p className="text-on-primary/70 text-xs">Disponible total</p>
-            <p className={`font-display text-[2.6rem] leading-none font-bold tracking-tight tabular-nums mt-1 ${disponible < 0 ? "text-error-container" : ""}`}>
+        {accounts.length > 0 ? (
+          <div className="relative mt-2">
+            <p className="text-on-primary/70 text-[11px]">Disponible total</p>
+            <p className={`font-display text-[1.9rem] leading-none font-bold tracking-tight tabular-nums mt-0.5 ${disponible < 0 ? "text-error-container" : ""}`}>
               {fmt(disponible)}
             </p>
-            <p className="text-on-primary/55 text-[11px] mt-1.5">
+            <p className="text-on-primary/55 text-[11px] mt-1">
+              {now.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}
+              {" · "}
               {unlinkedMonthTotal > 0
-                ? `saldo en cuentas − ${fmt(unlinkedMonthTotal)} sin cuenta`
+                ? `saldo − ${fmt(unlinkedMonthTotal)} sin cuenta`
                 : "saldo real en cuentas"}
             </p>
           </div>
+        ) : (
+          <p className="relative text-on-primary/60 text-[11px] mt-1">
+            {now.toLocaleDateString("es-CO", { weekday: "long", day: "numeric", month: "long" })}
+          </p>
         )}
 
-        <div className="relative grid grid-cols-3 gap-2 mt-5">
-          <div className="bg-on-primary/12 backdrop-blur rounded-2xl p-3 text-center">
-            <p className="text-[11px] text-on-primary/65">Hoy</p>
-            <p className="font-semibold text-sm tabular-nums">{fmt(totalToday)}</p>
+        <div className="relative grid grid-cols-3 gap-1.5 mt-3">
+          <div className="bg-on-primary/12 backdrop-blur rounded-xl px-2 py-1.5 text-center">
+            <p className="text-[10px] text-on-primary/65">Hoy</p>
+            <p className="font-semibold text-[13px] tabular-nums">{fmt(totalToday)}</p>
           </div>
-          <div className="bg-on-primary/12 backdrop-blur rounded-2xl p-3 text-center">
-            <p className="text-[11px] text-on-primary/65">Semana</p>
-            <p className="font-semibold text-sm tabular-nums">{fmt(totalWeek)}</p>
-            {weekBudget && <p className="text-[11px] text-on-primary/55 tabular-nums">/ {fmt(weekBudget.amount)}</p>}
+          <div className="bg-on-primary/12 backdrop-blur rounded-xl px-2 py-1.5 text-center">
+            <p className="text-[10px] text-on-primary/65">Semana</p>
+            <p className="font-semibold text-[13px] tabular-nums">{fmt(totalWeek)}</p>
+            {weekBudget && <p className="text-[10px] text-on-primary/55 tabular-nums">/ {fmt(weekBudget.amount)}</p>}
           </div>
-          <div className="bg-on-primary/12 backdrop-blur rounded-2xl p-3 text-center">
-            <p className="text-[11px] text-on-primary/65">{isLiveMonth ? "Mes" : `Mes · ${MONTHS[summaryMonth - 1].slice(0, 3)}`}</p>
-            <p className="font-semibold text-sm tabular-nums">{fmt(totalMonth)}</p>
-            {monthBudget && <p className="text-[11px] text-on-primary/55 tabular-nums">/ {fmt(monthBudget.amount)}</p>}
+          <div className="bg-on-primary/12 backdrop-blur rounded-xl px-2 py-1.5 text-center">
+            <p className="text-[10px] text-on-primary/65">{isLiveMonth ? "Mes" : `Mes · ${MONTHS[summaryMonth - 1].slice(0, 3)}`}</p>
+            <p className="font-semibold text-[13px] tabular-nums">{fmt(totalMonth)}</p>
+            {monthBudget && <p className="text-[10px] text-on-primary/55 tabular-nums">/ {fmt(monthBudget.amount)}</p>}
           </div>
         </div>
 
         {monthBudget && (
-          <div className="relative mt-4">
-            <div className="flex justify-between text-xs text-on-primary/70 mb-1.5">
+          <div className="relative mt-3">
+            <div className="flex justify-between text-[11px] text-on-primary/70 mb-1">
               <span>Presupuesto mensual</span>
               <span className="tabular-nums">{Math.round((totalMonth / monthBudget.amount) * 100)}%</span>
             </div>
-            <Progress value={Math.min((totalMonth / monthBudget.amount) * 100, 100)} className="h-2 bg-on-primary/25 [&>div]:bg-tertiary-container" />
+            <Progress value={Math.min((totalMonth / monthBudget.amount) * 100, 100)} className="h-1.5 bg-on-primary/25 [&>div]:bg-tertiary-container" />
           </div>
         )}
       </div>
 
       {/* Contenido por pestaña */}
-      <div className="px-4 mt-4 space-y-4">
-        <div className={`space-y-4 ${activeTab !== "dashboard" ? "hidden" : ""}`}>
+      <div className="px-4 mt-3 space-y-3">
+        <div className={`space-y-3 ${activeTab !== "dashboard" ? "hidden" : ""}`}>
             <div className="flex items-center justify-between">
               <Button variant="ghost" size="icon" onClick={goToPrevSummaryMonth} className="h-8 w-8">
                 <ChevronLeft className="w-4 h-4" />
@@ -654,10 +655,11 @@ export default function Dashboard() {
             {canCloseSummary && !showClosurePanel && (
               <Button
                 variant="outline"
-                className="w-full text-primary"
+                size="sm"
+                className="w-full h-9 text-xs text-primary"
                 onClick={() => setShowClosurePanel(true)}
               >
-                <CheckCircle2 className="w-4 h-4 mr-1" /> Cerrar mes de {MONTHS[summaryMonth - 1]}
+                <CheckCircle2 className="w-3.5 h-3.5 mr-1" /> Cerrar mes de {MONTHS[summaryMonth - 1]}
               </Button>
             )}
 
@@ -729,11 +731,11 @@ export default function Dashboard() {
               );
             })()}
             <div className="lg:grid lg:grid-cols-2 lg:gap-4 lg:items-start space-y-4 lg:space-y-0">
-            <Card>
-              <CardHeader className="pb-2">
+            <Card size="sm">
+              <CardHeader>
                 <CardTitle className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Presupuesto del mes</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-3">
+              <CardContent className="space-y-2">
                 {categorySpend.length === 0 && (
                   <p className="text-sm text-muted-foreground text-center py-4">Sin gastos este mes aún. ¡Agrega tu primer gasto!</p>
                 )}
@@ -747,25 +749,25 @@ export default function Dashboard() {
                     const pct = cat.budget ? (cat.total / cat.budget) * 100 : 0;
                     return (
                       <div key={cat.name}>
-                        <div className="flex justify-between items-center mb-1">
-                          <span className="text-sm flex items-center gap-1">
+                        <div className="flex justify-between items-center mb-0.5 gap-2">
+                          <span className="text-[13px] flex items-center gap-1 min-w-0 truncate">
                             <span>{cat.icon}</span> {cat.name}
                           </span>
-                          <div className="text-right">
-                            <span className="text-sm font-medium">{fmt(cat.total)}</span>
+                          <div className="text-right shrink-0 flex items-center gap-1">
+                            <span className="text-[13px] font-medium">{fmt(cat.total)}</span>
                             {cat.budget && (
-                              <span className="text-xs text-muted-foreground ml-1">/ {fmt(cat.budget)}</span>
+                              <span className="text-[11px] text-muted-foreground">/ {fmt(cat.budget)}</span>
                             )}
                             {cat.budget && (
-                              <Badge variant={pct > 100 ? "destructive" : "secondary"} className="ml-1 text-xs">
+                              <Badge variant={pct > 100 ? "destructive" : "secondary"} className="text-[10px] px-1.5 py-0">
                                 {Math.round(pct)}%
                               </Badge>
                             )}
                           </div>
                         </div>
                         {cat.budget && (
-                          <>
-                            <div className="relative h-2.5 w-full overflow-hidden rounded-full bg-secondary">
+                          <div className="flex items-center gap-2">
+                            <div className="relative h-1.5 flex-1 overflow-hidden rounded-full bg-secondary">
                               <div
                                 className="h-full transition-all"
                                 style={{
@@ -774,12 +776,12 @@ export default function Dashboard() {
                                 }}
                               />
                             </div>
-                            <p className={`text-right text-[10px] mt-0.5 ${pct > 100 ? "text-error" : "text-success"}`}>
+                            <p className={`text-[10px] tabular-nums shrink-0 ${pct > 100 ? "text-error" : "text-success"}`}>
                               {pct > 100
                                 ? `${fmt(cat.total - cat.budget)} excedido`
                                 : `${fmt(cat.budget - cat.total)} disponibles`}
                             </p>
-                          </>
+                          </div>
                         )}
                       </div>
                     );
@@ -788,8 +790,8 @@ export default function Dashboard() {
             </Card>
 
             {expectedIncome > 0 && budgetAllocation.length > 0 && (
-              <Card>
-                <CardHeader className="pb-2">
+              <Card size="sm">
+                <CardHeader>
                   <CardTitle className="text-xs font-semibold uppercase tracking-wider text-on-surface-variant">Distribución del presupuesto</CardTitle>
                 </CardHeader>
                 <CardContent>
@@ -933,35 +935,35 @@ export default function Dashboard() {
       <AnimatePresence>
         {fabVisible && (
           <motion.div
-            className="fixed bottom-[88px] right-4 z-50 lg:bottom-8 lg:right-8"
+            className="fixed bottom-[76px] right-4 z-50 lg:bottom-8 lg:right-8"
             initial={reduceMotion ? false : { scale: 0, opacity: 0 }}
             animate={{ scale: 1, opacity: 1 }}
             exit={reduceMotion ? { opacity: 0 } : { scale: 0, opacity: 0 }}
             transition={{ type: "spring", stiffness: 500, damping: 30 }}
           >
             <motion.button
-              className="flex items-center gap-2 bg-tertiary-container text-on-tertiary-container rounded-2xl pl-4 pr-5 py-4 shadow-e3"
-              whileTap={{ scale: 0.94, borderRadius: 28 }}
+              className="flex items-center gap-1.5 bg-tertiary-container text-on-tertiary-container rounded-2xl pl-3.5 pr-4 py-3 shadow-e3"
+              whileTap={{ scale: 0.94, borderRadius: 24 }}
               onClick={() => setShowForm(true)}
             >
-              <PlusCircle className="w-5 h-5 shrink-0" />
-              <span className="text-sm font-semibold">Nuevo gasto</span>
+              <PlusCircle className="w-4.5 h-4.5 shrink-0" />
+              <span className="text-[13px] font-semibold">Nuevo gasto</span>
             </motion.button>
           </motion.div>
         )}
       </AnimatePresence>
 
       {/* Barra de navegación inferior — MD3 Navigation Bar (solo móvil) */}
-      <nav aria-label="Navegación" className="fixed bottom-0 inset-x-0 z-40 bg-surface-container shadow-e2 flex h-20 pb-2 lg:hidden">
+      <nav aria-label="Navegación" className="fixed bottom-0 inset-x-0 z-40 bg-surface-container shadow-e2 flex h-16 pb-1 lg:hidden">
         {TABS.map(({ value, label, Icon }) => {
           const active = activeTab === value;
           return (
             <button
               key={value}
-              className="flex-1 flex flex-col items-center justify-center gap-1 pt-3"
+              className="flex-1 flex flex-col items-center justify-center gap-0.5 pt-1.5"
               onClick={() => handleTabChange(value)}
             >
-              <span className="relative flex items-center justify-center w-16 h-8">
+              <span className="relative flex items-center justify-center w-14 h-7">
                 {active && (
                   <motion.span
                     layoutId="nav-pill"
@@ -969,9 +971,9 @@ export default function Dashboard() {
                     transition={{ type: "spring", stiffness: 500, damping: 35 }}
                   />
                 )}
-                <Icon className={`relative w-5 h-5 transition-colors ${active ? "text-on-secondary-container stroke-[2.2px]" : "text-on-surface-variant"}`} />
+                <Icon className={`relative w-[18px] h-[18px] transition-colors ${active ? "text-on-secondary-container stroke-[2.2px]" : "text-on-surface-variant"}`} />
               </span>
-              <span className={`text-[11px] font-medium leading-tight transition-colors ${active ? "text-on-surface" : "text-on-surface-variant"}`}>{label}</span>
+              <span className={`text-[10px] font-medium leading-tight transition-colors ${active ? "text-on-surface" : "text-on-surface-variant"}`}>{label}</span>
             </button>
           );
         })}
