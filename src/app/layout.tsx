@@ -5,6 +5,8 @@ import { ThemeProvider } from "@/components/theme-provider";
 import { PrivacyProvider } from "@/components/PrivacyProvider";
 import { SnackbarProvider } from "@/components/SnackbarProvider";
 
+export const dynamic = "force-dynamic";
+
 const geist = Geist({ subsets: ["latin"] });
 const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-display" });
 
