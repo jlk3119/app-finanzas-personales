@@ -11,8 +11,10 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { Button } from "@/components/ui/button";
-import { PlusCircle, Target, TrendingDown, Wallet, Settings, Landmark, Trophy, CheckCircle2, ChevronLeft, ChevronRight, Download, Eye, EyeOff } from "lucide-react";
+import { PlusCircle, Target, TrendingDown, Wallet, Settings, Landmark, Trophy, CheckCircle2, ChevronLeft, ChevronRight, Download, FileSpreadsheet, Eye, EyeOff } from "lucide-react";
 import { exportMonthlyCSV } from "@/utils/exportCSV";
+import { exportMonthlyXLSX } from "@/utils/exportXLSX";
+import { useSnackbar } from "@/components/SnackbarProvider";
 import ExpenseForm from "@/components/ExpenseForm";
 import ExpenseList from "@/components/ExpenseList";
 import BudgetManager from "@/components/BudgetManager";
@@ -70,6 +72,8 @@ export default function Dashboard() {
   const [summaryMonth, setSummaryMonth] = useState(() => new Date().getMonth() + 1);
   const [summaryYear, setSummaryYear] = useState(() => new Date().getFullYear());
   const [showClosurePanel, setShowClosurePanel] = useState(false);
+  const [exportingXLSX, setExportingXLSX] = useState(false);
+  const showSnackbar = useSnackbar();
   const summaryTouchedRef = useRef(false);
   const summaryDefaultAppliedRef = useRef(false);
 
@@ -858,12 +862,34 @@ export default function Dashboard() {
                     size="icon"
                     onClick={() => {
                       exportMonthlyCSV(expenses, budgets, categories, expenseMonth, expenseYear)
-                        .catch((e) => console.error("Error al exportar CSV:", e));
+                        .catch((e) => {
+                          console.error("Error al exportar CSV:", e);
+                          showSnackbar("No se pudo exportar el CSV. Intenta de nuevo.", "error");
+                        });
                     }}
                     className="h-8 w-8 text-muted-foreground hover:text-primary"
                     title="Exportar CSV"
                   >
                     <Download className="w-4 h-4" />
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    disabled={exportingXLSX}
+                    onClick={() => {
+                      setExportingXLSX(true);
+                      exportMonthlyXLSX(expenses, budgets, categories, expenseMonth, expenseYear)
+                        .then(() => showSnackbar(`Excel de ${MONTHS[expenseMonth - 1]} ${expenseYear} descargado.`, "success"))
+                        .catch((e) => {
+                          console.error("Error al exportar Excel:", e);
+                          showSnackbar("No se pudo exportar el Excel. Intenta de nuevo.", "error");
+                        })
+                        .finally(() => setExportingXLSX(false));
+                    }}
+                    className="h-8 w-8 text-muted-foreground hover:text-primary"
+                    title="Exportar Excel"
+                  >
+                    <FileSpreadsheet className="w-4 h-4" />
                   </Button>
                 </div>
               </div>
